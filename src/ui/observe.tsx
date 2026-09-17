@@ -37,14 +37,9 @@ try {
   mod = null;
 }
 
-/** True in a build that actually carries the native module. */
-export const observeAvailable = mod !== null;
-
 /** Marks time-to-interactive. Renders nothing, here or in Expo Go. */
 export function InteractiveMarker() {
-  if (!mod) return null;
-  const Marker = mod.ObserveInteractiveMarker;
-  return <Marker />;
+  return mod ? <mod.ObserveInteractiveMarker /> : null;
 }
 
 /** Wraps the root so first render is timed. Identity function without Observe. */

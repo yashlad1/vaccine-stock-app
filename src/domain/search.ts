@@ -86,7 +86,8 @@ export function matchScore(item: Searchable, query: string): number {
  * "most used in 30 days" survives inside an equally good match.
  */
 export function searchRank<T extends Searchable>(items: readonly T[], query: string): T[] {
-  if (!normalise(query)) return [...items];
+  // No empty-query guard: matchScore returns 1 for one, so every item ties and
+  // the index tiebreak hands back the original order.
   return items
     .map((item, i) => ({ item, i, score: matchScore(item, query) }))
     .filter((x) => x.score > 0)
