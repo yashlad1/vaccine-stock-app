@@ -151,6 +151,10 @@ const main = async () => {
   out.push('  IF NEW.updated_at < OLD.updated_at THEN');
   out.push('    RETURN OLD;');
   out.push('  END IF;');
+  out.push('  -- An accepted edit must reach the other device. Pull pages on synced_at,');
+  out.push('  -- and its DEFAULT now() only fires on INSERT, so without this an edited');
+  out.push('  -- row (a date of birth, a vaccine setting) never appeared to a pull.');
+  out.push('  NEW.synced_at := now();');
   out.push('  RETURN NEW;');
   out.push('END; $$;');
   out.push('');

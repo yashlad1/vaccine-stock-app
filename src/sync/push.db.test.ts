@@ -7,6 +7,8 @@ import { restoreFromServer, previewServer } from './restore';
 import { findOrCreateLot } from '../db/repo/lots';
 import { recordAdministration, recordReceipt, reverseMovement } from '../domain/ledger';
 import { seedCatalog } from '../db/repo/catalog';
+import { createPatient, setPatientDob } from '../db/repo/patients';
+import type { SyncBackend } from './backend';
 
 const BCG = { name: 'BCG', unit_mode: 'VIAL' as const, doses_per_vial: 10, min_balance_doses: 20 };
 
@@ -72,6 +74,33 @@ describe('push', () => {
 
     const retry = await pushOnce(db, memoryBackend().backend, ctx.deviceId);
     expect(retry.ok).toBe(true);
+    expect(await countDirty(db)).toBe(0);
+  });
+
+  it('keeps an edit made DURING the upload queued, instead of marking it sent', async () => {
+    // The first-visit flow: the child is added, the debounced push fires four
+    // seconds later, and the date of birth is saved while it is still out.
+    const { db, ctx } = await env();
+    const child = await createPatient(db, { name: 'Aarav' }, ctx.deviceId);
+    const server = memoryBackend();
+    let edited = false;
+    const racing: SyncBackend = {
+      ...server.backend,
+      async push(batch) {
+        await server.backend.push(batch);
+        if (batch.table === 'patients' && !edited) {
+          edited = true;
+          await setPatientDob(db, child, '2026-08-03', Date.now() + 1000);
+        }
+      },
+    };
+
+    await pushOnce(db, racing, ctx.deviceId);
+    expect(server.rows('patients')[0].dob).toBeNull();
+    expect(await countDirty(db)).toBe(1); // the edit is still waiting, not marked sent
+
+    await pushOnce(db, server.backend, ctx.deviceId);
+    expect(server.rows('patients')[0].dob).toBe('2026-08-03');
     expect(await countDirty(db)).toBe(0);
   });
 

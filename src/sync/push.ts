@@ -62,15 +62,25 @@ function forUpload(row: Row): Row {
   return rest;
 }
 
-async function markSynced(db: Db, table: SyncTable, ids: string[], at: number): Promise<void> {
-  if (!ids.length) return;
-  const holes = ids.map(() => '?').join(',');
+/**
+ * Clears `dirty` only on the VERSION that was uploaded. An edit made while the
+ * request was in flight has bumped `updated_at`, so its row stays dirty and
+ * goes on the next pass - clearing by id alone marked that edit as sent when
+ * the server never saw it (a date of birth entered four seconds after the
+ * child was added, exactly when the debounced push fires).
+ */
+async function markSynced(db: Db, table: SyncTable, rows: Row[], at: number): Promise<void> {
+  if (!rows.length) return;
   // Deliberately does NOT touch updated_at: the re-dirty trigger fires on
   // updated_at changing, so bumping it here would re-queue what we just sent.
-  await db.run(
-    `UPDATE ${table} SET dirty = 0, last_synced_at = ? WHERE id IN (${holes})`,
-    [at, ...ids],
-  );
+  await db.tx(async (tx) => {
+    for (const r of rows) {
+      await tx.run(
+        `UPDATE ${table} SET dirty = 0, last_synced_at = ? WHERE id = ? AND updated_at IS ?`,
+        [at, r.id, r.updated_at],
+      );
+    }
+  });
 }
 
 /** One full attempt. Safe to call repeatedly; safe to interrupt. */
@@ -96,7 +106,7 @@ export async function pushOnce(
         const rows = await dirtyRows(db, table, BATCH);
         if (!rows.length) break;
         await backend.push({ table, rows: rows.map(forUpload) });
-        await markSynced(db, table, rows.map((r) => String(r.id)), Date.now());
+        await markSynced(db, table, rows, Date.now());
         pushed += rows.length;
         if (rows.length < BATCH) break;
       }

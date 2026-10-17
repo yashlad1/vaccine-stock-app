@@ -224,6 +224,10 @@ BEGIN
   IF NEW.updated_at < OLD.updated_at THEN
     RETURN OLD;
   END IF;
+  -- An accepted edit must reach the other device. Pull pages on synced_at,
+  -- and its DEFAULT now() only fires on INSERT, so without this an edited
+  -- row (a date of birth, a vaccine setting) never appeared to a pull.
+  NEW.synced_at := now();
   RETURN NEW;
 END; $$;
 
