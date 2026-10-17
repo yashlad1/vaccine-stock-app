@@ -131,16 +131,21 @@ export const type = {
   min: 14,
 } as const;
 
-/** clinic-queue's two weights. 600 at display size carries a number; 700 is not used. */
 export const weight = {
+  bold: '700',
   semibold: '600',
+  medium: '500',
   regular: '400',
 } as const;
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 
-/** clinic-queue: 8 for controls, 12 for cards and panels, 999 for badges only. */
-export const radius = { sm: 8, md: 8, lg: 12, pill: 999 } as const;
+/**
+ * The original radii, kept on purpose (owner, 17 Oct 2026): the clinic-queue
+ * restyle took its colours and wording, never its sizes. The doctor works
+ * with these dimensions every day.
+ */
+export const radius = { sm: 10, md: 14, lg: 20, xl: 28, pill: 999 } as const;
 
 /**
  * At most one, very light, and only on a raised surface (the floating footer).

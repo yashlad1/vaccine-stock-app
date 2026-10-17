@@ -189,8 +189,8 @@ export default function VaccinesScreen() {
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   headerWrap: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
-  total: { fontSize: type.hero, fontWeight: weight.semibold, color: color.text },
-  noteTitle: { fontSize: type.label, fontWeight: weight.semibold, color: color.catalog },
+  total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
+  noteTitle: { fontSize: type.label, fontWeight: weight.bold, color: color.catalog },
   noteBody: { fontSize: type.min, color: color.text, lineHeight: 21, marginTop: space.xs },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   emptyText: { fontSize: type.body, color: color.textMuted, textAlign: 'center', lineHeight: 26 },

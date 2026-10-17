@@ -324,10 +324,10 @@ export default function DoseScreen() {
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   content: { padding: space.lg, paddingBottom: space.xxl },
-  name: { fontSize: type.hero, fontWeight: weight.semibold, color: color.text },
+  name: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
   stock: { fontSize: type.label, color: color.textMuted, marginTop: space.xs, marginBottom: space.xl },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
-  age: { fontSize: type.title, fontWeight: weight.semibold, color: color.text, fontVariant: ['tabular-nums'] },
+  age: { fontSize: type.title, fontWeight: weight.bold, color: color.text },
   warn: { fontSize: type.label, fontWeight: weight.semibold, color: color.low, marginTop: space.sm },
   addRow: { minHeight: touch.min, justifyContent: 'center', marginTop: space.sm },
   addText: { fontSize: type.body, fontWeight: weight.semibold, color: color.dose },

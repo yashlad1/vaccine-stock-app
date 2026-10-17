@@ -94,7 +94,7 @@ function Wheel({
                 <T
                   style={[
                     st.itemText,
-                    on && { color: accentColor[accent], fontWeight: weight.semibold },
+                    on && { color: accentColor[accent], fontWeight: weight.bold },
                   ]}
                 >
                   {it.label}
@@ -103,6 +103,7 @@ function Wheel({
             );
           })}
         </ScrollView>
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, st.edge]} />
       </View>
     </View>
   );
@@ -236,12 +237,19 @@ function lastDayLabel(year: number, month: number): string {
 const st = StyleSheet.create({
   row: { flexDirection: 'row', gap: space.md, marginTop: space.sm },
   col: { flex: 1 },
-  colLabel: { fontSize: type.min, fontWeight: weight.semibold, color: color.textMuted, marginBottom: space.xs },
-  viewport: {
-    height: HEIGHT,
+  colLabel: {
+    fontSize: type.min,
+    fontWeight: weight.bold,
+    color: color.textMuted,
+    letterSpacing: 0.8,
+    marginBottom: space.xs,
+  },
+  viewport: { height: HEIGHT, borderRadius: radius.md, overflow: 'hidden', backgroundColor: color.surface },
+  // Drawn OVER the wheel rather than as the viewport's own border, which
+  // would shrink the inside by 2px and clip the bottom row: the wheel keeps
+  // its exact original size and snapping.
+  edge: {
     borderRadius: radius.md,
-    overflow: 'hidden',
-    backgroundColor: color.surface,
     borderWidth: 1,
     borderColor: color.borderControl,
   },

@@ -169,7 +169,7 @@ const st = StyleSheet.create({
   eyebrow: { fontSize: type.min, color: color.textMuted, fontWeight: weight.semibold },
   headline: {
     fontSize: type.big,
-    fontWeight: weight.semibold,
+    fontWeight: weight.bold,
     color: color.text,
     marginTop: 2,
     lineHeight: 34,

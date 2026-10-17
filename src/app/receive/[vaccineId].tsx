@@ -149,7 +149,7 @@ export default function ReceiveScreen() {
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   content: { padding: space.lg, paddingBottom: space.xxl },
-  name: { fontSize: type.big, fontWeight: weight.semibold, color: color.text },
+  name: { fontSize: type.big, fontWeight: weight.bold, color: color.text },
   sub: { fontSize: type.label, color: color.textMuted, marginTop: space.xs, marginBottom: space.xl },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
   after: { fontSize: type.body, fontWeight: weight.semibold, color: color.stock },

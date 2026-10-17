@@ -363,23 +363,27 @@ These are requirements, not preferences.
   never been built.
 - **No icon-only controls** outside the tab bar. Every button gets a word — icons are ambiguous to
   someone coming from paper.
-- Type scale: numbers that matter **28–34pt semibold**, tile titles **22pt semibold**, body **18pt**,
-  labels 16pt, **floor 14pt**. Two weights only, 400 and 600. Body `#0F172A` on `#FFFFFF`
+- Type scale: numbers that matter **28–34pt bold**, tile titles **22pt semibold**, body **18pt**,
+  labels 16pt, **floor 14pt**. Body `#0F172A` on `#FFFFFF`
   (**17.9:1 measured**, 16.7:1 on the `#F6F8F7` ground). No grey below `#46586F` (**7.3:1
   measured**) for text, no thin weights.
   These are no longer hand-written guesses — `src/ui/audit/contrast.db.test.ts` computes every
   pairing on BOTH grounds and fails below 4.5:1 (3:1 for a control's edge). The tightest text
   pairings measure **4.7:1** (`ok` and `low` on the ground); change a soft tint only with the test
   open.
-- **The look is clinic-queue's** (16 Oct 2026, replacing the Aero Clinic palette of 17 Sep), so the
-  doctor's two apps read as one family. The source is `clinic-queue/docs/context/design/`. What came
+- **Dimensions do not change** (owner, 17 Oct 2026: "what we were using before was working
+  perfectly fine for doc"). Sizes, radii (`10/14/20/28`), font weights (700 included), letter
+  spacing, padding, margins, border boxes, row widths and the 0.985 press scale are the ones the
+  doctor has used since launch. A restyle may change colour and wording only. Where a new outline
+  was added, it sits inside the old box and the padding gives its pixel back, so nothing moves.
+- **The look is clinic-queue's colours and words** (16 Oct 2026, replacing the Aero Clinic palette
+  of 17 Sep), so the doctor's two apps read as one family. The source is `clinic-queue/docs/context/design/`. What came
   across: white surfaces on a soft `#F6F8F7` ground; cards and tiles with one hairline `border` edge
   and no shadow; `borderControl` (`#64748B`, 4.8:1) as the edge of every input, chip, stepper and
   secondary button, because the decorative `border` (1.2:1) may never be the only edge of a control;
-  radius 8 for controls, 12 for cards, 999 for badges only; sentence case, verb first, no tracked-out
-  capitals; no em dashes in rendered text; badges as a soft ground with a darker ink.
-  What did **not**, on purpose: its 44px targets and 14–16px body (a desk, not a thumb — 56dp and
-  18pt stand); its `text-muted` as text (it fails the grey floor, so it is only ever an edge); its
+  sentence case, verb first; no em dashes in rendered text; badges as a soft ground with a darker
+  ink. What did **not**, on purpose: any of its sizes — 44px targets, 14–16px body, radius 8/12,
+  weights 400/600 only, its 0.97 press (see the rule above); its `text-muted` as text (it fails the grey floor, so it is only ever an edge); its
   faded disabled primary (about 2:1 — disabled stays a readable token swap); its single teal primary
   (the four per-tab accents stay, and **Give dose stays blue, Add stock stays teal**: swapping them to
   give Give dose the teal would point the doctor's learned colour at the wrong tab); and Mukta, which
@@ -391,7 +395,7 @@ These are requirements, not preferences.
   discrimination anyway.
 - **Minimal, not decorated.** Structure comes from white surfaces, hairline edges and tints; the one
   shadow is the floating footer's (`elevation()` in `tokens.ts`). No gradients, no dark mode, no
-  animation beyond the toast fade and clinic-queue's 0.97 press scale. "Modern" must never mean thin,
+  animation beyond the toast fade and a slight press scale. "Modern" must never mean thin,
   small or low-contrast.
 - **Must be tested at Android font scale 1.3× and 1.6×** plus display size Large. This cohort very
   likely has both turned up; it is the most-skipped check and the most likely to bite here.

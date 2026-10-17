@@ -155,9 +155,9 @@ export default function BackupScreen() {
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   card: { padding: space.lg, borderRadius: radius.md, backgroundColor: color.surface, borderWidth: 1, borderColor: color.border },
-  status: { fontSize: type.title, fontWeight: weight.semibold, color: color.text },
+  status: { fontSize: type.title, fontWeight: weight.bold, color: color.text },
   sub: { fontSize: type.label, color: color.textMuted, marginTop: space.xs },
-  section: { fontSize: type.label, fontWeight: weight.semibold, color: color.textMuted, marginTop: space.xl, marginBottom: space.sm },
+  section: { fontSize: type.label, fontWeight: weight.bold, color: color.textMuted, marginTop: space.xl, marginBottom: space.sm },
   body: { fontSize: type.label, color: color.text, lineHeight: 24 },
   warn: { fontSize: type.label, color: color.low, fontWeight: weight.semibold, marginTop: space.lg, lineHeight: 22 },
 });

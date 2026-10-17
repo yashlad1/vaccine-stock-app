@@ -212,8 +212,9 @@ const st = StyleSheet.create({
     fontSize: type.min,
     color: color.textMuted,
     fontWeight: weight.semibold,
+    letterSpacing: 0.4,
   },
-  count: { fontSize: type.hero, fontWeight: weight.semibold, color: color.text, marginTop: 2 },
+  count: { fontSize: type.hero, fontWeight: weight.bold, color: color.text, marginTop: 2 },
   pad: { paddingHorizontal: space.lg, paddingBottom: space.md, gap: space.md },
   emptyText: { fontSize: type.body, color: color.textMuted, textAlign: 'center', lineHeight: 26 },
   emptyHint: {
@@ -234,9 +235,9 @@ const st = StyleSheet.create({
     borderWidth: 1,
     borderColor: color.border,
   },
-  tilePressed: { backgroundColor: color.doseSoft, transform: [{ scale: 0.97 }] },
+  tilePressed: { backgroundColor: color.doseSoft, transform: [{ scale: 0.985 }] },
   tileName: { fontSize: type.title, fontWeight: weight.semibold, color: color.text, lineHeight: 27 },
-  tileStock: { fontSize: type.body, fontWeight: weight.semibold, fontVariant: ['tabular-nums'] },
+  tileStock: { fontSize: type.body, fontWeight: weight.bold },
   // Wraps so the badge drops below the count rather than squeezing it at 1.6x.
   tileFoot: {
     flexDirection: 'row',

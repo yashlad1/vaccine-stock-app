@@ -232,10 +232,10 @@ const st = StyleSheet.create({
   },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   section: {
-    fontSize: type.body, fontWeight: weight.semibold, color: color.text,
-    marginTop: space.xl, marginBottom: space.sm,
+    fontSize: type.label, fontWeight: weight.bold, color: color.text,
+    letterSpacing: 0.8, marginTop: space.xl, marginBottom: space.sm,
   },
-  num: { fontSize: type.title, fontWeight: weight.semibold, color: color.text },
+  num: { fontSize: type.title, fontWeight: weight.bold, color: color.text },
   err: { fontSize: type.min, color: color.danger, lineHeight: 21, marginTop: space.sm },
   note: { fontSize: type.min, color: color.textMuted, lineHeight: 21, marginTop: space.xl },
 });

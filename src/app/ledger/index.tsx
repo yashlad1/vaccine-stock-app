@@ -125,5 +125,5 @@ const st = StyleSheet.create({
   rowUndone: { opacity: 0.6 },
   title: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
   meta: { fontSize: type.min, color: color.textMuted, marginTop: 2 },
-  delta: { fontSize: type.title, fontWeight: weight.semibold },
+  delta: { fontSize: type.title, fontWeight: weight.bold },
 });

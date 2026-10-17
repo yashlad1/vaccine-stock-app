@@ -85,7 +85,7 @@ export function Footer({
       style={[
         s.footer,
         floating ? s.footerFloating : null,
-        floating ? elevation(2) : null,
+        floating ? elevation(3) : null,
         { paddingBottom: space.lg + insets.bottom },
         style,
       ]}
@@ -191,9 +191,8 @@ export function BigButton({
         s.bigButton,
         solid
           ? { backgroundColor: disabled ? color.disabledFill : base }
-          : { backgroundColor: disabled ? color.disabledFill : color.surface, borderWidth: 1, borderColor: disabled ? color.disabledFill : color.borderControl },
-        // clinic-queue's one permitted motion: 0.97 on press.
-        pressed && !disabled ? { transform: [{ scale: 0.97 }] } : null,
+          : { backgroundColor: disabled ? color.disabledFill : color.surface, borderWidth: 2, borderColor: disabled ? color.disabledFill : color.borderControl },
+        pressed && !disabled ? { transform: [{ scale: 0.985 }], opacity: 0.92 } : null,
       ]}
     >
       <T
@@ -286,12 +285,12 @@ export function Chip({
       style={({ pressed }) => [
         s.chip,
         compact ? s.chipCompact : null,
-        // Selected is tint + a heavier edge in the accent + the accent label.
-        // The edge thickens rather than appearing, and padding gives the
-        // extra pixel back, so selecting a chip never shifts its neighbours.
+        // The box keeps its original 2px edge. Unselected draws a 1px
+        // control edge and takes the other pixel as padding, so a chip is
+        // exactly its old size either way and selecting one shifts nothing.
         selected
-          ? { backgroundColor: accentSoft[accent], borderColor: base, borderWidth: 2, paddingHorizontal: (compact ? space.md : space.lg) - 1 }
-          : { backgroundColor: color.surface, borderColor: color.borderControl },
+          ? { backgroundColor: accentSoft[accent], borderColor: base }
+          : { backgroundColor: color.surface, borderColor: color.borderControl, borderWidth: 1, paddingHorizontal: (compact ? space.md : space.lg) + 1 },
         pressed ? { backgroundColor: selected ? accentSoft[accent] : color.surfaceSunken } : null,
       ]}
     >
@@ -513,7 +512,7 @@ export const s = StyleSheet.create({
     padding: space.xl,
     gap: space.md,
   },
-  errorTitle: { fontSize: type.title, fontWeight: weight.semibold, color: color.text, textAlign: 'center' },
+  errorTitle: { fontSize: type.title, fontWeight: weight.bold, color: color.text, textAlign: 'center' },
   errorBody: { fontSize: type.body, color: color.textMuted, textAlign: 'center', lineHeight: 26 },
   emptyTitle: {
     fontSize: type.title,
@@ -522,12 +521,14 @@ export const s = StyleSheet.create({
     textAlign: 'center',
   },
 
-  card: { borderRadius: radius.lg, padding: space.lg, borderWidth: 1, borderColor: color.border },
+  // The edge sits inside the box; padding gives its pixel back so the content keeps its old size.
+  card: { borderRadius: radius.lg, padding: space.lg - 1, borderWidth: 1, borderColor: color.border },
   // clinic-queue section title: sentence case, 600, never tracked-out capitals.
   sectionTitle: {
-    fontSize: type.body,
-    fontWeight: weight.semibold,
+    fontSize: type.min,
+    fontWeight: weight.bold,
     color: color.text,
+    letterSpacing: 0.8,
     marginTop: space.xl,
     marginBottom: space.sm,
   },
@@ -539,14 +540,14 @@ export const s = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: space.lg,
   },
-  bigButtonLabel: { fontSize: type.title, fontWeight: weight.semibold },
-  bigButtonSub: { fontSize: type.min, marginTop: 2, fontWeight: weight.semibold },
+  bigButtonLabel: { fontSize: type.title, fontWeight: weight.bold, letterSpacing: 0.3 },
+  bigButtonSub: { fontSize: type.min, marginTop: 2, fontWeight: weight.medium },
 
   secondary: { minHeight: touch.min, justifyContent: 'center', alignSelf: 'flex-start' },
   secondaryLabel: { fontSize: type.body, fontWeight: weight.semibold },
 
-  badge: { paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.pill },
-  badgeText: { fontSize: type.min, fontWeight: weight.semibold },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
+  badgeText: { fontSize: type.min, fontWeight: weight.bold, letterSpacing: 0.6 },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
   chip: {
@@ -554,7 +555,7 @@ export const s = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: space.lg,
     borderRadius: radius.md,
-    borderWidth: 1,
+    borderWidth: 2,
   },
   chipCompact: { paddingHorizontal: space.md, minWidth: touch.min },
   chipLabel: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
@@ -577,10 +578,10 @@ export const s = StyleSheet.create({
   stepperBtnDisabled: { backgroundColor: color.disabledFill, borderColor: color.disabledFill },
   stepperSignDisabled: { color: color.disabledText },
   stepperBtnPressed: { backgroundColor: color.surfaceSunken },
-  stepperSign: { fontSize: type.big, fontWeight: weight.semibold, color: color.text },
+  stepperSign: { fontSize: type.big, fontWeight: weight.bold, color: color.text },
   stepperValue: {
     fontSize: type.hero,
-    fontWeight: weight.semibold,
+    fontWeight: weight.bold,
     color: color.text,
     minWidth: 72,
     textAlign: 'center',
@@ -596,7 +597,7 @@ export const s = StyleSheet.create({
   input: {
     minHeight: touch.min,
     borderRadius: radius.md,
-    paddingHorizontal: space.lg,
+    paddingHorizontal: space.lg - 1, // the 1px edge takes the other pixel
     fontSize: type.body,
     color: color.text,
     backgroundColor: color.surface,
@@ -617,7 +618,7 @@ export const s = StyleSheet.create({
   rowSub: { fontSize: type.label, color: color.textMuted, marginTop: 2 },
   chevron: { fontSize: type.big, color: color.borderControl, marginTop: -4 },
 
-  banner: { borderRadius: radius.lg, padding: space.lg, marginBottom: space.md },
+  banner: { borderRadius: radius.md, padding: space.lg, marginBottom: space.md },
   bannerText: { fontSize: type.label, fontWeight: weight.semibold, lineHeight: 22 },
   bannerActions: { flexDirection: 'row', gap: space.sm, marginTop: space.sm },
   bannerBtn: {
@@ -626,5 +627,5 @@ export const s = StyleSheet.create({
     paddingHorizontal: space.md,
     borderRadius: radius.sm,
   },
-  bannerBtnText: { fontSize: type.label, fontWeight: weight.semibold },
+  bannerBtnText: { fontSize: type.label, fontWeight: weight.bold },
 });

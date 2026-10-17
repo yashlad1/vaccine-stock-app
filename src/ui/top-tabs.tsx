@@ -113,8 +113,7 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.md,
-    // clinic-queue's segmented control: a tinted pill for the active item.
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     gap: 6,
   },
   label: {
