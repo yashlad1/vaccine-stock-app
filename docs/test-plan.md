@@ -127,7 +127,7 @@ Run **every step, in order, with the phone in airplane mode for the entire run.*
 | 5 | Give 9 more from that vial. | Arithmetic stays correct across the vial boundary; no rounding drift. | FR-3 |
 | 6 | Receive a delivery: 5 vials, batch `ABC123`, expiry 06/2027, bought. | Stock rises by 5 × doses-per-vial; the batch appears as a chip on the dose screen. | FR-10 – FR-14 |
 | 7 | Drive a vaccine to its safety limit. | Amber `LOW` **word** on the tile; header LOW count includes it; Stock tab sorts it first. | FR-58, NFR-4 |
-| 8 | Give a dose using **Skip — no name**. | It commits in **two taps**, and appears in the missing-names list. | FR-22, FR-23 |
+| 8 | Give a dose using **Skip, no name**. | It commits in **two taps**, and appears in the missing-names list. | FR-22, FR-23 |
 | 9 | Open **Given today**. | Every dose listed with correct time, child and batch; totals correct; the movement strip adds up to the figure on the Stock tab. | FR-51 – FR-56 |
 | 10 | **Backup.** Tap Back up now → share to the clinician's own WhatsApp **and** to Drive. Then open `doses.csv` in Google Sheets on the phone. | **The file actually arrives and opens.** Attachment-type filtering by WhatsApp or Gmail is the most likely thing to break silently, and this is the only place you would find out. | FR-70 – FR-73 |
 | 11 | **Restore.** On a second device, or after clearing app data, import that zip. | Preview shows counts matching the backup; after restoring, the data is back. **This validates the entire durability story and is the test everyone skips.** | FR-74 – FR-77, NFR-24 |
@@ -138,7 +138,8 @@ Run **every step, in order, with the phone in airplane mode for the entire run.*
 | 16 | Open **Vaccines**, change a doses-per-vial value, and save. | The change is reflected in stock display immediately; history still resolves. | FR-3, FR-6 |
 | 17 | On the **Vaccines** tab, add a new vaccine, then try to add it a second time. | It appears in the Give dose grid immediately. The duplicate is refused with a plain message naming the conflict. | FR-9a, FR-9b |
 | 18 | **Remove** a vaccine that has stock and history. | The confirmation states the doses in stock and doses given. After removing: gone from Give dose, Add stock and search — but **All entries still shows its past doses by name**, and it appears under the Removed filter. Add it back and confirm its stock returns. | FR-9c – FR-9g |
-| 19 | Tap between **Give dose** and **Add stock** several times. | The two are unmistakable: different accent colour on the tab, the heading and the primary button (`GIVE n DOSES` vs `ADD TO STOCK`). | NFR-14 |
+| 19 | Tap between **Give dose** and **Add stock** several times. | The two are unmistakable: different accent colour on the tab, the heading and the primary button (`Give n doses` vs `Add to stock`). | NFR-14 |
+| 20 | Give a dose to a saved child with no date of birth, and set one on the wheel. Then give that child a second vaccine. | The wheel shows `Age today: …`; Given today and `doses.csv` show the age on **both** doses; the second dose shows the age with no date entry. A partial or impossible date (31 Feb) says so and is not saved, and the dose still records. | FR-31 |
 
 ### Then: a two-week soak
 

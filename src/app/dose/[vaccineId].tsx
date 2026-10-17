@@ -10,10 +10,11 @@ import { useAction } from '../../ui/use-action';
 import { newId } from '../../domain/ids';
 import { recordAdministration, reverseMovement, findRecentSimilar } from '../../domain/ledger';
 import { lotsInStock, lastUsedLot, isExpired } from '../../db/repo/lots';
-import { createPatient, recentPatients, searchPatients } from '../../db/repo/patients';
+import { type Patient, createPatient, recentPatients, searchPatients, setPatientDob } from '../../db/repo/patients';
 import { bumpDosesSinceBackup } from '../../db/repo/settings';
 import { describeStock } from '../../domain/stock';
-import { expiryToMonthLabel, todayLocal } from '../../domain/time';
+import { expiryToMonthLabel, formatAge, todayLocal } from '../../domain/time';
+import { DateOfBirthWheel } from '../../ui/wheel';
 import type { StockRow } from '../../domain/types';
 
 /**
@@ -37,6 +38,10 @@ export default function DoseScreen() {
   const [childId, setChildId] = useState<string | null>(null);
   const [childLabel, setChildLabel] = useState<string | null>(null);
   const [childQuery, setChildQuery] = useState('');
+  /** The date of birth already on file, and one entered here to save with the dose. */
+  const [childDob, setChildDob] = useState<string | null>(null);
+  const [newDob, setNewDob] = useState<string | null>(null);
+  const [editingDob, setEditingDob] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const { data: vaccine, error, reload } = useQuery(
@@ -55,6 +60,14 @@ export default function DoseScreen() {
   const effectiveLot = lotId !== undefined ? lotId : (preferredLot?.lot_id ?? lots?.[0]?.lot_id ?? null);
   const selected = useMemo(() => lots?.find((l) => l.lot_id === effectiveLot) ?? null, [lots, effectiveLot]);
   const expired = selected ? isExpired(selected, today) : false;
+
+  const pick = (p: Pick<Patient, 'id' | 'name' | 'dob'>) => {
+    setChildId(p.id);
+    setChildLabel(p.name);
+    setChildDob(p.dob);
+    setNewDob(null);
+    setEditingDob(false);
+  };
 
   if (error) return <ErrorState error={error} onRetry={reload} what="load this vaccine" />;
   if (!vaccine) return <Loading label="Loading vaccine" />;
@@ -101,11 +114,21 @@ export default function DoseScreen() {
       );
       // Only a real write moves the backup nag; a replayed intent is a no-op.
       if (created) await bumpDosesSinceBackup(db, doses);
+
+      // AFTER the dose, and its failure is not the dose's failure: invariant 5
+      // says nothing about a birthday may stop a vaccination being recorded.
+      // Reported inside the one toast so the undo on it is not replaced.
+      const dobToSave = !skipChild && childId && newDob && newDob !== childDob ? newDob : null;
+      const dobSaved = dobToSave
+        ? await setPatientDob(db, childId!, dobToSave).then(() => true, () => false)
+        : true;
       bump();
 
-      const who = label ? ` to ${label}` : '';
+      const age = skipChild ? null : formatAge(dobSaved ? (dobToSave ?? childDob) : childDob, today);
+      const who = label ? ` to ${label}${age ? ` (${age})` : ''}` : '';
       const note = similar ? ' (a similar dose was recorded moments ago)' : '';
-      toast.show(`${doses} × ${vaccine.name} recorded${who}.${note}`, async () => {
+      const dobNote = dobSaved ? '' : ' The date of birth did not save. Add it next time.';
+      toast.show(`${doses} × ${vaccine.name} recorded${who}.${note}${dobNote}`, async () => {
         // Undo writes a REVERSING ENTRY. It never deletes, so the correction is
         // auditable and stays available from the Ledger screen forever.
         await run('undo that dose', async () => {
@@ -155,7 +178,7 @@ export default function DoseScreen() {
 
         <Field
           label="Batch / lot"
-          hint={lots?.length ? undefined : 'No batch recorded yet — you can still log the dose.'}
+          hint={lots?.length ? undefined : 'No batch recorded yet. You can still log the dose.'}
         >
           {lots?.length ? (
             <View style={st.chipRow}>
@@ -174,12 +197,12 @@ export default function DoseScreen() {
           {expired ? (
             <T style={st.warn}>
               This batch expired {expiryToMonthLabel(selected!.expiry_date!)}. Pick another batch if
-              you have one — you can still record the dose.
+              you have one. You can still record the dose.
             </T>
           ) : null}
         </Field>
 
-        <Field label="Child" hint="Optional — you can add the name later.">
+        <Field label="Child" hint="Optional. You can add the name later.">
           {childLabel ? (
             <View style={st.chipRow}>
               <Chip label={childLabel} selected onPress={() => undefined} />
@@ -189,6 +212,8 @@ export default function DoseScreen() {
                   setChildId(null);
                   setChildLabel(null);
                   setChildQuery('');
+                  setChildDob(null);
+                  setNewDob(null);
                 }}
               />
             </View>
@@ -208,10 +233,10 @@ export default function DoseScreen() {
                     <Chip
                       key={p.id}
                       label={p.name}
-                      onPress={() => {
-                        setChildId(p.id);
-                        setChildLabel(p.name);
-                      }}
+                      // Age tells siblings and namesakes apart faster than a
+                      // date of birth would (clinic-queue's Age component).
+                      sublabel={formatAge(p.dob, today) ?? undefined}
+                      onPress={() => pick(p)}
                     />
                   ))}
                 </View>
@@ -223,8 +248,7 @@ export default function DoseScreen() {
                   onPress={async () => {
                     const name = childQuery.trim();
                     const id = await createPatient(db, { name }, deviceId);
-                    setChildId(id);
-                    setChildLabel(name);
+                    pick({ id, name, dob: null });
                     bump();
                   }}
                 >
@@ -237,10 +261,10 @@ export default function DoseScreen() {
                     <Chip
                       key={p.id}
                       label={p.name}
-                      onPress={() => {
-                        setChildId(p.id);
-                        setChildLabel(p.name);
-                      }}
+                      // Age tells siblings and namesakes apart faster than a
+                      // date of birth would (clinic-queue's Age component).
+                      sublabel={formatAge(p.dob, today) ?? undefined}
+                      onPress={() => pick(p)}
                     />
                   ))}
                 </View>
@@ -249,6 +273,21 @@ export default function DoseScreen() {
           )}
         </Field>
 
+        {childId ? (
+          childDob && !editingDob ? (
+            <Field label="Age">
+              <View style={st.chipRow}>
+                <T style={st.age}>{formatAge(childDob, today) ?? 'Check the date of birth'}</T>
+                <SecondaryButton label="Change date of birth" onPress={() => setEditingDob(true)} />
+              </View>
+            </Field>
+          ) : (
+            <Field label="Date of birth" hint="Optional. Saved with the child, so the age fills in by itself next time.">
+              <DateOfBirthWheel today={today} initial={childDob} onChange={setNewDob} />
+            </Field>
+          )
+        ) : null}
+
         <Field label="Doses">
           <Stepper value={doses} onChange={setDoses} min={1} max={20} />
         </Field>
@@ -256,7 +295,7 @@ export default function DoseScreen() {
         {wouldGoNegative ? (
           <T style={st.warn}>
             This will take stock below zero ({vaccine.on_hand_doses - doses} doses). That usually
-            means a delivery was never logged — the dose will still be recorded.
+            means a delivery was never logged. The dose will still be recorded.
           </T>
         ) : null}
       </ScrollView>
@@ -269,11 +308,11 @@ export default function DoseScreen() {
             disabled={saving}
             style={st.skip}
           >
-            <T style={st.skipText}>Skip — no name</T>
+            <T style={st.skipText}>Skip, no name</T>
           </Pressable>
         ) : null}
         <BigButton
-          label={`GIVE ${doses} ${doses === 1 ? 'DOSE' : 'DOSES'}`}
+          label={`Give ${doses} ${doses === 1 ? 'dose' : 'doses'}`}
           onPress={() => give(false)}
           disabled={saving}
         />
@@ -285,9 +324,10 @@ export default function DoseScreen() {
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   content: { padding: space.lg, paddingBottom: space.xxl },
-  name: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
+  name: { fontSize: type.hero, fontWeight: weight.semibold, color: color.text },
   stock: { fontSize: type.label, color: color.textMuted, marginTop: space.xs, marginBottom: space.xl },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
+  age: { fontSize: type.title, fontWeight: weight.semibold, color: color.text, fontVariant: ['tabular-nums'] },
   warn: { fontSize: type.label, fontWeight: weight.semibold, color: color.low, marginTop: space.sm },
   addRow: { minHeight: touch.min, justifyContent: 'center', marginTop: space.sm },
   addText: { fontSize: type.body, fontWeight: weight.semibold, color: color.dose },

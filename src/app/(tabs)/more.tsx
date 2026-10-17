@@ -109,7 +109,7 @@ export default function MoreScreen() {
           <BigButton
             accent="stock"
             variant="outline"
-            label={busy ? 'UPLOADING…' : 'UPLOAD NOW'}
+            label={busy ? 'Uploading…' : 'Upload now'}
             sublabel={
               sync && sync.pending > 0
                 ? `${sync.pending} ${sync.pending === 1 ? 'entry' : 'entries'} not on the server yet`
@@ -169,7 +169,7 @@ const st = StyleSheet.create({
   eyebrow: { fontSize: type.min, color: color.textMuted, fontWeight: weight.semibold },
   headline: {
     fontSize: type.big,
-    fontWeight: weight.bold,
+    fontWeight: weight.semibold,
     color: color.text,
     marginTop: 2,
     lineHeight: 34,

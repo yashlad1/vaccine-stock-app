@@ -3,7 +3,7 @@ import { Platform, type ViewStyle } from 'react-native';
 /**
  * Design tokens.
  *
- * "Modern" here means depth, generous spacing and soft surfaces - NOT thin
+ * The look is clinic-queue's (see `color`). "Modern" still never means thin
  * weights, small text or low contrast. Every floor below is a requirement from
  * CLAUDE.md section 8, because the user is a practising pediatrician, likely
  * 50+, working one-handed between patients in a brightly lit room.
@@ -14,86 +14,85 @@ import { Platform, type ViewStyle } from 'react-native';
 
 export const color = {
   /**
-   * The Aero Clinic palette, adapted to React Native.
+   * clinic-queue's palette (its docs/context/design/foundations.md), adopted
+   * 16 Oct 2026 so the doctor's two apps read as one family: white surfaces on
+   * a soft neutral ground, a hairline edge instead of a shadow, and one solid
+   * colour per screen for the act that completes it.
    *
-   * What came across: the ink/ink-soft text pair, sky-deep, caution, clinical,
-   * the opaque surface, and the rule that disabled is a TOKEN SWAP rather than
-   * a component-wide opacity - that last one is the schema and this file
-   * agreeing about the same bug.
+   * Where its rules and this app's floors disagree, the floor wins, the way
+   * clinic-queue's own "what survived the brief" table works:
+   *   - its `text-muted` (#64748B) is never TEXT here - CLAUDE.md section 8
+   *     forbids grey below #46586F - only the edge of things she operates;
+   *   - its 44px targets and 14-16px body are for a desk, not for a thumb
+   *     between patients, so 56dp and 18pt stand (see `touch` and `type`);
+   *   - its single teal primary becomes four accents, below.
    *
-   * What could not: `backdrop-filter`, `color-mix`, `@layer`, `::after` and
-   * every media query in the sheet have no React Native equivalent, and the
-   * glass surface they build is the wrong instrument for a sunlit clinic
-   * anyway. Section 8 forbids gradients here for the same reason the schema
-   * ships a Vista Basic mode: the opaque rendering is the one that has to be
-   * right first. This palette IS that mode.
-   *
-   * Every value below is measured by contrast.db.test.ts, not asserted.
+   * Every value is measured by contrast.db.test.ts, not asserted.
    */
-  bg: '#FFFFFF',
-  /** --aero-bg-opaque. Soft neutral panels. */
-  surface: '#F2F7FC',
-  /** --aero-btn:disabled background, reused as the sunken surface. */
-  surfaceSunken: '#E7EDF3',
-  /** --aero-rim-outer, flattened: RN has no rgba rim over a blur. */
-  border: '#D8E2ED',
-  borderStrong: '#B7C6D6',
+  /** clinic-queue `bg`: the application ground, behind every surface. */
+  bg: '#F6F8F7',
+  /** Cards, tiles, inputs, the tab bar, list rows. */
+  surface: '#FFFFFF',
+  /** Neutral fills: the neutral badge, a pressed row. */
+  surfaceSunken: '#F1F5F9',
+  /** DECORATIVE edges only - card edges and row dividers. 1.2:1, so never alone on a control. */
+  border: '#E2E8F0',
+  /** The edge of anything she operates: inputs, chips, secondary buttons. 4.8:1, above the 3:1 bar. */
+  borderControl: '#64748B',
 
-  /** --ink. 15.9:1 on white. */
-  text: '#10233A',
-  /** --ink-soft. 7.3:1 - the schema undersells it at 4.9. */
-  textMuted: '#46586F',
+  /** 17.9:1 on white. */
+  text: '#0F172A',
+  /** clinic-queue `text-2`. 7.6:1 on white, 7.0:1 on the ground. */
+  textMuted: '#475569',
   onAccent: '#FFFFFF',
 
   /**
    * One accent per context, still a safety feature rather than styling.
    *
-   * The schema ships exactly ONE chrome colour that can carry text on white:
-   * --sky-deep at 5.4:1. --aqua (2.2:1) and --grape (4.0:1) are marked fill
-   * only, and they are right. But this app paints its accents as TEXT - tab
-   * labels, headings, button labels - and it needs three that stay apart at a
-   * glance, because Give dose and Add stock move the ledger in opposite
-   * directions and sit next to each other.
-   *
-   * So aqua and grape are deepened along their own hue until they clear 5:1,
-   * and the bright originals become the fills they were always meant to be.
+   * Give dose and Add stock move the ledger in opposite directions and sit
+   * next to each other, so each keeps the hue it has had since the app went
+   * live - blue for giving, teal for stock. Swapping them to give Give dose
+   * clinic-queue's teal would point her learned colour at the wrong tab, the
+   * one mistake this colour exists to prevent. The values are clinic-queue's
+   * own: its primary teal, and the blue of its "Called" badge.
    */
-  dose: '#1B6FA8', // --sky-deep, 5.4:1   - Give dose
-  doseSoft: '#E6F3FC', // --sky, as fill
-  stock: '#167B70', // --aqua deepened, 5.1:1 - Add stock
-  stockSoft: '#E5F8F6',
-  catalog: '#6B5ED6', // --grape deepened, 5.0:1 - Vaccines
-  catalogSoft: '#F7F6FE',
-  more: '#33455E', // slate, kept clear of textMuted
+  dose: '#1D4ED8', // blue-700 - Give dose
+  doseSoft: '#DBEAFE',
+  stock: '#0F766E', // clinic-queue primary - Add stock
+  stockSoft: '#CCFBF1', // clinic-queue primary-soft
+  catalog: '#6D28D9', // violet-700 - Vaccines; clinic-queue has no third hue
+  catalogSoft: '#EDE9FE',
+  more: '#334155', // slate-700, kept clear of textMuted
 
   /**
    * Reserved for stock LEVELS only; never reused as a context accent.
-   *
-   * --caution and --clinical come straight from the schema. There is no green
-   * in it, so `ok` keeps the measured value it already had: a palette with no
-   * "all good" colour cannot supply one.
+   * clinic-queue's success / warning / danger, with its rule that a badge's
+   * text is the darker `Ink` shade: the base on its own soft ground is too
+   * close to the floor (warning measures 4.5:1 there).
    */
   ok: '#15803D',
-  okSoft: '#EDFAF0',
-  low: '#A05E00', // --caution, 5.1:1
-  lowSoft: '#FFF3D1', // --caution-fill, as fill
-  danger: '#A01E24', // --clinical, 7.8:1
-  dangerSoft: '#FAE7E8',
+  okSoft: '#DCFCE7',
+  okInk: '#166534',
+  low: '#B45309',
+  lowSoft: '#FEF3C7',
+  lowInk: '#92400E',
+  danger: '#B91C1C',
+  dangerSoft: '#FEE2E2',
+  dangerInk: '#991B1B',
 
   /**
-   * Disabled, as the schema insists: a token swap, never opacity. Its own
-   * pairing (#6B7A8D on #E7EDF3) measures 3.7:1, so the text is darkened to
-   * clear this app's floor. A greyed-out control still has to be readable to
-   * someone deciding whether it is disabled or the app is broken.
+   * Disabled is a token swap, never opacity. clinic-queue fades its disabled
+   * primary to about 2:1; a greyed-out control here still has to be readable
+   * to someone deciding whether it is disabled or the app is broken.
    */
-  disabledText: '#5E6B7C',
-  disabledFill: '#E7EDF3',
+  disabledText: '#475569',
+  disabledFill: '#E2E8F0',
 
-  /** UNDO on the dark toast. A token now, so the contrast test can see it. */
-  undo: '#8FC7F0',
+  /** UNDO on the dark toast. A token, so the contrast test can see it. */
+  undo: '#93C5FD',
 
-  /** Pressed-state overlays. */
-  pressed: 'rgba(16, 35, 58, 0.06)',
+  /** Pressed-state overlay. */
+  pressed: 'rgba(15, 23, 42, 0.06)',
 } as const;
 
 export type Accent = 'dose' | 'stock' | 'catalog' | 'more';
@@ -109,7 +108,7 @@ export const accentSoft: Record<Accent, string> = {
   dose: color.doseSoft,
   stock: color.stockSoft,
   catalog: color.catalogSoft,
-  more: color.surface,
+  more: color.surfaceSunken,
 };
 
 /** Minimum 56dp: Android's guideline is 48, and this user needs more. */
@@ -132,21 +131,21 @@ export const type = {
   min: 14,
 } as const;
 
+/** clinic-queue's two weights. 600 at display size carries a number; 700 is not used. */
 export const weight = {
-  bold: '700',
   semibold: '600',
-  medium: '500',
   regular: '400',
 } as const;
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
 
-/** Larger radii than before - the main lever for a contemporary feel. */
-export const radius = { sm: 10, md: 14, lg: 20, xl: 28, pill: 999 } as const;
+/** clinic-queue: 8 for controls, 12 for cards and panels, 999 for badges only. */
+export const radius = { sm: 8, md: 8, lg: 12, pill: 999 } as const;
 
 /**
- * Soft elevation instead of borders. Kept deliberately subtle: a heavy shadow
- * reads as clutter on a screen that is mostly a grid of tappable tiles.
+ * At most one, very light, and only on a raised surface (the floating footer).
+ * clinic-queue's rule: never under every card - edges and tints carry the
+ * structure, so it still reads in a sunlit room where a shadow vanishes.
  */
 export function elevation(level: 0 | 1 | 2 | 3): ViewStyle {
   if (level === 0) return {};

@@ -5,10 +5,12 @@ import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useQuery } from '../../db/provider';
 import { searchPatients } from '../../db/repo/patients';
+import { formatAge, todayLocal } from '../../domain/time';
 
 export default function ChildrenScreen() {
   const bottomInset = useBottomInset();
   const [q, setQ] = useState('');
+  const today = todayLocal();
   const { data, loading, error, reload } = useQuery(
     (db) =>
       q.trim()
@@ -46,7 +48,13 @@ export default function ChildrenScreen() {
           />
         }
         renderItem={({ item }) => (
-          <Row title={item.name} subtitle={item.guardian_phone ?? item.dob ?? undefined} />
+          <Row
+            title={item.name}
+            subtitle={
+              [formatAge(item.dob, today), item.guardian_phone].filter(Boolean).join(' · ') ||
+              'No date of birth yet'
+            }
+          />
         )}
       />
       <T style={st.note}>

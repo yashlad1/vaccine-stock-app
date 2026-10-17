@@ -56,8 +56,8 @@ export function syncNag(input: SyncNagInput): SyncNag {
     return {
       level: 'stuck',
       message:
-        `${entries} have not reached the server. Check the internet connection — ` +
-        `everything is still saved on this phone.`,
+        `${entries} have not reached the server. Check the internet connection. ` +
+        `Everything is still saved on this phone.`,
     };
   }
 

@@ -40,7 +40,7 @@ function RootLayout() {
           <AutoSync />
           <Stack
             screenOptions={{
-              headerStyle: { backgroundColor: color.bg },
+              headerStyle: { backgroundColor: color.surface },
               headerTitleStyle: { color: color.text, fontSize: 20, fontWeight: '600' },
               headerShadowVisible: false,
               headerTintColor: color.dose,

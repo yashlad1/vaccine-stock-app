@@ -73,14 +73,7 @@ function Term({
 }
 
 const st = StyleSheet.create({
-  label: {
-    fontSize: type.min,
-    fontWeight: weight.bold,
-    color: color.textMuted,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: space.xs,
-  },
+  label: { fontSize: type.label, fontWeight: weight.semibold, color: color.text, marginBottom: space.xs },
   // columnGap carries the separation the `·` used to, so no glyph has to.
   row: {
     flexDirection: 'row',
@@ -90,5 +83,5 @@ const st = StyleSheet.create({
     marginTop: space.sm,
   },
   termLabel: { fontSize: type.min, color: color.textMuted, fontWeight: weight.semibold },
-  termValue: { fontSize: type.title, fontWeight: weight.bold, color: color.text },
+  termValue: { fontSize: type.title, fontWeight: weight.semibold, color: color.text, fontVariant: ['tabular-nums'] },
 });

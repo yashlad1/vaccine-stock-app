@@ -80,7 +80,7 @@ export default function EditVaccineScreen() {
     }
     if (usage.movements > 0) {
       lines.push(
-        `\n${usage.dosesGiven} doses given and ${usage.movements} entries stay in your records — nothing is erased. You can add it back at any time.`,
+        `\n${usage.dosesGiven} doses given and ${usage.movements} entries stay in your records. Nothing is erased. You can add it back at any time.`,
       );
     } else {
       lines.push('\nIt has never been used, so nothing is lost.');
@@ -148,7 +148,7 @@ export default function EditVaccineScreen() {
         </View>
       </ScrollView>
       <Footer>
-        <BigButton accent="catalog" label="SAVE" onPress={save} disabled={!name.trim()} />
+        <BigButton accent="catalog" label="Save changes" onPress={save} disabled={!name.trim()} />
       </Footer>
     </View>
   );

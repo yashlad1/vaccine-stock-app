@@ -112,7 +112,7 @@ export default function BackupScreen() {
 
       <View style={{ gap: space.md, marginTop: space.lg }}>
         <BigButton
-          label={busy === 'export' ? 'PREPARING…' : 'BACK UP NOW'}
+          label={busy === 'export' ? 'Preparing…' : 'Back up now'}
           sublabel="Send it to yourself on WhatsApp or save to Drive"
           onPress={doExport}
           disabled={!!busy}
@@ -128,8 +128,8 @@ export default function BackupScreen() {
       <T style={st.section}>What is in a backup</T>
       <T style={st.body}>
         One zip file containing the full database (which is what restores exactly) plus
-        spreadsheet-friendly CSVs — doses.csv, stock_movements.csv, vaccines.csv and
-        patients.csv — that open in Excel or Google Sheets.
+        spreadsheet-friendly CSVs (doses.csv, stock_movements.csv, vaccines.csv and
+        patients.csv) that open in Excel or Google Sheets.
       </T>
 
       <T style={st.section}>On this phone</T>
@@ -155,9 +155,9 @@ export default function BackupScreen() {
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   card: { padding: space.lg, borderRadius: radius.md, backgroundColor: color.surface, borderWidth: 1, borderColor: color.border },
-  status: { fontSize: type.title, fontWeight: weight.bold, color: color.text },
+  status: { fontSize: type.title, fontWeight: weight.semibold, color: color.text },
   sub: { fontSize: type.label, color: color.textMuted, marginTop: space.xs },
-  section: { fontSize: type.label, fontWeight: weight.bold, color: color.textMuted, marginTop: space.xl, marginBottom: space.sm },
+  section: { fontSize: type.label, fontWeight: weight.semibold, color: color.textMuted, marginTop: space.xl, marginBottom: space.sm },
   body: { fontSize: type.label, color: color.text, lineHeight: 24 },
   warn: { fontSize: type.label, color: color.low, fontWeight: weight.semibold, marginTop: space.lg, lineHeight: 22 },
 });

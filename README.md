@@ -47,7 +47,7 @@ for them.
 | [`docs/SRS.md`](./docs/SRS.md) | 94 numbered requirements, each traced to a test |
 | [`docs/ERD.md`](./docs/ERD.md) | Data model, and why the ledger looks like it does |
 | [`docs/waterfall.md`](./docs/waterfall.md) | SDLC phases, Gantt timeline, sprint contents |
-| [`docs/test-plan.md`](./docs/test-plan.md) | Three test layers and the 19-step on-phone script |
+| [`docs/test-plan.md`](./docs/test-plan.md) | Three test layers and the 20-step on-phone script |
 | [`docs/RELEASE.md`](./docs/RELEASE.md) | Building the standalone APK, archiving the keystore, and shipping OTA updates |
 | [`docs/schema.sql`](./docs/schema.sql) | Reference DDL, generated from the migrations |
 
@@ -67,7 +67,7 @@ npm install
 
 npm start           # scan the QR code with Expo Go on a real Android phone
 npm run web         # fast browser loop for layout and contrast
-npm test            # 113 tests, no device needed
+npm test            # Node tests, no device needed
 npm run typecheck
 npm run schema:dump # regenerate docs/schema.sql from the migrations
 ```
@@ -114,8 +114,9 @@ move stock in opposite directions and sit next to each other, so hue, heading an
 differ to make a mis-tap obvious before anything is written.
 
 The UI is deliberately minimal: light theme only, no dark mode, no theming layer, no animation beyond
-the toast fade. Depth comes from soft surfaces and subtle elevation. "Modern" never means thin, small
-or low-contrast — 56dp targets, 18pt body text and a 14pt floor are hard requirements.
+the toast fade. It shares its look with the clinic's other app, clinic-queue: white cards on a soft
+grey ground, hairline edges, no shadows, sentence-case buttons. "Modern" never means thin, small or
+low-contrast — 56dp targets, 18pt body text and a 14pt floor are hard requirements.
 
 ```
 src/

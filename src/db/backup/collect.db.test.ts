@@ -14,9 +14,11 @@ async function env() {
 }
 
 describe('doses.csv is shaped like the notebook page it replaces', () => {
-  it('writes date, 12-hour time, vaccine, batch, child and doses', async () => {
+  it('writes date, 12-hour time, vaccine, batch, child, age and doses', async () => {
     const { db, ctx, mr, lot } = await env();
-    const child = await createPatient(db, { name: "O'Brien, Aarav" }, ctx.deviceId, T0);
+    // Born 26 Jul, dosed 6 Sep: 42 days, so the age AT THE DOSE is 6 w,
+    // whatever the date is when the backup is taken.
+    const child = await createPatient(db, { name: "O'Brien, Aarav", dob: '2026-07-26' }, ctx.deviceId, T0);
     await recordReceipt(db, ctx, { clientActionId: 'r', vaccineId: mr, lotId: lot, doses: 30 });
     await recordAdministration(db, ctx, {
       clientActionId: 'a', vaccineId: mr, lotId: lot, patientId: child, patientLabel: "O'Brien, Aarav",
@@ -24,9 +26,9 @@ describe('doses.csv is shaped like the notebook page it replaces', () => {
 
     const csv = await dosesCsv(db);
     const [header, row] = csv.trim().split('\r\n');
-    expect(header).toBe('date,time,vaccine,batch,child,doses');
+    expect(header).toBe('date,time,vaccine,batch,child,age,doses');
     // The comma inside BOTH the vaccine name and the child name must be quoted.
-    expect(row).toBe('2026-09-06,10:30 am,Measles-Rubella (MR),MR-77,"O\'Brien, Aarav",1');
+    expect(row).toBe('2026-09-06,10:30 am,Measles-Rubella (MR),MR-77,"O\'Brien, Aarav",6 w,1');
   });
 
   it('omits an undone dose, matching the on-screen report', async () => {

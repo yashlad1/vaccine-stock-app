@@ -13,9 +13,10 @@ import {
 
 /**
  * Every component here encodes a rule from CLAUDE.md section 8. The look is
- * modern - soft surfaces, real elevation, generous radii - but none of the
- * accessibility floors move: 56dp targets, 18pt body, 14pt absolute minimum,
- * and no state carried by colour alone.
+ * clinic-queue's - white surfaces on a soft ground, hairline edges, 8px
+ * controls, sentence case - but none of the accessibility floors move: 56dp
+ * targets, 18pt body, 14pt absolute minimum, and no state carried by colour
+ * alone.
  */
 
 const scale = { maxFontSizeMultiplier: MAX_FONT_SCALE };
@@ -84,7 +85,7 @@ export function Footer({
       style={[
         s.footer,
         floating ? s.footerFloating : null,
-        floating ? elevation(3) : null,
+        floating ? elevation(2) : null,
         { paddingBottom: space.lg + insets.bottom },
         style,
       ]}
@@ -124,7 +125,7 @@ export function ErrorState({
   );
 }
 
-/** A raised panel. The main structural element now that borders are hairlines. */
+/** A panel: white on the ground, one decorative edge, no shadow (clinic-queue). */
 export function Card({
   children,
   style,
@@ -136,9 +137,9 @@ export function Card({
   tone?: Accent | 'soft';
   onPress?: () => void;
 }) {
-  const bg = tone && tone !== 'soft' ? accentSoft[tone] : tone === 'soft' ? color.surface : color.bg;
+  const bg = tone && tone !== 'soft' ? accentSoft[tone] : color.surface;
   const body = (
-    <View style={[s.card, { backgroundColor: bg }, tone ? null : elevation(1), style]}>
+    <View style={[s.card, { backgroundColor: bg }, style]}>
       {children}
     </View>
   );
@@ -155,9 +156,10 @@ export function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Primary call to action: 64dp tall, full width, and it always carries a WORD.
- * The `accent` prop is load-bearing, not decoration - it is what makes "GIVE A
- * DOSE" and "ADD TO STOCK" impossible to mistake for one another.
+ * Primary call to action: 64dp tall, full width, and it always carries a WORD,
+ * verb first, in sentence case. The `accent` prop is load-bearing, not
+ * decoration - it is what makes "Give 1 dose" and "Add to stock" impossible to
+ * mistake for one another. `outline` is clinic-queue's secondary button.
  */
 export function BigButton({
   label,
@@ -188,16 +190,16 @@ export function BigButton({
       style={({ pressed }) => [
         s.bigButton,
         solid
-          ? { backgroundColor: disabled ? color.surfaceSunken : base }
-          : { backgroundColor: color.bg, borderWidth: 2, borderColor: disabled ? color.border : base },
-        solid && !disabled ? elevation(2) : null,
-        pressed && !disabled ? { transform: [{ scale: 0.985 }], opacity: 0.92 } : null,
+          ? { backgroundColor: disabled ? color.disabledFill : base }
+          : { backgroundColor: disabled ? color.disabledFill : color.surface, borderWidth: 1, borderColor: disabled ? color.disabledFill : color.borderControl },
+        // clinic-queue's one permitted motion: 0.97 on press.
+        pressed && !disabled ? { transform: [{ scale: 0.97 }] } : null,
       ]}
     >
       <T
         style={[
           s.bigButtonLabel,
-          { color: disabled ? color.textMuted : solid ? color.onAccent : base },
+          { color: disabled ? color.disabledText : solid ? color.onAccent : color.text },
         ]}
       >
         {label}
@@ -206,7 +208,7 @@ export function BigButton({
         <T
           style={[
             s.bigButtonSub,
-            { color: disabled ? color.textMuted : solid ? 'rgba(255,255,255,0.85)' : color.textMuted },
+            { color: disabled ? color.disabledText : solid ? color.onAccent : color.textMuted },
           ]}
         >
           {sublabel}
@@ -248,10 +250,10 @@ export function Badge({
   tone: 'low' | 'danger' | 'ok' | 'neutral';
 }) {
   const map = {
-    low: { bg: color.lowSoft, fg: color.low },
-    danger: { bg: color.dangerSoft, fg: color.danger },
-    ok: { bg: color.okSoft, fg: color.ok },
-    neutral: { bg: color.surfaceSunken, fg: color.textMuted },
+    low: { bg: color.lowSoft, fg: color.lowInk },
+    danger: { bg: color.dangerSoft, fg: color.dangerInk },
+    ok: { bg: color.okSoft, fg: color.okInk },
+    neutral: { bg: color.surfaceSunken, fg: color.more },
   }[tone];
   return (
     <View style={[s.badge, { backgroundColor: map.bg }]}>
@@ -284,10 +286,13 @@ export function Chip({
       style={({ pressed }) => [
         s.chip,
         compact ? s.chipCompact : null,
+        // Selected is tint + a heavier edge in the accent + the accent label.
+        // The edge thickens rather than appearing, and padding gives the
+        // extra pixel back, so selecting a chip never shifts its neighbours.
         selected
-          ? { backgroundColor: accentSoft[accent], borderColor: base }
-          : { backgroundColor: color.surface, borderColor: 'transparent' },
-        pressed ? { opacity: 0.8 } : null,
+          ? { backgroundColor: accentSoft[accent], borderColor: base, borderWidth: 2, paddingHorizontal: (compact ? space.md : space.lg) - 1 }
+          : { backgroundColor: color.surface, borderColor: color.borderControl },
+        pressed ? { backgroundColor: selected ? accentSoft[accent] : color.surfaceSunken } : null,
       ]}
     >
       <T style={[s.chipLabel, selected ? { color: base } : null]}>{label}</T>
@@ -382,7 +387,7 @@ export function Field({
   );
 }
 
-/** Filled input rather than a boxed one - fewer lines on screen, same target size. */
+/** clinic-queue's input: white, a border-control edge (3:1 is the bar for a field's outline), 8px. */
 export function Input(props: TextInputProps) {
   return (
     <TextInput
@@ -445,8 +450,8 @@ export function Banner({
 }) {
   const map =
     tone === 'danger'
-      ? { bg: color.dangerSoft, fg: color.danger }
-      : { bg: color.lowSoft, fg: color.low };
+      ? { bg: color.dangerSoft, fg: color.dangerInk }
+      : { bg: color.lowSoft, fg: color.lowInk };
   return (
     <View style={[s.banner, { backgroundColor: map.bg }]}>
       <T style={[s.bannerText, { color: map.fg }]}>{text}</T>
@@ -489,7 +494,7 @@ export const s = StyleSheet.create({
   footer: {
     paddingHorizontal: space.lg,
     paddingTop: space.lg,
-    backgroundColor: color.bg,
+    backgroundColor: color.surface,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
   },
@@ -508,7 +513,7 @@ export const s = StyleSheet.create({
     padding: space.xl,
     gap: space.md,
   },
-  errorTitle: { fontSize: type.title, fontWeight: weight.bold, color: color.text, textAlign: 'center' },
+  errorTitle: { fontSize: type.title, fontWeight: weight.semibold, color: color.text, textAlign: 'center' },
   errorBody: { fontSize: type.body, color: color.textMuted, textAlign: 'center', lineHeight: 26 },
   emptyTitle: {
     fontSize: type.title,
@@ -517,13 +522,12 @@ export const s = StyleSheet.create({
     textAlign: 'center',
   },
 
-  card: { borderRadius: radius.lg, padding: space.lg },
+  card: { borderRadius: radius.lg, padding: space.lg, borderWidth: 1, borderColor: color.border },
+  // clinic-queue section title: sentence case, 600, never tracked-out capitals.
   sectionTitle: {
-    fontSize: type.min,
-    fontWeight: weight.bold,
-    color: color.textMuted,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    fontSize: type.body,
+    fontWeight: weight.semibold,
+    color: color.text,
     marginTop: space.xl,
     marginBottom: space.sm,
   },
@@ -535,14 +539,14 @@ export const s = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: space.lg,
   },
-  bigButtonLabel: { fontSize: type.title, fontWeight: weight.bold, letterSpacing: 0.3 },
-  bigButtonSub: { fontSize: type.min, marginTop: 2, fontWeight: weight.medium },
+  bigButtonLabel: { fontSize: type.title, fontWeight: weight.semibold },
+  bigButtonSub: { fontSize: type.min, marginTop: 2, fontWeight: weight.semibold },
 
   secondary: { minHeight: touch.min, justifyContent: 'center', alignSelf: 'flex-start' },
   secondaryLabel: { fontSize: type.body, fontWeight: weight.semibold },
 
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
-  badgeText: { fontSize: type.min, fontWeight: weight.bold, letterSpacing: 0.6 },
+  badge: { paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.pill },
+  badgeText: { fontSize: type.min, fontWeight: weight.semibold },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
   chip: {
@@ -550,7 +554,7 @@ export const s = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: space.lg,
     borderRadius: radius.md,
-    borderWidth: 2,
+    borderWidth: 1,
   },
   chipCompact: { paddingHorizontal: space.md, minWidth: touch.min },
   chipLabel: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
@@ -562,19 +566,21 @@ export const s = StyleSheet.create({
     height: touch.min,
     borderRadius: radius.md,
     backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: color.borderControl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   // A token swap, not opacity. Component-wide opacity fades the glyph along
   // with the surface, and a 0.4 minus sign is indistinguishable from a broken
   // button to someone deciding whether the app is stuck or she is at the limit.
-  stepperBtnDisabled: { backgroundColor: color.disabledFill },
+  stepperBtnDisabled: { backgroundColor: color.disabledFill, borderColor: color.disabledFill },
   stepperSignDisabled: { color: color.disabledText },
   stepperBtnPressed: { backgroundColor: color.surfaceSunken },
-  stepperSign: { fontSize: type.big, fontWeight: weight.bold, color: color.text },
+  stepperSign: { fontSize: type.big, fontWeight: weight.semibold, color: color.text },
   stepperValue: {
     fontSize: type.hero,
-    fontWeight: weight.bold,
+    fontWeight: weight.semibold,
     color: color.text,
     minWidth: 72,
     textAlign: 'center',
@@ -594,6 +600,8 @@ export const s = StyleSheet.create({
     fontSize: type.body,
     color: color.text,
     backgroundColor: color.surface,
+    borderWidth: 1,
+    borderColor: color.borderControl,
   },
 
   row: {
@@ -607,9 +615,9 @@ export const s = StyleSheet.create({
   },
   rowTitle: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
   rowSub: { fontSize: type.label, color: color.textMuted, marginTop: 2 },
-  chevron: { fontSize: type.big, color: color.borderStrong, marginTop: -4 },
+  chevron: { fontSize: type.big, color: color.borderControl, marginTop: -4 },
 
-  banner: { borderRadius: radius.md, padding: space.lg, marginBottom: space.md },
+  banner: { borderRadius: radius.lg, padding: space.lg, marginBottom: space.md },
   bannerText: { fontSize: type.label, fontWeight: weight.semibold, lineHeight: 22 },
   bannerActions: { flexDirection: 'row', gap: space.sm, marginTop: space.sm },
   bannerBtn: {
@@ -618,5 +626,5 @@ export const s = StyleSheet.create({
     paddingHorizontal: space.md,
     borderRadius: radius.sm,
   },
-  bannerBtnText: { fontSize: type.label, fontWeight: weight.bold },
+  bannerBtnText: { fontSize: type.label, fontWeight: weight.semibold },
 });

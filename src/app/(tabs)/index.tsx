@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Badge, ErrorState, Input, Loading, SecondaryButton, T, useBottomInset } from '../../ui/components';
-import { color, elevation, radius, space, type, weight } from '../../ui/tokens';
+import { color, radius, space, type, weight } from '../../ui/tokens';
 import { useDb, useQuery } from '../../db/provider';
 import { dosesGivenTotals, vaccinesByUsage } from '../../domain/reports';
 import { describeStockRow } from '../../domain/stock';
@@ -138,7 +138,7 @@ export default function GiveDoseScreen() {
               // whether this is the first phone or a second one, so it asks.
               <>
                 <T style={st.emptyText}>
-                  Waiting for the clinic&apos;s vaccine list. Check the internet connection — it
+                  Waiting for the clinic&apos;s vaccine list. Check the internet connection. It
                   will load on its own.
                 </T>
                 <T style={st.emptyHint}>
@@ -168,11 +168,7 @@ export default function GiveDoseScreen() {
               accessibilityRole="button"
               accessibilityLabel={`${item.name}, ${d.primary}`}
               onPress={() => router.push(`/dose/${item.vaccine_id}`)}
-              style={({ pressed }) => [
-                st.tile,
-                elevation(1),
-                pressed && st.tilePressed,
-              ]}
+              style={({ pressed }) => [st.tile, pressed && st.tilePressed]}
             >
               <T style={st.tileName} numberOfLines={3}>
                 {item.name}
@@ -216,9 +212,8 @@ const st = StyleSheet.create({
     fontSize: type.min,
     color: color.textMuted,
     fontWeight: weight.semibold,
-    letterSpacing: 0.4,
   },
-  count: { fontSize: type.hero, fontWeight: weight.bold, color: color.text, marginTop: 2 },
+  count: { fontSize: type.hero, fontWeight: weight.semibold, color: color.text, marginTop: 2 },
   pad: { paddingHorizontal: space.lg, paddingBottom: space.md, gap: space.md },
   emptyText: { fontSize: type.body, color: color.textMuted, textAlign: 'center', lineHeight: 26 },
   emptyHint: {
@@ -232,16 +227,16 @@ const st = StyleSheet.create({
     minHeight: 138,
     borderRadius: radius.lg,
     padding: space.lg,
-    backgroundColor: color.bg,
-    // The rim, flattened out of --aero-rim-outer. Elevation alone is a very
-    // faint shadow on Android, and in a sunlit room the grid stopped reading
-    // as a set of targets and started reading as floating text.
+    backgroundColor: color.surface,
+    // White on the ground plus an edge, never a shadow (clinic-queue). A
+    // shadow is very faint on Android, and in a sunlit room the grid stopped
+    // reading as a set of targets and started reading as floating text.
     borderWidth: 1,
     borderColor: color.border,
   },
-  tilePressed: { backgroundColor: color.doseSoft, transform: [{ scale: 0.985 }] },
+  tilePressed: { backgroundColor: color.doseSoft, transform: [{ scale: 0.97 }] },
   tileName: { fontSize: type.title, fontWeight: weight.semibold, color: color.text, lineHeight: 27 },
-  tileStock: { fontSize: type.body, fontWeight: weight.bold },
+  tileStock: { fontSize: type.body, fontWeight: weight.semibold, fontVariant: ['tabular-nums'] },
   // Wraps so the badge drops below the count rather than squeezing it at 1.6x.
   tileFoot: {
     flexDirection: 'row',

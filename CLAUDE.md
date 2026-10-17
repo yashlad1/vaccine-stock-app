@@ -72,7 +72,7 @@ Confirmed with the user. Do not relitigate without asking.
 | --- | --- |
 | Platform | React Native, Expo SDK 57, real installable Android app |
 | Storage | On-device SQLite is the **source of truth**. The app runs fully offline and needs no internet to use. Since 7 Sep 2026 it also replicates to a server — see section 10a |
-| Dose entry captures | Vaccine + timestamp, batch/lot, child (**optional**) |
+| Dose entry captures | Vaccine + timestamp, batch/lot, child (**optional**), and the child's **age at that dose**, worked out from a date of birth saved once on the child (added 16 Oct 2026; see section 6) |
 | Child identification | Saved patient list, type-ahead + inline quick-add |
 | Child required? | **No — always skippable** |
 | Multi-dose vials | Per-vaccine setting: `unit_mode` is `DOSE` or `VIAL` with `doses_per_vial` |
@@ -81,6 +81,7 @@ Confirmed with the user. Do not relitigate without asking.
 | Government (UIP) stock | Tracked as a balance separate from privately purchased stock |
 | Cost / billing / GST / accounting | **Out of scope** — user explicitly excluded it |
 | Local Android toolchain | **Not used.** Expo Go for dev, EAS cloud build for the APK |
+| Updates | Over the air by default. The doctor agreed (16 Oct 2026) to install a new APK when an update cannot go over the air — always an in-place upgrade signed with the same keystore, never uninstall-then-install (section 16) |
 
 ### Explicitly out of scope for v1
 
@@ -169,8 +170,8 @@ export interface Db {
 }
 ```
 
-Three adapters: `driver.expo.ts` (device), `driver.node.ts` (`node:sqlite`, tests),
-`driver.web.ts` (in-memory, browser smoke loop). Every repository function takes `Db` as its first
+Two adapters: `driver.expo.ts` (the device, and the browser smoke loop through expo-sqlite's wasm
+build) and `driver.node.ts` (`node:sqlite`, tests). Every repository function takes `Db` as its first
 argument.
 
 **Trap:** `withExclusiveTransactionAsync` hands you a `txn` object and queries **must** run on it.
@@ -225,7 +226,15 @@ with a `CHECK` that the sign of `delta_doses` matches the type. `UNIQUE(reverses
 movement can be reversed at most once. A `REVERSAL` may not itself be reversed — to undo an undo,
 write a fresh forward movement.
 
-### Three modelling decisions worth remembering
+### Four modelling decisions worth remembering
+
+- **Age is derived, never stored.** The dose screen saves a date of birth once on `patients.dob`
+  (a column since v1), and every dose's age is `formatAge(dob, local_date)` in `domain/time.ts`:
+  weeks under six months, months under two years, then years and months (`11 w`, `4 y 8 m`) — the
+  same rule and format as clinic-queue, so the doctor reads one format in both apps. So it cost no
+  migration and no server column, a returning child's age fills itself in, and a corrected date of
+  birth corrects every past dose's age, which is right: the old age was wrong too. No date of birth
+  is a blank, never `0 w`.
 
 - **`local_date` / `local_time` are computed and stored at write time**, alongside UTC `occurred_at`.
   "Given today" is then an indexed `WHERE local_date = ?` — deterministic and unit-testable.
@@ -291,7 +300,7 @@ app/
 
 **The per-tab accent is a safety feature, not styling.** Give dose and Add stock are adjacent and
 move the ledger in OPPOSITE directions, so each owns a hue that carries through to the screen
-heading and the primary button on it (`GIVE n DOSES` in blue, `ADD TO STOCK` in teal). A wrong tab
+heading and the primary button on it (`Give n doses` in blue, `Add to stock` in teal). A wrong tab
 looks wrong before anything is written. Status colours — amber/red/green — are reserved for stock
 levels and are never reused as a context accent.
 
@@ -320,8 +329,10 @@ screen.** The doctor never navigates to read remaining stock.
 
 **Dose modal:** vaccine name large at top (the confirmation, costing no tap) · lot chips with
 most-recently-used preselected (usually zero taps — a clinic runs 1–2 open lots) · child via
-`Recent` chips + search + a visible `Skip — no name` · dose stepper defaulting to 1 · 64dp
-`GIVE 1 DOSE` button in the thumb zone.
+`Recent` chips (each showing the child's age) + search + a visible `Skip, no name` · once a saved
+child is chosen, their age with `Change date of birth`, or a day/month/year wheel when no date of
+birth is on file (optional; it never blocks the dose) · dose stepper defaulting to 1 · 64dp
+`Give 1 dose` button in the thumb zone.
 
 **Target: launch → tile → child chip → GIVE = 3 taps. Skipping the child = 2.**
 
@@ -352,27 +363,35 @@ These are requirements, not preferences.
   never been built.
 - **No icon-only controls** outside the tab bar. Every button gets a word — icons are ambiguous to
   someone coming from paper.
-- Type scale: numbers that matter **28–34pt bold**, tile titles **22pt semibold**, body **18pt**,
-  labels 16pt, **floor 14pt**. Body `#10233A` on `#FFFFFF` (**15.9:1 measured**). No grey below
-  `#46586F` (**7.3:1 measured**), no thin weights.
+- Type scale: numbers that matter **28–34pt semibold**, tile titles **22pt semibold**, body **18pt**,
+  labels 16pt, **floor 14pt**. Two weights only, 400 and 600. Body `#0F172A` on `#FFFFFF`
+  (**17.9:1 measured**, 16.7:1 on the `#F6F8F7` ground). No grey below `#46586F` (**7.3:1
+  measured**) for text, no thin weights.
   These are no longer hand-written guesses — `src/ui/audit/contrast.db.test.ts` computes every
-  pairing and fails below 4.5:1. The tightest pairing now measures **4.6:1**, so there is a little
-  headroom where there used to be none; change a soft tint only with the test open.
-- **The palette is the Aero Clinic schema, adapted** (17 Sep 2026). Text `--ink`/`--ink-soft`,
-  primary `--sky-deep`, surfaces `--aero-bg-opaque`. The glass half of that schema — `backdrop-filter`,
-  `color-mix`, `@layer`, the gloss gradient — has no React Native equivalent and would be the wrong
-  instrument in a sunlit room regardless; what ships is its **Vista Basic** rendering, which the
-  schema itself says to design first. Its `--aqua` and `--grape` are marked fill-only and measure
-  2.2:1 and 4.0:1, so the two accents that must carry text are deepened along their own hue to 5:1.
-  Its 44px minimum target is **not** adopted — 56dp stands. Its disabled pairing measures 3.7:1 and
-  is darkened to 4.6:1.
-- Semantic colours, all ≥4.5:1 on white: green `#15803D` ok, amber `#A05E00` low, red `#A01E24`
-  out/expired. The schema has no green, so `ok` keeps its own measured value. **Never encode state by colour alone** — always colour **plus a word** ("LOW",
+  pairing on BOTH grounds and fails below 4.5:1 (3:1 for a control's edge). The tightest text
+  pairings measure **4.7:1** (`ok` and `low` on the ground); change a soft tint only with the test
+  open.
+- **The look is clinic-queue's** (16 Oct 2026, replacing the Aero Clinic palette of 17 Sep), so the
+  doctor's two apps read as one family. The source is `clinic-queue/docs/context/design/`. What came
+  across: white surfaces on a soft `#F6F8F7` ground; cards and tiles with one hairline `border` edge
+  and no shadow; `borderControl` (`#64748B`, 4.8:1) as the edge of every input, chip, stepper and
+  secondary button, because the decorative `border` (1.2:1) may never be the only edge of a control;
+  radius 8 for controls, 12 for cards, 999 for badges only; sentence case, verb first, no tracked-out
+  capitals; no em dashes in rendered text; badges as a soft ground with a darker ink.
+  What did **not**, on purpose: its 44px targets and 14–16px body (a desk, not a thumb — 56dp and
+  18pt stand); its `text-muted` as text (it fails the grey floor, so it is only ever an edge); its
+  faded disabled primary (about 2:1 — disabled stays a readable token swap); its single teal primary
+  (the four per-tab accents stay, and **Give dose stays blue, Add stock stays teal**: swapping them to
+  give Give dose the teal would point the doctor's learned colour at the wrong tab); and Mukta, which
+  clinic-queue ships only as `.woff2` for Devanagari — Android cannot load it, and this app is
+  English only.
+- Semantic colours, all ≥4.5:1 on both grounds: green `#15803D` ok, amber `#B45309` low, red
+  `#B91C1C` out/expired (clinic-queue's success, warning, danger). **Never encode state by colour alone** — always colour **plus a word** ("LOW",
   "OUT", "CHECK"). ~8% of men are red-green colourblind and a bright clinic window destroys colour
   discrimination anyway.
-- **Minimal, not decorated.** Depth comes from soft surfaces, hairline borders and subtle elevation
-  (`elevation()` in `tokens.ts`); larger radii do most of the modernising work. No gradients, no dark
-  mode, no animation beyond the toast fade and a slight press scale. "Modern" must never mean thin,
+- **Minimal, not decorated.** Structure comes from white surfaces, hairline edges and tints; the one
+  shadow is the floating footer's (`elevation()` in `tokens.ts`). No gradients, no dark mode, no
+  animation beyond the toast fade and clinic-queue's 0.97 press scale. "Modern" must never mean thin,
   small or low-contrast.
 - **Must be tested at Android font scale 1.3× and 1.6×** plus display size Large. This cohort very
   likely has both turned up; it is the most-skipped check and the most likely to bite here.
@@ -497,7 +516,7 @@ an indicator that appears for four seconds after every dose is noise, and noise 
 gets trained into invisibility. At four hours it escalates to red. Every message states that the data
 is **still safe on this phone**, because this is a delivery delay and must never read as data loss.
 
-**More** also carries an explicit `UPLOAD NOW`, one tap deep. It is not needed for correctness, but
+**More** also carries an explicit `Upload now`, one tap deep. It is not needed for correctness, but
 "did it actually go?" is a fair thing to want settled before leaving the clinic, and it pulls before
 pushing so it takes in the other device's entries too.
 
@@ -575,11 +594,14 @@ Three layers, cheapest first. A and B need no phone; **C is the only one that pr
 8. CSV round-trips embedded commas and an apostrophe in a trade name
 9. property test: 500 random movement sequences, derived on-hand equals a naive replay
 
-**Layer B — browser smoke loop.** `npx expo start --web` with `driver.web.ts` returning a seeded
-in-memory DB. Sub-second iteration on layout and contrast, zero WASM risk, since real DB behaviour is
-covered by Layer A.
+**Layer B — browser smoke loop.** `npx expo start --web` runs expo-sqlite's wasm build through
+`driver.expo.ts`, which uses a plain transaction there: exclusive transactions throw in the browser,
+and until 16 Oct 2026 that stopped the loop at the first migration. Fast iteration on layout and
+contrast; real DB behaviour is covered by Layer A. Driving it headless, one page holds the browser
+database at a time, so go through `about:blank` between screens or the next one reports
+"Cannot open clinic records". It cannot show Android font scale: that check stays on the phone.
 
-**Layer C — the physical phone.** Expo Go + `npx expo start`, scan the QR. Full 15-step script in
+**Layer C — the physical phone.** Expo Go + `npx expo start`, scan the QR. Full 20-step script in
 `docs/test-plan.md`. Run the whole thing in **airplane mode**. The three steps people skip and that
 matter most:
 
@@ -621,7 +643,7 @@ packaging), so it is safe to publish.
 | `docs/SRS.md` | IEEE-830 shaped; numbered `FR-*` / `NFR-*` requirements, each traceable to a use case and a test |
 | `docs/ERD.md` | Mermaid `erDiagram` with types, constraints, indexes, derived views |
 | `docs/waterfall.md` | Mermaid waterfall phase flowchart + Gantt timeline |
-| `docs/test-plan.md` | Three test layers + the 15-step on-phone acceptance script |
+| `docs/test-plan.md` | Three test layers + the 20-step on-phone acceptance script |
 | `docs/schema.sql` | Reference DDL for reviewers |
 | `jira/backlog.csv` | Jira CSV import (Jira is not reachable from the dev environment) |
 

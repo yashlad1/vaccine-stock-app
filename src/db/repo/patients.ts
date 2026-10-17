@@ -62,6 +62,15 @@ export function recentPatients(db: Db, limit = 15): Promise<Patient[]> {
   );
 }
 
+/**
+ * The age on every dose is worked out from this, so it is entered once per
+ * child rather than once per visit. Bumping `updated_at` is what queues the
+ * change for the server (the m002 dirty trigger).
+ */
+export async function setPatientDob(db: Db, id: string, dob: string, now: number = Date.now()) {
+  await db.run(`UPDATE patients SET dob = ?, updated_at = ? WHERE id = ?`, [dob, now, id]);
+}
+
 export function getPatient(db: Db, id: string): Promise<Patient | null> {
   return db.first<Patient>(`SELECT id, name, dob, guardian_phone FROM patients WHERE id = ?`, [id]);
 }

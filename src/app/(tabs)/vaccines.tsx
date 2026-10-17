@@ -176,7 +176,7 @@ export default function VaccinesScreen() {
         ) : (
           <BigButton
             accent="catalog"
-            label="ADD A NEW VACCINE"
+            label="Add a new vaccine"
             sublabel="Trade name, how it is counted, safety limit"
             onPress={() => router.push('/catalog/new')}
           />
@@ -189,8 +189,8 @@ export default function VaccinesScreen() {
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   headerWrap: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
-  total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
-  noteTitle: { fontSize: type.label, fontWeight: weight.bold, color: color.catalog },
+  total: { fontSize: type.hero, fontWeight: weight.semibold, color: color.text },
+  noteTitle: { fontSize: type.label, fontWeight: weight.semibold, color: color.catalog },
   noteBody: { fontSize: type.min, color: color.text, lineHeight: 21, marginTop: space.xs },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   emptyText: { fontSize: type.body, color: color.textMuted, textAlign: 'center', lineHeight: 26 },
@@ -202,6 +202,7 @@ const st = StyleSheet.create({
     gap: space.sm,
     paddingVertical: space.md,
     paddingHorizontal: space.lg,
+    backgroundColor: color.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.border,
   },

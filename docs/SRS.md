@@ -169,6 +169,7 @@ that single device.
 | **FR-28** | The system shall not prevent administering a dose because stock is low, exhausted, or already negative. | `ledger.db.test.ts` — "PERMITS negative on-hand" |
 | **FR-29** | Administration from an **expired** batch shall be blocked, with the expiry shown. | `dose/[vaccineId].tsx`; `lots.ts` `isExpired` |
 | **FR-30** | The child register shall support type-ahead by name **or** guardian phone number, recent-children shortcuts, and inline creation of a new child from the dose screen. | `patients.ts`; test-plan step 2 |
+| **FR-31** | The dose screen shall let the clinician save a child's date of birth, optionally and without ever blocking the dose. Every dose to that child shall then show the child's **age at that dose** in the clinic's resolution (weeks under six months, months under two years, then years and months), on the dose screen, in Given today, in All entries and in `doses.csv`. | `time.db.test.ts` — "age, in the clinic resolution"; `collect.db.test.ts`; test-plan step 20 |
 
 ### 3.4 Corrections
 
@@ -188,7 +189,7 @@ that single device.
 | Ref | Requirement | Verified by |
 | --- | --- | --- |
 | **FR-50** | *"Vaccine stock, names, unique values"* — the system shall list each vaccine with its present stock, each appearing exactly once. | `reports.db.test.ts` — "lists every catalog vaccine exactly once" |
-| **FR-51** | *"Vaccines given today, time, count"* — the system shall list every dose given on a given local date with its time, vaccine, batch and child, plus per-vaccine totals. | `reports.db.test.ts` |
+| **FR-51** | *"Vaccines given today, time, count"* — the system shall list every dose given on a given local date with its time, vaccine, batch, child and the child's age at the dose, plus per-vaccine totals. | `reports.db.test.ts` |
 | **FR-52** | Activity counts shall **exclude** undone entries: three doses with one undone shall report two. | `reports.db.test.ts` — "EXCLUDES an undone dose" |
 | **FR-53** | *"Vaccines remaining today, time, count"* — the system shall present on-hand stock together with the derivation that produces it: `Opening · +Received · −Given · −Wasted · = Now`. | `reports.db.test.ts` — "the movement strip reconciles" |
 | **FR-54** | That derivation shall always sum to the stated current figure, including when an entry from a previous day is corrected today. | `reports.db.test.ts` — 300-case property test |
@@ -206,7 +207,7 @@ that single device.
 | --- | --- | --- |
 | **FR-70** | One action shall produce a single backup file containing both the complete database and spreadsheet-readable CSVs, and offer it to the Android share sheet. | `export.ts`; test-plan step 10 |
 | **FR-71** | The database image shall be produced with SQLite serialisation, never a raw file copy, because under WAL journalling recent commits are not yet in the `.db` file. | `export.ts` `buildBackupBundle` |
-| **FR-72** | `doses.csv` shall be shaped like the notebook page it replaces: date, 12-hour time, vaccine, batch, child, doses. | `collect.db.test.ts` |
+| **FR-72** | `doses.csv` shall be shaped like the notebook page it replaces: date, 12-hour time, vaccine, batch, child, age, doses. | `collect.db.test.ts` |
 | **FR-73** | CSV output shall correctly quote commas, quotation marks, newlines and apostrophes. | `csv.db.test.ts` |
 | **FR-74** | A candidate backup shall be validated **before** any live data is modified, and the confirmation shall show real counts from both the backup and the phone. | `validate.db.test.ts`; `import.ts` |
 | **FR-75** | Restore shall reject, with a **specific** message, a file that is not a zip, contains no database, was written by a newer version, is missing tables, or contradicts its own manifest. | `validate.db.test.ts` — "backup rejection is always specific" |
@@ -308,7 +309,7 @@ reading without glasses, in a brightly lit room. These are requirements, not pre
    quantity defaulted to 1.
 3. Clinician taps a recent child, or types two letters and picks a match, or adds a new child inline,
    **or skips the child entirely**.
-4. Clinician taps **GIVE 1 DOSE**.
+4. Clinician taps **Give 1 dose**.
 5. System writes the movement, closes the screen, decrements the tile, gives haptic feedback, and
    shows an undo action for 8 seconds.
 
@@ -330,7 +331,7 @@ record a vaccination to protect an inventory figure is the wrong trade. (FR-28)
 3. Selects bought or government.
 4. Sets the quantity with a stepper — **in vials** for vial-counted vaccines.
 5. System displays the dose equivalent and the resulting balance.
-6. Clinician taps **ADD TO STOCK**.
+6. Clinician taps **Add to stock**.
 
 **Result:** stock increased. Batch created if new. **Four to five taps plus the batch number.**
 
@@ -347,7 +348,7 @@ vaccine and the movement derivation — and can fill in any child name that was 
 
 ### UC-5 — Back up *(prompted every few days)*
 
-Clinician taps the prompt, then **BACK UP NOW**, and sends the file to herself over WhatsApp or saves
+Clinician taps the prompt, then **Back up now**, and sends the file to herself over WhatsApp or saves
 it to Drive. (FR-70, FR-78)
 
 ### UC-6 — Correct an old entry *(occasionally)*

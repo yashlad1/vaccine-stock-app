@@ -1,6 +1,6 @@
 import type { Db } from '../driver';
 import { objectsToCsv, type CsvValue } from './csv';
-import { formatTime12h } from '../../domain/time';
+import { formatAge, formatTime12h } from '../../domain/time';
 import { REQUIRED_TABLES } from './validate';
 
 /**
@@ -15,10 +15,11 @@ export async function dosesCsv(db: Db): Promise<string> {
   const rows = await db.all<Record<string, CsvValue>>(
     `SELECT m.local_date AS date, m.local_time AS time24, v.name AS vaccine,
             l.lot_number AS batch, m.patient_label AS child,
-            -m.delta_doses AS doses
+            p.dob AS dob, -m.delta_doses AS doses
        FROM v_movement_effective m
        JOIN vaccines v ON v.id = m.vaccine_id
        LEFT JOIN lots l ON l.id = m.lot_id
+       LEFT JOIN patients p ON p.id = m.patient_id
       WHERE m.movement_type = 'ADMINISTRATION'
       ORDER BY m.occurred_at ASC`,
   );
@@ -28,9 +29,11 @@ export async function dosesCsv(db: Db): Promise<string> {
     vaccine: r.vaccine,
     batch: r.batch,
     child: r.child,
+    // The age AT THIS DOSE, the way the notebook recorded it.
+    age: formatAge(r.dob as string | null, String(r.date)),
     doses: r.doses,
   }));
-  return objectsToCsv(['date', 'time', 'vaccine', 'batch', 'child', 'doses'], shaped);
+  return objectsToCsv(['date', 'time', 'vaccine', 'batch', 'child', 'age', 'doses'], shaped);
 }
 
 export async function movementsCsv(db: Db): Promise<string> {

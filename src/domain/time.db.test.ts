@@ -1,4 +1,4 @@
-import { stamp, todayLocal, expiryFromMonth, expiryToMonthLabel, formatTime12h } from './time';
+import { stamp, todayLocal, expiryFromMonth, expiryToMonthLabel, formatTime12h, formatAge, dateFromParts } from './time';
 
 const IST = 330;
 
@@ -67,5 +67,45 @@ describe('12-hour time display', () => {
     ['23:59', '11:59 pm'],
   ])('%s -> %s', (input, expected) => {
     expect(formatTime12h(input)).toBe(expected);
+  });
+});
+
+describe('age, in the clinic resolution', () => {
+  it('counts weeks from the date under six months, not from months', () => {
+    // 77 days is exactly eleven weeks. Assembled from months it came out as 10.
+    expect(formatAge('2026-07-31', '2026-10-16')).toBe('11 w');
+    expect(formatAge('2026-10-16', '2026-10-16')).toBe('0 w');
+    expect(formatAge('2026-09-04', '2026-10-16')).toBe('6 w');
+  });
+
+  it('switches to months at six months, and to years and months at two', () => {
+    expect(formatAge('2026-04-16', '2026-10-16')).toBe('6 m');
+    expect(formatAge('2026-04-17', '2026-10-16')).toBe('26 w'); // 182 days, one short of six months
+    expect(formatAge('2024-10-17', '2026-10-16')).toBe('23 m');
+    expect(formatAge('2024-10-16', '2026-10-16')).toBe('2 y');
+    expect(formatAge('2022-02-10', '2026-10-16')).toBe('4 y 8 m');
+  });
+
+  it('is blank, never "0 w", without a usable date of birth', () => {
+    expect(formatAge(null, '2026-10-16')).toBeNull();
+    expect(formatAge('2026-10-17', '2026-10-16')).toBeNull();
+    expect(formatAge('garbage', '2026-10-16')).toBeNull();
+    expect(formatAge('26-07-2026', '2026-09-06')).toBeNull(); // not "2000 y 1 m"
+  });
+
+  it('counts a month as complete on the same day-of-month, as clinic-queue does', () => {
+    // Deliberate, so it is pinned: born 31 Mar has no 30 Sep anniversary,
+    // so it is still weeks that day and becomes "6 m" on 1 Oct.
+    expect(formatAge('2026-03-31', '2026-09-30')).toBe('26 w');
+    expect(formatAge('2026-03-31', '2026-10-01')).toBe('6 m');
+    expect(formatAge('2024-02-29', '2026-02-28')).toBe('23 m');
+    expect(formatAge('2024-02-29', '2026-03-01')).toBe('2 y');
+  });
+
+  it('refuses dates that do not exist', () => {
+    expect(dateFromParts(2026, 2, 31)).toBeNull();
+    expect(dateFromParts(2023, 2, 29)).toBeNull();
+    expect(dateFromParts(2024, 2, 29)).toBe('2024-02-29');
+    expect(dateFromParts(2026, 7, 3)).toBe('2026-07-03');
   });
 });

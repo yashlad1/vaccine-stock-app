@@ -54,6 +54,6 @@ export default function SettingsScreen() {
 
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
-  section: { fontSize: type.label, fontWeight: weight.bold, color: color.textMuted, marginTop: space.xl, marginBottom: space.sm },
+  section: { fontSize: type.label, fontWeight: weight.semibold, color: color.textMuted, marginTop: space.xl, marginBottom: space.sm },
   note: { fontSize: type.min, color: color.textMuted, lineHeight: 20 },
 });

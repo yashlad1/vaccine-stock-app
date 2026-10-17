@@ -56,7 +56,7 @@ The index is load-bearing and must stay. But a true merge is impossible today: `
 immutability trigger's column list, so past doses cannot be re-pointed.
 
 **Fix, in two parts:**
-- **Prevent:** adding a vaccine is an admin action, not a daily one. Restrict **"ADD A NEW VACCINE"
+- **Prevent:** adding a vaccine is an admin action, not a daily one. Restrict **"Add a new vaccine"
   to the primary device only** (a `settings` flag). Near-zero cost, removes almost all of H2.
 - **Survive:** if it happens anyway, import the loser as `name || ' (duplicate)'` and show a
   "2 vaccines need merging" card. Nothing is lost and the ledger stays valid.

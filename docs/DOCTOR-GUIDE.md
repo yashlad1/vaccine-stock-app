@@ -14,7 +14,7 @@ There are 4 tabs at the top. You will use the first two every day.
 flowchart TD
     OPEN([Open the app]) --> HOME
 
-    HOME["<b>GIVE DOSE</b><br/>The app opens here.<br/>Every vaccine is a big box.<br/>Under each name is how many doses are left."]
+    HOME["<b>Give dose</b><br/>The app opens here.<br/>Every vaccine is a big box.<br/>Under each name is how many doses are left."]
 
     HOME -->|"Giving a vaccine to a child"| D1
     HOME -->|"New stock has come"| S1
@@ -23,29 +23,29 @@ flowchart TD
 
     subgraph GIVE ["Give a vaccine — 3 taps"]
         direction TB
-        D1["1. Tap the vaccine box"] --> D2["2. Tap the child's name<br/>or tap <b>Skip — no name</b>"]
-        D2 --> D3(["3. Tap <b>GIVE 1 DOSE</b>"])
-        D3 --> D4["The count goes down at once.<br/>Wrong tap? Tap <b>UNDO</b>."]
+        D1["1. Tap the vaccine box"] --> D2["2. Tap the child's name<br/>or tap <b>Skip, no name</b>"]
+        D2 --> D3(["3. Tap <b>Give 1 dose</b>"])
+        D3 --> D4["The count goes down at once.<br/>Wrong tap? Tap <b>Undo</b>."]
     end
 
     subgraph ADD ["New stock has come"]
         direction TB
-        S1["1. Tap <b>ADD STOCK</b> at the top"] --> S2["2. Tap the vaccine"]
+        S1["1. Tap <b>Add stock</b> at the top"] --> S2["2. Tap the vaccine"]
         S2 --> S3["3. Type the batch number<br/>written on the box"]
         S3 --> S4["4. Roll the wheels to the<br/>expiry month and year"]
         S4 --> S5["5. Tap − or + for how many<br/>vials have come"]
-        S5 --> S6(["6. Tap <b>ADD TO STOCK</b>"])
+        S5 --> S6(["6. Tap <b>Add to stock</b>"])
     end
 
     subgraph CAT ["Vaccines"]
         direction TB
-        V1["Tap <b>VACCINES</b> at the top"] --> V2["To add one:<br/><b>ADD A NEW VACCINE</b> at the bottom"]
+        V1["Tap <b>Vaccines</b> at the top"] --> V2["To add one:<br/><b>Add a new vaccine</b> at the bottom"]
         V1 --> V3["To stop using one:<br/>tap <b>Hide</b> or <b>Remove</b>"]
     end
 
     subgraph MORE ["More"]
         direction TB
-        M1["Tap <b>MORE</b> at the top"] --> M2["<b>Given today</b><br/>every dose, with time"]
+        M1["Tap <b>More</b> at the top"] --> M2["<b>Given today</b><br/>every dose, with time"]
         M1 --> M3["<b>Back up / restore</b><br/>save a copy"]
         M1 --> M4["<b>Missing child names</b><br/>add names you skipped"]
         M1 --> M5["<b>All entries</b><br/>full history, and fix mistakes"]
@@ -74,18 +74,18 @@ It asks only the first time.
 
 **1. Check the doses per vial.**
 
-Tap **VACCINES**. Look at each vial you use. Check that the doses per vial matches the real vial in
+Tap **Vaccines**. Look at each vial you use. Check that the doses per vial matches the real vial in
 your fridge.
 
 This number is used for every count. If it is wrong, every total for that vaccine will be wrong.
 
 **2. Put in what you have now.**
 
-Tap **ADD STOCK**. Add what is in the fridge today, one vaccine at a time.
+Tap **Add stock**. Add what is in the fridge today, one vaccine at a time.
 
 **3. Take one backup.**
 
-Tap **MORE**, then **Back up / restore**, then **Back up now**. Send the file to yourself on
+Tap **More**, then **Back up / restore**, then **Back up now**. Send the file to yourself on
 WhatsApp. Now you have seen it work once.
 
 ---
@@ -93,26 +93,34 @@ WhatsApp. Now you have seen it work once.
 ## Giving a vaccine
 
 1. Tap the vaccine box.
-2. Tap the child's name. Or type 2 letters to find it. Or tap **Skip — no name**.
-3. Tap **GIVE 1 DOSE**.
+2. Tap the child's name. Or type 2 letters to find it. Or tap **Skip, no name**.
+3. Tap **Give 1 dose**.
 
 The count goes down at once.
 
-If you tapped wrong, a black bar comes up at the bottom. Tap **UNDO** on it.
+If you tapped wrong, a black bar comes up at the bottom. Tap **Undo** on it.
 
 You do not have to type the batch. It is already filled in.
+
+### The child's age
+
+1. Tap the child's name. For a new child, type the name and tap **+ Add**.
+2. Roll the three wheels to the day, month and year of birth.
+3. Tap **Give 1 dose**.
+
+The age shows on every dose. Next time it fills in by itself.
 
 ---
 
 ## When new stock comes
 
-1. Tap **ADD STOCK** at the top.
+1. Tap **Add stock** at the top.
 2. Tap the vaccine.
 3. Type the batch number from the box.
 4. Roll the wheels to the expiry month and year.
 5. Tap **Bought** or **Government (free)**.
 6. Tap **−** or **+** for how many vials have come.
-7. Tap **ADD TO STOCK**.
+7. Tap **Add to stock**.
 
 You do not have to multiply. The app does it.
 
@@ -137,7 +145,7 @@ Every warning has a word, not just a colour.
 
 ## Good to know
 
-**The child's name is not needed.** Never stop because you do not have it. Tap **Skip — no name**.
+**The child's name is not needed.** Never stop because you do not have it. Tap **Skip, no name**.
 Add it later from **MORE → Missing child names**.
 
 **Nothing is ever deleted.** If you fix a mistake, the app adds a correction next to it. The old
@@ -152,7 +160,7 @@ app writes the last date under the wheels.
 
 ## If something looks wrong
 
-**A number looks wrong** — Tap **MORE**, then **All entries**. Every entry is there, newest first.
+**A number looks wrong** — Tap **More**, then **All entries**. Every entry is there, newest first.
 Tap **Correct this entry** on the wrong one.
 
 **A red message comes up** — Read it. It always tells you if anything was saved. If it says nothing
@@ -168,7 +176,7 @@ was saved, then nothing was saved.
 
 The records are on this phone. Back it up when the app asks.
 
-Tap **MORE** → **Back up / restore** → **Back up now**.
+Tap **More** → **Back up / restore** → **Back up now**.
 
 It makes one small file. Send it to yourself on WhatsApp, or save it to Drive. It takes a few
 seconds.

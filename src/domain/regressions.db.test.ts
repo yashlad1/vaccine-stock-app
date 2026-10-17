@@ -115,8 +115,8 @@ describe('the backup banner "Later" button', () => {
 
   it('agrees with itself about number', () => {
     expect(backupNag({ lastBackupAt: null, dosesSinceBackup: 1, now: NOW }).message)
-      .toBe('Back up now — 1 entry has never been backed up.');
+      .toBe('Back up now: 1 entry has never been backed up.');
     expect(backupNag({ lastBackupAt: null, dosesSinceBackup: 2, now: NOW }).message)
-      .toBe('Back up now — 2 entries have never been backed up.');
+      .toBe('Back up now: 2 entries have never been backed up.');
   });
 });

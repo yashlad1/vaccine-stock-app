@@ -55,19 +55,19 @@ export function backupNag(input: NagInput): Nag {
       ? {
           level: dosesSinceBackup >= NAG.dueAfterDoses ? 'overdue' : 'due',
           message:
-            `Back up now — ${dosesSinceBackup} ` +
+            `Back up now: ${dosesSinceBackup} ` +
             `${dosesSinceBackup === 1 ? 'entry has' : 'entries have'} never been backed up.`,
         }
       : days >= NAG.overdueAfterDays
         ? {
             level: 'overdue',
-            message: `Back up now — last backup was ${days} days ago (${dateLabel(lastBackupAt)}).`,
+            message: `Back up now: last backup was ${days} days ago (${dateLabel(lastBackupAt)}).`,
           }
         : days >= NAG.dueAfterDays || dosesSinceBackup >= NAG.dueAfterDoses
           ? {
               level: 'due',
               message:
-                `Back up now — ${
+                `Back up now: ${
                   dosesSinceBackup >= NAG.dueAfterDoses
                     ? `${dosesSinceBackup} entries since ${dateLabel(lastBackupAt)}`
                     : `last backup ${dateLabel(lastBackupAt)}`

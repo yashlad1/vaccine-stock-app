@@ -86,15 +86,15 @@ describe('Badge', () => {
 describe('BigButton', () => {
   it('does not fire when disabled', async () => {
     const onPress = jest.fn();
-    const s = await wrap(<BigButton label="GIVE 1 DOSE" onPress={onPress} disabled />);
-    await userEvent.press(s.getByText('GIVE 1 DOSE'));
+    const s = await wrap(<BigButton label="Give 1 dose" onPress={onPress} disabled />);
+    await userEvent.press(s.getByText('Give 1 dose'));
     expect(onPress).not.toHaveBeenCalled();
   });
 
   it('fires once when enabled', async () => {
     const onPress = jest.fn();
-    const s = await wrap(<BigButton label="ADD TO STOCK" onPress={onPress} />);
-    await userEvent.press(s.getByText('ADD TO STOCK'));
+    const s = await wrap(<BigButton label="Add to stock" onPress={onPress} />);
+    await userEvent.press(s.getByText('Add to stock'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 });
@@ -116,10 +116,10 @@ describe('Footer — the navigation-bar fix', () => {
     // real space below the button rather than the inset merely being consumed.
     const s = await wrap(
       <Footer>
-        <BigButton label="ADD A NEW VACCINE" onPress={() => undefined} />
+        <BigButton label="Add a new vaccine" onPress={() => undefined} />
       </Footer>,
     );
-    const btn = s.getByText('ADD A NEW VACCINE');
+    const btn = s.getByText('Add a new vaccine');
     expect(btn).toBeTruthy();
 
     const flat = (st: unknown): Record<string, unknown> =>

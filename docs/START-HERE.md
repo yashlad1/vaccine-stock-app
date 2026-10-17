@@ -15,24 +15,34 @@ That is all. The app updated itself. Nothing you entered before is lost.
 ## Giving a vaccine
 
 1. Tap the vaccine box.
-2. Tap the child's name. Or tap **Skip — no name**.
-3. Tap **GIVE 1 DOSE**.
+2. Tap the child's name. Or tap **Skip, no name**.
+3. Tap **Give 1 dose**.
 
 The count goes down straight away.
 
-Tapped the wrong one? Tap **UNDO** on the black bar.
+Tapped the wrong one? Tap **Undo** on the black bar.
+
+---
+
+## The child's age
+
+1. Tap the child's name. For a new child, type the name and tap **+ Add**.
+2. Roll the three wheels to the day, month and year of birth.
+3. Tap **Give 1 dose**.
+
+The age shows on every dose. Next time it fills in by itself.
 
 ---
 
 ## New stock has come
 
-1. Tap **ADD STOCK** at the top.
+1. Tap **Add stock** at the top.
 2. Tap the vaccine.
 3. Type the batch number from the box.
 4. Roll the wheels to the expiry month and year.
 5. Tap **Bought** or **Government (free)**.
 6. Tap **−** or **+** for how many vials came.
-7. Tap **ADD TO STOCK**.
+7. Tap **Add to stock**.
 
 You do not need to multiply. The app does it.
 
@@ -40,7 +50,7 @@ You do not need to multiply. The app does it.
 
 ## Check this once, before you trust the numbers
 
-1. Tap **VACCINES** at the top.
+1. Tap **Vaccines** at the top.
 2. Look at each vaccine you use.
 3. Check the doses per vial matches the real vial in your fridge.
 
@@ -50,7 +60,7 @@ If this number is wrong, every total for that vaccine will be wrong.
 
 ## Save a copy
 
-1. Tap **MORE** at the top.
+1. Tap **More** at the top.
 2. Tap **Back up / restore**.
 3. Tap **Back up now**.
 4. Send the file to yourself on WhatsApp.
@@ -83,7 +93,7 @@ Do this today. Then do it whenever the app asks.
 
 ## Something looks wrong
 
-1. Tap **MORE**.
+1. Tap **More**.
 2. Tap **All entries**.
 3. Find the wrong one.
 4. Tap **Correct this entry**.

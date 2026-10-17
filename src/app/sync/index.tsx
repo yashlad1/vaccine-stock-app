@@ -132,7 +132,7 @@ export default function SyncScreen() {
                   toast.show(
                     report.total
                       ? `Added ${report.total} ${report.total === 1 ? 'record' : 'records'}.`
-                      : 'Nothing new — this phone already had everything.',
+                      : 'Nothing new. This phone already had everything.',
                   );
                 }),
             },
@@ -156,7 +156,7 @@ export default function SyncScreen() {
 
       {hasEmbeddedSync ? (
         <T style={st.builtIn}>
-          Already set up — this app was built with the clinic&apos;s server details, so backup runs
+          Already set up. This app was built with the clinic&apos;s server details, so backup runs
           on its own. Nothing below needs changing unless the server moves.
         </T>
       ) : null}
@@ -199,7 +199,7 @@ export default function SyncScreen() {
 
       <View style={{ gap: space.md, marginTop: space.md }}>
         <SecondaryButton label={busy ? 'Working…' : 'Test the connection'} onPress={test} />
-        <BigButton label="SAVE" onPress={save} disabled={enabled && !complete} />
+        <BigButton label="Save" onPress={save} disabled={enabled && !complete} />
       </View>
 
       <T style={st.section}>Status</T>
@@ -216,7 +216,7 @@ export default function SyncScreen() {
       </View>
 
       <T style={st.note}>
-        This does not replace the backup file. Keep taking those too — a zip you hold yourself is
+        This does not replace the backup file. Keep taking those too: a zip you hold yourself is
         the one copy that does not depend on an account still working.
       </T>
     </ScrollView>
@@ -232,10 +232,10 @@ const st = StyleSheet.create({
   },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   section: {
-    fontSize: type.label, fontWeight: weight.bold, color: color.textMuted,
-    letterSpacing: 0.8, textTransform: 'uppercase', marginTop: space.xl, marginBottom: space.sm,
+    fontSize: type.body, fontWeight: weight.semibold, color: color.text,
+    marginTop: space.xl, marginBottom: space.sm,
   },
-  num: { fontSize: type.title, fontWeight: weight.bold, color: color.text },
+  num: { fontSize: type.title, fontWeight: weight.semibold, color: color.text },
   err: { fontSize: type.min, color: color.danger, lineHeight: 21, marginTop: space.sm },
   note: { fontSize: type.min, color: color.textMuted, lineHeight: 21, marginTop: space.xl },
 });

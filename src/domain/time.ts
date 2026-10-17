@@ -54,6 +54,43 @@ export function expiryToMonthLabel(expiryDate: string): string {
   return `${m}/${y}`;
 }
 
+/**
+ * Age, in the clinic's own resolution: weeks up to six months, months up to
+ * two years, then years and months. Same rule and format as clinic-queue's
+ * age-format.ts, so the doctor reads one age format in both apps. `11 w` and
+ * `4 y 8 m` are different appointments; a year is the wrong unit for a
+ * paediatric register.
+ *
+ * Both arguments are local calendar dates - the strings the ledger already
+ * stores as `local_date` - so the age on a dose never moves with the phone's
+ * timezone. Null, never "0 w", when there is no answer: "0 w" means born today.
+ */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function formatAge(dob: string | null, onLocalDate: string): string | null {
+  // Only the wheel writes dob, but pulled and restored rows do not pass
+  // through it, and '26-07-2026' would otherwise read as "2000 y 1 m".
+  if (!dob || !ISO_DATE.test(dob) || !ISO_DATE.test(onLocalDate)) return null;
+  const [y1, m1, d1] = dob.split('-').map(Number);
+  const [y2, m2, d2] = onLocalDate.split('-').map(Number);
+  // UTC on both sides, so a daylight-saving hour cannot shave a day off.
+  const days = (Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000;
+  if (!(days >= 0)) return null; // unreadable, or born after the dose: a typo, not an age
+  const months = (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0);
+  // Weeks count from the date, not from months: a month is not four weeks.
+  if (months < 6) return `${Math.floor(days / 7)} w`;
+  if (months < 24) return `${months} m`;
+  const years = Math.floor(months / 12);
+  return months % 12 ? `${years} y ${months % 12} m` : `${years} y`;
+}
+
+/** 'YYYY-MM-DD', or null when the parts are not a real date (31 Feb). */
+export function dateFromParts(year: number, month1to12: number, day: number): string | null {
+  const d = new Date(Date.UTC(year, month1to12 - 1, day));
+  if (d.getUTCMonth() !== month1to12 - 1 || d.getUTCDate() !== day) return null;
+  return `${year}-${p2(month1to12)}-${p2(day)}`;
+}
+
 /** The local date N days before `at`, for usage windows and backup nags. */
 export function daysAgoLocal(days: number, at: number = Date.now(), tzOffsetMinutes?: number): string {
   return stamp(at - days * 86_400_000, tzOffsetMinutes).localDate;

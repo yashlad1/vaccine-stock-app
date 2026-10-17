@@ -27,7 +27,7 @@ export function friendlyError(err: unknown, { what }: ActionLabels): string {
   // The append-only triggers. These fire only on a programming mistake, but if
   // one ever reaches her, it must not read like data loss - because it isn't.
   if (has(raw, 'append-only')) {
-    return 'Past entries cannot be edited. Add a correction instead — nothing was changed.';
+    return 'Past entries cannot be edited. Add a correction instead. Nothing was changed.';
   }
   if (has(raw, 'cannot reverse a REVERSAL')) {
     return 'That entry is already a correction. Record a new entry instead.';
@@ -46,13 +46,13 @@ export function friendlyError(err: unknown, { what }: ActionLabels): string {
     return `Could not ${what}: one of the values is not allowed. Nothing was saved.`;
   }
   if (has(raw, 'database is locked') || has(raw, 'SQLITE_BUSY')) {
-    return `The app was busy saving something else. Nothing was saved — please try again.`;
+    return `The app was busy saving something else. Nothing was saved. Please try again.`;
   }
   if (has(raw, 'no such table') || has(raw, 'no such column')) {
     return 'This copy of the app does not match your saved data. Please update the app.';
   }
   if (has(raw, 'disk') || has(raw, 'SQLITE_FULL')) {
-    return 'The phone is out of storage. Nothing was saved — free some space and try again.';
+    return 'The phone is out of storage. Nothing was saved. Free some space and try again.';
   }
 
   // Network, for the sync paths only. Local data entry never touches a network.
@@ -60,8 +60,8 @@ export function friendlyError(err: unknown, { what }: ActionLabels): string {
     return 'No internet connection. Your entries are safe on this phone and will upload later.';
   }
   if (has(raw, 'SyncAuthError') || has(raw, 'Invalid login') || has(raw, '401')) {
-    return 'The server rejected the login. Check the details in Settings — your data is safe on this phone.';
+    return 'The server rejected the login. Check the details in Settings. Your data is safe on this phone.';
   }
 
-  return `Could not ${what}. Nothing was saved — please try again.`;
+  return `Could not ${what}. Nothing was saved. Please try again.`;
 }

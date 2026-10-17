@@ -7,7 +7,7 @@ import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { newId } from '../../domain/ids';
 import { reverseMovement } from '../../domain/ledger';
-import { formatDate, formatTime12h } from '../../domain/time';
+import { formatAge, formatDate, formatTime12h } from '../../domain/time';
 
 interface LedgerLine {
   id: string;
@@ -18,6 +18,7 @@ interface LedgerLine {
   vaccine_name: string;
   lot_number: string | null;
   patient_label: string | null;
+  dob: string | null;
   note: string | null;
   reverses_id: string | null;
   is_reversed: number;
@@ -37,12 +38,13 @@ export default function LedgerScreen() {
   const { data, loading, error, reload } = useQuery((d) =>
     d.all<LedgerLine>(
       `SELECT m.id, m.local_date, m.local_time, m.movement_type, m.delta_doses,
-              v.name AS vaccine_name, l.lot_number, m.patient_label,
+              v.name AS vaccine_name, l.lot_number, m.patient_label, p.dob,
               m.note, m.reverses_id,
               EXISTS(SELECT 1 FROM stock_movements r WHERE r.reverses_id = m.id) AS is_reversed
          FROM stock_movements m
          JOIN vaccines v ON v.id = m.vaccine_id
          LEFT JOIN lots l ON l.id = m.lot_id
+         LEFT JOIN patients p ON p.id = m.patient_id
         ORDER BY m.recorded_at DESC
         LIMIT 500`,
     ),
@@ -80,6 +82,9 @@ export default function LedgerScreen() {
                 {formatTime12h(item.local_time)}
                 {item.lot_number ? ` · batch ${item.lot_number}` : ''}
                 {item.patient_label ? ` · ${item.patient_label}` : ''}
+                {item.movement_type === 'ADMINISTRATION' && formatAge(item.dob, item.local_date)
+                  ? ` · ${formatAge(item.dob, item.local_date)}`
+                  : ''}
               </T>
               {!undone && item.movement_type !== 'REVERSAL' ? (
                 <SecondaryButton
@@ -120,5 +125,5 @@ const st = StyleSheet.create({
   rowUndone: { opacity: 0.6 },
   title: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
   meta: { fontSize: type.min, color: color.textMuted, marginTop: 2 },
-  delta: { fontSize: type.title, fontWeight: weight.bold },
+  delta: { fontSize: type.title, fontWeight: weight.semibold },
 });

@@ -115,7 +115,7 @@ export default function AddStockScreen() {
       <Footer floating>
         <BigButton
           accent="stock"
-          label="ADD STOCK"
+          label="Add stock"
           sublabel="Log a delivery that has arrived"
           onPress={() => router.push('/receive')}
         />
@@ -128,7 +128,7 @@ const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   headerWrap: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
   eyebrow: { fontSize: type.min, color: color.textMuted, fontWeight: weight.semibold },
-  total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text, marginTop: 2 },
+  total: { fontSize: type.hero, fontWeight: weight.semibold, color: color.text, marginTop: 2 },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   row: {
     minHeight: 68,
@@ -137,10 +137,11 @@ const st = StyleSheet.create({
     gap: space.md,
     paddingVertical: space.md,
     paddingHorizontal: space.lg,
+    backgroundColor: color.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.border,
   },
   rowName: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
   rowSub: { fontSize: type.label, color: color.textMuted, marginTop: 2 },
-  plus: { fontSize: type.big, fontWeight: weight.bold, color: color.stock, marginTop: -3 },
+  plus: { fontSize: type.big, fontWeight: weight.semibold, color: color.stock, marginTop: -3 },
 });

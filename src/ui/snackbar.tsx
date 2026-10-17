@@ -121,7 +121,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 }}
                 style={st.undo}
               >
-                <T style={st.undoText}>UNDO</T>
+                <T style={st.undoText}>Undo</T>
               </Pressable>
             ) : null}
           </View>
@@ -150,5 +150,5 @@ const st = StyleSheet.create({
   text: { flex: 1, color: color.onAccent, fontSize: type.label, fontWeight: weight.semibold },
   // A large hit area: this is tapped in a hurry, one-handed.
   undo: { minWidth: 88, minHeight: touch.min, alignItems: 'center', justifyContent: 'center' },
-  undoText: { color: color.undo, fontSize: type.body, fontWeight: weight.bold, letterSpacing: 1 },
+  undoText: { color: color.undo, fontSize: type.body, fontWeight: weight.semibold },
 });

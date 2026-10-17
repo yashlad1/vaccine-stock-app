@@ -96,7 +96,7 @@ export function TopTabBar({ state, descriptors, navigation }: BottomTabBarProps)
 
 const st = StyleSheet.create({
   wrap: {
-    backgroundColor: color.bg,
+    backgroundColor: color.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.border,
   },
@@ -113,7 +113,8 @@ const st = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.md,
-    borderRadius: radius.md,
+    // clinic-queue's segmented control: a tinted pill for the active item.
+    borderRadius: radius.pill,
     gap: 6,
   },
   label: {

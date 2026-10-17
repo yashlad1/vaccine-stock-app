@@ -131,7 +131,7 @@ export default function NewVaccineScreen() {
       <Footer>
         <BigButton
           accent="catalog"
-          label="ADD VACCINE"
+          label="Add vaccine"
           onPress={save}
           disabled={!name.trim()}
           sublabel={name.trim() ? undefined : 'Enter the trade name first'}
