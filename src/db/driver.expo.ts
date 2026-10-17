@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import type { Db, RunResult } from './driver';
 
@@ -32,18 +33,26 @@ export function wrapExpoDb(raw: SQLite.SQLiteDatabase): Db {
     ...wrapExec(raw),
     async tx<R>(fn: (tx: Db) => Promise<R>): Promise<R> {
       let out!: R;
-      await raw.withExclusiveTransactionAsync(async (txn) => {
-        // withExclusiveTransactionAsync hands us a `txn` and every query inside
-        // MUST use it. Reaching for the outer `raw` here either deadlocks or
-        // silently runs outside the transaction - so the handle is threaded
-        // through rather than captured.
+      // withExclusiveTransactionAsync hands us a `txn` and every query inside
+      // MUST use it. Reaching for the outer `raw` here either deadlocks or
+      // silently runs outside the transaction - so the handle is threaded
+      // through rather than captured.
+      const body = async (h: Exec) => {
         const inner: Db = {
-          ...wrapExec(txn as unknown as Exec),
+          ...wrapExec(h),
           // SQLite has no real nested transactions; reuse the outer one.
           tx: async <R2>(f: (t: Db) => Promise<R2>) => f(inner),
         };
         out = await fn(inner);
-      });
+      };
+      // expo-sqlite throws on exclusive transactions in the browser, which
+      // took down the whole web smoke loop (CLAUDE.md section 11, Layer B) at
+      // the first migration. A plain transaction on the one shared connection
+      // is NOT exclusive - two overlapping top-level tx calls would collide -
+      // which is acceptable for a single-user layout loop and never runs on
+      // the phone.
+      if (Platform.OS === 'web') await raw.withTransactionAsync(() => body(raw));
+      else await raw.withExclusiveTransactionAsync((txn) => body(txn as unknown as Exec));
       return out;
     },
   };
