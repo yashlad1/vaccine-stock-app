@@ -214,7 +214,7 @@ npx eas-cli env:exec production \
   'NODE_OPTIONS="--disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON" node scripts/backup-from-server.ts'
 ```
 
-It writes one owner-only folder, `~/clinic-stock-backups/clinic-server-copy-<date>/`: `doses.csv`
+It writes one owner-only folder, `backups/clinic-server-copy-<date>/` in this project (gitignored): `doses.csv`
 (date, time, vaccine, batch, child, age, doses) and `vaccines.csv` (each vaccine's stock now) to
 open in Numbers or Excel, `stock_movements.csv` and `patients.csv`, the bare `clinic.db`, and the
 same zip the app's Back up button makes, so a phone can restore it. Then it runs the app's own
@@ -225,7 +225,7 @@ first.
 ## Nightly backup on the Mac
 
 `scripts/nightly-backup.sh` takes the same server copy every night at **23:59 IST** into
-`~/clinic-stock-backups/` (one dated folder per night, log in `nightly.log`). It runs on the Mac,
+`backups/` in this project (gitignored) (one dated folder per night, log in `nightly.log`). It runs on the Mac,
 never on GitHub: the repo is public, and a workflow artifact there would publish children's names.
 
 launchd starts it every hour at :29 Mac time, which is :59 in IST all year round. The script only
@@ -245,13 +245,13 @@ with your own username in the three paths, then load it:
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string>
-    <string>/Users/YOU/Development/clinic-app/scripts/nightly-backup.sh</string>
+    <string>/Users/YOU/Development/vaccine-stock-app/scripts/nightly-backup.sh</string>
   </array>
   <key>StartCalendarInterval</key><dict><key>Minute</key><integer>29</integer></dict>
   <key>EnvironmentVariables</key>
   <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
-  <key>StandardOutPath</key><string>/Users/YOU/clinic-stock-backups/nightly.log</string>
-  <key>StandardErrorPath</key><string>/Users/YOU/clinic-stock-backups/nightly.log</string>
+  <key>StandardOutPath</key><string>/Users/YOU/Development/vaccine-stock-app/backups/nightly.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/Development/vaccine-stock-app/backups/nightly.log</string>
 </dict>
 </plist>
 ```

@@ -2,6 +2,7 @@ import { registerHooks } from 'node:module';
 import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Back up the clinic onto this Mac, from the server, without the doctor's
@@ -25,8 +26,9 @@ import { tmpdir } from 'node:os';
  *   npx eas-cli env:exec production \
  *     'NODE_OPTIONS="--disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON" node scripts/backup-from-server.ts'
  *
- * Output goes to ~/clinic-stock-backups (or the first argument), outside the
- * repo, owner-only: it holds children's names and dates of birth.
+ * Output goes to backups/ in this project (or the first argument). That folder
+ * is gitignored - the repo is public - and owner-only: it holds children's
+ * names and dates of birth.
  */
 
 // src/ imports without file extensions, which Metro resolves and Node does
@@ -72,7 +74,7 @@ if (!cfg.url || !cfg.publishableKey || !cfg.email || !cfg.password) {
   process.exit(1);
 }
 
-const dir = resolve(process.argv[2] ?? join(env.HOME ?? '.', 'clinic-stock-backups'));
+const dir = resolve(process.argv[2] ?? fileURLToPath(new URL('../backups', import.meta.url)));
 mkdirSync(dir, { recursive: true, mode: 0o700 });
 const d = new Date();
 const p2 = (n: number) => String(n).padStart(2, '0');

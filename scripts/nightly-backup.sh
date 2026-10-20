@@ -11,7 +11,7 @@
 # Install or remove: see the "Nightly backup" section of docs/RELEASE.md.
 set -eu
 
-out="$HOME/clinic-stock-backups"
+out="${0:A:h:h}/backups" # gitignored; the repo is public
 stamp="$out/.last-nightly"
 mkdir -p -m 700 "$out"
 
