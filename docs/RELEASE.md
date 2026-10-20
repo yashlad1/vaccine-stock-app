@@ -175,6 +175,12 @@ the alias and invoke the script directly:
 NODE_OPTIONS=--disable-warning=ExperimentalWarning node scripts/supabase-schema.ts > supabase/schema.sql
 ```
 
+A third time, unnoticed for a month: `expo-observe` (EAS Observe, added 16 Sep 2026 in `90db204`)
+is a native module, so it moved the fingerprint to `e2d1f065…`. Every update published from that tree
+would have been ignored by her phone. It was removed on 20 Oct 2026 to ship the age feature over
+the air, which put the fingerprint back on `fa84bf12…`. Bring Observe back only together with a new
+APK.
+
 **The general rule: adding a convenience script to `package.json` costs an APK.** Before touching
 that file, check the fingerprint. The full list of non-`node_modules` sources is short and worth
 knowing:

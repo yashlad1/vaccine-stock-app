@@ -7,14 +7,13 @@ import { ToastProvider } from '../ui/snackbar';
 import { AutoSync } from '../sync/auto';
 import { Empty, Loading, Screen } from '../ui/components';
 import { color } from '../ui/tokens';
-import { InteractiveMarker, withObserve } from '../ui/observe';
 
 /**
  * The migration gate lives here: nothing renders until the schema is current,
  * because a screen that reads a half-migrated database shows numbers that are
  * quietly wrong.
  */
-function RootLayout() {
+export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
@@ -31,12 +30,6 @@ function RootLayout() {
         )}
       >
         <ToastProvider>
-          {/* Time-to-interactive is marked HERE, not on mount of this layout.
-              DbProvider holds its children until migrations finish, so this
-              subtree renders at the moment the app is genuinely usable. Marking
-              it any earlier would report the app as interactive while she is
-              still looking at "Opening clinic records". */}
-          <InteractiveMarker />
           <AutoSync />
           <Stack
             screenOptions={{
@@ -71,5 +64,3 @@ function RootLayout() {
     </SafeAreaProvider>
   );
 }
-
-export default withObserve(RootLayout);
