@@ -139,7 +139,7 @@ Run **every step, in order, with the phone in airplane mode for the entire run.*
 | 17 | On the **Vaccines** tab, add a new vaccine, then try to add it a second time. | It appears in the Give dose grid immediately. The duplicate is refused with a plain message naming the conflict. | FR-9a, FR-9b |
 | 18 | **Remove** a vaccine that has stock and history. | The confirmation states the doses in stock and doses given. After removing: gone from Give dose, Add stock and search — but **All entries still shows its past doses by name**, and it appears under the Removed filter. Add it back and confirm its stock returns. | FR-9c – FR-9g |
 | 19 | Tap between **Give dose** and **Add stock** several times. | The two are unmistakable: different accent colour on the tab, the heading and the primary button (`Give n doses` vs `Add to stock`). | NFR-14 |
-| 20 | Give a dose to a saved child with no date of birth, and set one on the wheel. Then give that child a second vaccine. | The wheel shows `Age today: …`; Given today and `doses.csv` show the age on **both** doses; the second dose shows the age with no date entry. A partial or impossible date (31 Feb) says so and is not saved, and the dose still records. | FR-31 |
+| 20 | Type a new child's name (do not tap + Add), set the date of birth on the wheel and give the dose. Then give that child a second vaccine. | The wheel shows `Age today: …`; Given today and `doses.csv` show the age on **both** doses; the second dose shows the age with no date entry. A partial or impossible date (31 Feb) says so and is not saved, and the dose still records. | FR-31 |
 
 ### Then: a two-week soak
 

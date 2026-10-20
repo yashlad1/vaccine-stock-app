@@ -200,8 +200,19 @@ If they differ, the fix needs a **new APK**, not an OTA. And whenever you delibe
 fingerprint, the old install is cut off from updates — so send her the new APK reasonably promptly
 rather than assuming OTA still has her covered.
 
-**Always have her take a backup before an update.** It costs one tap and removes the only scenario
-where an update could cost data.
+**Always take a backup before an update, on the Mac, from the server** (owner, 20 Oct 2026: the
+doctor should not have to do anything for it):
+
+```sh
+npx eas-cli env:exec production \
+  'NODE_OPTIONS="--disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON" node scripts/backup-from-server.ts'
+```
+
+It writes `~/clinic-stock-backups/clinic-server-copy-<date>.zip` (the same format as the app's Back
+up button, so a phone can restore it) and the bare `.db`, owner-only, then runs the app's own
+restore check on the zip. It holds what has reached the server: compare the "latest entry" line it
+prints with her last dose, and if the phone has been offline, ask her to open the app on signal
+first.
 
 ## What the app talks to
 

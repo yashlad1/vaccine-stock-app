@@ -330,8 +330,10 @@ screen.** The doctor never navigates to read remaining stock.
 **Dose modal:** vaccine name large at top (the confirmation, costing no tap) · lot chips with
 most-recently-used preselected (usually zero taps — a clinic runs 1–2 open lots) · child via
 `Recent` chips (each showing the child's age) + search + a visible `Skip, no name` · once a saved
-child is chosen, their age with `Change date of birth`, or a day/month/year wheel when no date of
-birth is on file (optional; it never blocks the dose) · dose stepper defaulting to 1 · 64dp
+child is chosen, their age with `Change date of birth`; otherwise, as soon as a name is chosen OR
+typed, a day/month/year wheel (optional; it never blocks the dose). A typed name with a date of
+birth is saved as a child on Give, because she types almost every name (198 of 204 doses on the
+server, 20 Oct 2026, and not one linked to a saved child) · dose stepper defaulting to 1 · 64dp
 `Give 1 dose` button in the thumb zone.
 
 **Target: launch → tile → child chip → GIVE = 3 taps. Skipping the child = 2.**

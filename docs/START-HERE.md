@@ -26,7 +26,7 @@ Tapped the wrong one? Tap **Undo** on the black bar.
 
 ## The child's age
 
-1. Tap the child's name. For a new child, type the name and tap **+ Add**.
+1. Tap the child's name, or type it.
 2. Roll the three wheels to the day, month and year of birth.
 3. Tap **Give 1 dose**.
 

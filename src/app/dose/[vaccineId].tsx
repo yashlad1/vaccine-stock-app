@@ -61,6 +61,8 @@ export default function DoseScreen() {
   const selected = useMemo(() => lots?.find((l) => l.lot_id === effectiveLot) ?? null, [lots, effectiveLot]);
   const expired = selected ? isExpired(selected, today) : false;
 
+  const typedIsSaved = !!matches?.some((m) => m.name.toLowerCase() === childQuery.trim().toLowerCase());
+
   const pick = (p: Pick<Patient, 'id' | 'name' | 'dob'>) => {
     setChildId(p.id);
     setChildLabel(p.name);
@@ -100,6 +102,29 @@ export default function DoseScreen() {
       });
 
       const label = skipChild ? null : (childLabel ?? (childQuery.trim() || null));
+
+      // A typed name with a date of birth becomes a saved child, so the age is
+      // on this dose and fills in by itself next visit. On the server, 198 of
+      // 204 doses had a typed name and none a saved child: typing IS the
+      // common path, so this is where the age has to work. If saving the child
+      // fails, the dose still records with the name alone (invariant 5).
+      let patientId = skipChild ? null : childId;
+      let dobSaved = true;
+      if (!skipChild && !childId && label && newDob) {
+        patientId = await createPatient(db, { name: label, dob: newDob }, deviceId).then(
+          (id) => {
+            // Held on screen, so a retry after a failed dose write reuses this
+            // child instead of saving the same name twice.
+            pick({ id, name: label, dob: newDob });
+            return id;
+          },
+          () => {
+            dobSaved = false;
+            return null;
+          },
+        );
+      }
+
       const { movement, created } = await recordAdministration(
         db,
         { deviceId },
@@ -108,7 +133,7 @@ export default function DoseScreen() {
           vaccineId,
           lotId: effectiveLot,
           doses,
-          patientId: skipChild ? null : childId,
+          patientId,
           patientLabel: label,
         },
       );
@@ -119,12 +144,10 @@ export default function DoseScreen() {
       // says nothing about a birthday may stop a vaccination being recorded.
       // Reported inside the one toast so the undo on it is not replaced.
       const dobToSave = !skipChild && childId && newDob && newDob !== childDob ? newDob : null;
-      const dobSaved = dobToSave
-        ? await setPatientDob(db, childId!, dobToSave).then(() => true, () => false)
-        : true;
+      if (dobToSave) dobSaved = await setPatientDob(db, childId!, dobToSave).then(() => true, () => false);
       bump();
 
-      const age = skipChild ? null : formatAge(dobSaved ? (dobToSave ?? childDob) : childDob, today);
+      const age = skipChild ? null : formatAge(dobSaved ? (newDob ?? childDob) : childDob, today);
       const who = label ? ` to ${label}${age ? ` (${age})` : ''}` : '';
       const note = similar ? ' (a similar dose was recorded moments ago)' : '';
       const dobNote = dobSaved ? '' : ' The date of birth did not save. Add it next time.';
@@ -222,7 +245,11 @@ export default function DoseScreen() {
               <Input
                 placeholder="Type 2 letters, or a phone number"
                 value={childQuery}
-                onChangeText={setChildQuery}
+                onChangeText={(t) => {
+                  setChildQuery(t);
+                  // The wheel goes away below two letters; so does its date.
+                  if (t.trim().length < 2) setNewDob(null);
+                }}
                 autoCorrect={false}
                 autoCapitalize="words"
                 accessibilityLabel="Search or add child"
@@ -241,7 +268,7 @@ export default function DoseScreen() {
                   ))}
                 </View>
               ) : null}
-              {childQuery.trim().length >= 2 && !matches?.some((m) => m.name.toLowerCase() === childQuery.trim().toLowerCase()) ? (
+              {childQuery.trim().length >= 2 && !typedIsSaved ? (
                 <Pressable
                   accessibilityRole="button"
                   style={st.addRow}
@@ -273,19 +300,21 @@ export default function DoseScreen() {
           )}
         </Field>
 
-        {childId ? (
-          childDob && !editingDob ? (
-            <Field label="Age">
-              <View style={st.chipRow}>
-                <T style={st.age}>{formatAge(childDob, today) ?? 'Check the date of birth'}</T>
-                <SecondaryButton label="Change date of birth" onPress={() => setEditingDob(true)} />
-              </View>
-            </Field>
-          ) : (
-            <Field label="Date of birth" hint="Optional. Saved with the child, so the age fills in by itself next time.">
-              <DateOfBirthWheel today={today} initial={childDob} onChange={setNewDob} />
-            </Field>
-          )
+        {childId && childDob && !editingDob ? (
+          <Field label="Age">
+            <View style={st.chipRow}>
+              <T style={st.age}>{formatAge(childDob, today) ?? 'Check the date of birth'}</T>
+              <SecondaryButton label="Change date of birth" onPress={() => setEditingDob(true)} />
+            </View>
+          </Field>
+        ) : childId || (childQuery.trim().length >= 2 && !typedIsSaved) ? (
+          // Also for a name that is only typed: that is how almost every dose
+          // is entered. Not when the typed name IS a saved child - the chip
+          // with that child's age is right above, and a date here would save
+          // the same child twice. Keyed so a different child starts blank.
+          <Field label="Date of birth" hint="Optional. Saved with the child, so the age fills in by itself next time.">
+            <DateOfBirthWheel key={childId ?? 'typed'} today={today} initial={childDob} onChange={setNewDob} />
+          </Field>
         ) : null}
 
         <Field label="Doses">
