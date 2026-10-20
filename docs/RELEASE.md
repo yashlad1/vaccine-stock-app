@@ -222,6 +222,46 @@ restore check on the zip. It holds what has reached the server: compare the "lat
 prints with her last dose, and if the phone has been offline, ask her to open the app on signal
 first.
 
+## Nightly backup on the Mac
+
+`scripts/nightly-backup.sh` takes the same server copy every night at **23:59 IST** into
+`~/clinic-stock-backups/` (one dated folder per night, log in `nightly.log`). It runs on the Mac,
+never on GitHub: the repo is public, and a workflow artifact there would publish children's names.
+
+launchd starts it every hour at :29 Mac time, which is :59 in IST all year round. The script only
+does the work when that night's copy is still owed, so it also catches up when the Mac wakes after
+sleeping through 23:59, and retries the next hour after a night with no internet. The Mac has to be
+logged in to EAS (`npx eas-cli whoami`).
+
+Install (once, on the Mac): save this as `~/Library/LaunchAgents/in.clinicstock.nightly-backup.plist`,
+with your own username in the three paths, then load it:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>in.clinicstock.nightly-backup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/YOU/Development/clinic-app/scripts/nightly-backup.sh</string>
+  </array>
+  <key>StartCalendarInterval</key><dict><key>Minute</key><integer>29</integer></dict>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
+  <key>StandardOutPath</key><string>/Users/YOU/clinic-stock-backups/nightly.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/clinic-stock-backups/nightly.log</string>
+</dict>
+</plist>
+```
+
+```sh
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/in.clinicstock.nightly-backup.plist
+launchctl kickstart gui/$(id -u)/in.clinicstock.nightly-backup   # one run now, to check
+launchctl bootout gui/$(id -u)/in.clinicstock.nightly-backup     # to remove it
+```
+
 ## What the app talks to
 
 Nothing, except the Expo update check. All clinical data stays in the app's private storage on that
