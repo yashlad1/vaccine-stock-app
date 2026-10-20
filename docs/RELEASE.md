@@ -214,8 +214,10 @@ npx eas-cli env:exec production \
   'NODE_OPTIONS="--disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON" node scripts/backup-from-server.ts'
 ```
 
-It writes `~/clinic-stock-backups/clinic-server-copy-<date>.zip` (the same format as the app's Back
-up button, so a phone can restore it) and the bare `.db`, owner-only, then runs the app's own
+It writes one owner-only folder, `~/clinic-stock-backups/clinic-server-copy-<date>/`: `doses.csv`
+(date, time, vaccine, batch, child, age, doses) and `vaccines.csv` (each vaccine's stock now) to
+open in Numbers or Excel, `stock_movements.csv` and `patients.csv`, the bare `clinic.db`, and the
+same zip the app's Back up button makes, so a phone can restore it. Then it runs the app's own
 restore check on the zip. It holds what has reached the server: compare the "latest entry" line it
 prints with her last dose, and if the phone has been offline, ask her to open the app on signal
 first.

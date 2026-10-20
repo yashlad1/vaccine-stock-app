@@ -7,9 +7,11 @@ import { tmpdir } from 'node:os';
  * Back up the clinic onto this Mac, from the server, without the doctor's
  * phone doing anything.
  *
- * Writes the same zip the app's Back up button makes (clinic.db, manifest and
- * CSVs, so the phone's Restore screen accepts it) plus the bare clinic.db to
- * open on the Mac. Then it re-opens the zip and runs the app's own restore
+ * Writes one dated folder: the readable files to open in Numbers or Excel -
+ * doses.csv (date, time, vaccine, batch, child, age, doses) and vaccines.csv
+ * (each vaccine with its stock now), plus stock_movements.csv and
+ * patients.csv - the bare clinic.db, and the same zip the app's Back up
+ * button makes, so the phone's Restore screen accepts it. Then it re-opens the zip and runs the app's own restore
  * check on it, so a backup that would be refused says so here, now.
  *
  * It holds what has reached the server. Entries still waiting on a phone with
@@ -75,8 +77,10 @@ mkdirSync(dir, { recursive: true, mode: 0o700 });
 const d = new Date();
 const p2 = (n: number) => String(n).padStart(2, '0');
 const base = `clinic-server-copy-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
-const dbPath = join(dir, `${base}.db`);
-const zipPath = join(dir, `${base}.zip`);
+const out = join(dir, base);
+mkdirSync(out, { recursive: true, mode: 0o700 });
+const dbPath = join(out, 'clinic.db');
+const zipPath = join(out, `${base}.zip`);
 
 const db = openNodeDb(dbPath);
 await migrate(db);
@@ -103,6 +107,7 @@ const entries: Record<string, Uint8Array> = {
 };
 for (const [name, content] of Object.entries(csvs)) entries[name] = strToU8(content);
 writeFileSync(zipPath, zipSync(entries, { level: 6 }), { mode: 0o600 });
+for (const [name, content] of Object.entries(csvs)) writeFileSync(join(out, name), content, { mode: 0o600 });
 chmodSync(dbPath, 0o600);
 
 // The check the phone makes before it restores, run on the file just written.
@@ -119,4 +124,4 @@ console.log(`Copied ${report.total} rows from the server:`);
 for (const [table, n] of Object.entries(report.perTable)) console.log(`  ${table.padEnd(16)} ${n}`);
 console.log(`Latest entry on the server: ${latest ? `${latest.d} ${latest.t}` : 'none'}`);
 console.log(`The app's restore check accepts it: ${JSON.stringify(preview)}`);
-console.log(`\n${zipPath}\n${dbPath}`);
+console.log(`\n${out}/  ${Object.keys(csvs).join('  ')}  clinic.db  ${base}.zip`);
