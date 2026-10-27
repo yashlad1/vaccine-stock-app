@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { centred } from './layout';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs/types';
 import { T } from './components';
 import { type Accent, accentColor, accentSoft, color, radius, space, touch, type, weight } from './tokens';
@@ -59,10 +58,9 @@ export function TopTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         ref={bar}
         horizontal
         showsHorizontalScrollIndicator={false}
-        // Centred and bounded on a tablet, so the five tabs stay together as
-        // a group instead of drifting apart across ten inches. On a phone this
-        // is a no-op.
-        contentContainerStyle={[st.row, centred]}
+        // Centred on a tablet, a no-op on a phone. Never `width` here: on Android a
+        // fixed-width content container cannot scroll, so the last tab is unreachable.
+        contentContainerStyle={[st.row, st.rowFit]}
         // Keeps the bar usable when enlarged text makes it wider than the screen.
         bounces={false}
       >
@@ -133,6 +131,7 @@ const st = StyleSheet.create({
     paddingBottom: space.sm,
     paddingTop: space.sm,
   },
+  rowFit: { minWidth: '100%', justifyContent: 'center' },
   tab: {
     minHeight: touch.min,
     minWidth: 84,
