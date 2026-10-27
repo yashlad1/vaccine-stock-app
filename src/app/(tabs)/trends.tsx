@@ -274,9 +274,7 @@ function VaccinesView({
         );
       })}
       {list.length > CAP && !all ? <SecondaryButton accent="trends" label={`Show all ${list.length}`} onPress={showAll} /> : null}
-      {!priced ? (
-        <T style={st.note}>Add a price per dose on the Vaccines tab to see sales here.</T>
-      ) : summary.unpriced ? (
+      {priced && summary.unpriced ? (
         <BarRow label="Price not set" value={doses(summary.unpriced)} fraction={0} muted />
       ) : null}
     </>
