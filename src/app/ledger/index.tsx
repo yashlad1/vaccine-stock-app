@@ -104,7 +104,13 @@ export default function LedgerScreen() {
                     void run('undo this entry', async () => {
                       await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: item.id });
                       bump();
-                      toast.show(`${item.vaccine_name} entry undone. To put it back, give the dose again.`);
+                      const again =
+                        item.movement_type === 'ADMINISTRATION'
+                          ? 'give the dose again'
+                          : item.movement_type === 'RECEIPT'
+                            ? 'add the delivery again'
+                            : 'enter it again';
+                      toast.show(`${item.vaccine_name} entry undone. To put it back, ${again}.`);
                     })
                   }
                 />

@@ -7,6 +7,7 @@ import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 import { SETTING, getSetting, setSetting } from '../../db/repo/settings';
+import { loadSyncConfig } from '../../sync/config';
 import { LATEST_VERSION } from '../../db/migrate';
 
 export default function SettingsScreen() {
@@ -15,6 +16,7 @@ export default function SettingsScreen() {
   const toast = useToast();
   const run = useAction();
   const [clinic, setClinic] = useState('');
+  const { data: serverOn } = useQuery(async (db) => (await loadSyncConfig(db)) !== null);
 
   const { data: saved, error, reload } = useQuery((d) => getSetting(d, SETTING.clinicName));
 
@@ -46,8 +48,9 @@ export default function SettingsScreen() {
       <Row title="This device" subtitle={deviceId.slice(0, 8)} />
       <View style={{ height: space.lg }} />
       <T style={st.note}>
-        Works with no internet. Records are saved on this phone and copied to the clinic server
-        when there is signal.
+        {serverOn
+          ? 'Works with no internet. Records are saved on this phone and copied to the clinic server when there is signal.'
+          : 'Works with no internet. Records are only on this phone, so back them up regularly.'}
       </T>
     </ScrollView>
   );

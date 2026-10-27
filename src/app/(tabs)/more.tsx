@@ -10,7 +10,7 @@ import { lastBackupLabel } from '../../domain/backup-nag';
 import { missingChildEntries } from '../../domain/reports';
 import { pushOnce, syncStatus } from '../../sync/push';
 import { pullOnce } from '../../sync/pull';
-import { backendFor } from '../../sync/config';
+import { backendFor, loadSyncConfig } from '../../sync/config';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 
@@ -65,6 +65,7 @@ export default function MoreScreen() {
   );
   const { data: missing } = useQuery((db) => missingChildEntries(db, 100));
   const { data: sync } = useQuery((db) => syncStatus(db));
+  const { data: serverOn } = useQuery(async (db) => (await loadSyncConfig(db)) !== null);
 
   return (
     <ScrollView
@@ -107,7 +108,7 @@ export default function MoreScreen() {
         />
         <View style={{ marginTop: space.md }}>
           <BigButton
-            accent="stock"
+            accent="more"
             variant="outline"
             label={busy ? 'Uploading…' : 'Upload now'}
             sublabel={
@@ -162,7 +163,9 @@ export default function MoreScreen() {
       </Card>
 
       <T style={st.note}>
-        Saved on this phone first, and copied to the clinic server. Keep a screen lock on the phone.
+        {serverOn
+          ? 'Saved on this phone first, and copied to the clinic server. Keep a screen lock on the phone.'
+          : 'Records are only on this phone. Back them up regularly, and keep a screen lock on the phone.'}
       </T>
     </ScrollView>
   );

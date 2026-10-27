@@ -64,13 +64,16 @@ export default function TodayScreen() {
       <T style={st.section}>{missingMode ? 'Add a name to each' : 'Every dose'}</T>
       {lines?.length ? (
         lines.map((l) => (
-          <View key={l.id} style={st.line}>
-            <T style={st.time}>
-              {missingMode
-                ? `${formatDate(new Date(`${l.local_date}T00:00:00`).getTime())}, ${formatTime12h(l.local_time)}`
-                : formatTime12h(l.local_time)}
-            </T>
-            <View style={{ flex: 1 }}>
+          <View key={l.id} style={[st.line, missingMode ? st.lineStacked : null]}>
+            {/* Missing-names rows carry a date too; stacked above the row it cannot squeeze it at 1.6x. */}
+            {missingMode ? (
+              <T style={st.time}>
+                {`${formatDate(new Date(`${l.local_date}T00:00:00`).getTime())}, ${formatTime12h(l.local_time)}`}
+              </T>
+            ) : (
+              <T style={st.time}>{formatTime12h(l.local_time)}</T>
+            )}
+            <View style={missingMode ? undefined : { flex: 1 }}>
               <T style={st.vaccine}>
                 {l.vaccine_name}
                 {l.doses > 1 ? ` × ${l.doses}` : ''}
@@ -149,6 +152,7 @@ const st = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: color.border,
   },
+  lineStacked: { flexDirection: 'column', alignItems: 'stretch', gap: space.xs },
   time: { fontSize: type.label, color: color.textMuted, minWidth: 76, fontWeight: weight.semibold },
   vaccine: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
   meta: { fontSize: type.min, color: color.textMuted, marginTop: 2 },
