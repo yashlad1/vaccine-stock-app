@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { T } from './components';
-import { type Accent, accentColor, accentSoft, color, space, touch, type, weight } from './tokens';
+import { type Accent, accentSoft, color, space, touch, type, weight } from './tokens';
 
 /**
  * Bar charts out of plain Views, no SVG.
@@ -39,11 +39,14 @@ export function ColumnChart({
   onSelect,
   describe,
   accent = 'dose',
+  ink = color.more,
 }: {
   data: ChartDatum[];
   selected: string;
   onSelect: (key: string) => void;
   accent?: Accent;
+  /** The bars. Neutral, so a data mark never borrows a status hue (pink reads as OUT red). */
+  ink?: string;
   /** Spoken label for a column, e.g. "Week of 13 Oct, 42 doses". */
   describe: (d: ChartDatum) => string;
 }) {
@@ -82,7 +85,7 @@ export function ColumnChart({
             <View style={st.plot}>
               <T style={[st.count, on && st.bold]}>{d.doses}</T>
               <View
-                style={[st.bar, { height: h, backgroundColor: on ? accentColor[accent] : color.borderControl }]}
+                style={[st.bar, { height: h, backgroundColor: on ? ink : color.borderControl }]}
               />
             </View>
             <View style={st.axis}>
@@ -111,6 +114,7 @@ export function BarRow({
   onPress,
   accessibilityLabel,
   accent = 'dose',
+  ink = color.more,
 }: {
   label: string;
   value: string;
@@ -121,6 +125,8 @@ export function BarRow({
   onPress?: () => void;
   accessibilityLabel?: string;
   accent?: Accent;
+  /** The bar's colour: neutral ink, the accent only tints the selected row. */
+  ink?: string;
 }) {
   const body = (
     <>
@@ -136,7 +142,7 @@ export function BarRow({
               {
                 width: `${Math.max(1, Math.round(fraction * 100))}%`,
                 minWidth: MIN_BAR,
-                backgroundColor: muted ? color.borderControl : accentColor[accent],
+                backgroundColor: muted ? color.borderControl : ink,
               },
             ]}
           />
