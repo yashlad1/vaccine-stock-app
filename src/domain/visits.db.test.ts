@@ -39,7 +39,10 @@ describe('coGiven: what else the same child is given at the same visit', () => {
 
     expect(await coGiven(db, id.Rotavac, '2026-09-01')).toEqual([
       // Two Rotavac doses on day 0, one on day 1.
-      { vaccine_id: id['Prevenar 13'], name: 'Prevenar 13', on_hand_doses: -2, times: 3 },
+      {
+        vaccine_id: id['Prevenar 13'], name: 'Prevenar 13', on_hand_doses: -2,
+        unit_mode: 'DOSE', doses_per_vial: 1, min_balance_doses: 0, times: 3,
+      },
     ]);
   });
 

@@ -2,11 +2,15 @@ import type { Db } from '../db/driver';
 import { bumpDosesSinceBackup } from '../db/repo/settings';
 import { newId } from './ids';
 import { recordAdministration, type WriteContext, type WriteResult } from './ledger';
+import type { UnitMode } from './types';
 
 export interface CoGiven {
   vaccine_id: string;
   name: string;
   on_hand_doses: number;
+  unit_mode: UnitMode;
+  doses_per_vial: number;
+  min_balance_doses: number;
   /** How many doses of the main vaccine had this one beside them. */
   times: number;
 }
@@ -23,7 +27,8 @@ export interface CoGiven {
  */
 export function coGiven(db: Db, vaccineId: string, sinceLocalDate: string, limit = 4): Promise<CoGiven[]> {
   return db.all<CoGiven>(
-    `SELECT s.vaccine_id, s.name, s.on_hand_doses, COUNT(DISTINCT m.id) AS times
+    `SELECT s.vaccine_id, s.name, s.on_hand_doses, s.unit_mode, s.doses_per_vial, s.min_balance_doses,
+            COUNT(DISTINCT m.id) AS times
        FROM v_movement_effective m
        JOIN v_movement_effective o
          ON o.local_date = m.local_date

@@ -83,6 +83,11 @@ export default function DoseScreen() {
     [vaccineId],
   );
   const { data: lots } = useQuery((d) => lotsInStock(d, vaccineId), [vaccineId]);
+  // Any batch at all, used up included: "none in stock" is not "none recorded".
+  const { data: anyLot } = useQuery(
+    (d) => d.first<{ n: number }>(`SELECT 1 AS n FROM v_lot_balance WHERE vaccine_id = ? LIMIT 1`, [vaccineId]),
+    [vaccineId],
+  );
   const { data: preferredLot } = useQuery((d) => lastUsedLot(d, vaccineId), [vaccineId]);
   const { data: recent } = useQuery((d) => recentPatients(d, today, 3), [today]);
   const { data: matches } = useQuery(
@@ -371,7 +376,7 @@ export default function DoseScreen() {
             {lots[0].expiry_date ? ` · exp ${expiryToMonthLabel(lots[0].expiry_date)}` : ''}
           </T>
         ) : lots ? (
-          <T style={[st.batch, st.muted]}>No batch recorded for this vaccine.</T>
+          <T style={[st.batch, st.muted]}>{anyLot ? 'No batch in stock.' : 'No batch recorded for this vaccine.'}</T>
         ) : null}
         {expired ? (
           <T style={[st.danger, st.afterBatch]}>
@@ -455,7 +460,8 @@ export default function DoseScreen() {
         ) : childDetails ? (
           // Keyed so a different child starts blank.
           <Field dense label="Date of birth">
-            <DateOfBirthWheel key={childId ?? 'typed'} today={today} initial={childDob} onChange={setNewDob} />
+            {/* A remount (the details hidden and shown again) keeps the date still held. */}
+            <DateOfBirthWheel key={childId ?? 'typed'} today={today} initial={newDob ?? childDob} onChange={setNewDob} />
           </Field>
         ) : null}
 
@@ -488,7 +494,11 @@ export default function DoseScreen() {
                       key={s.vaccine_id}
                       label={s.name}
                       // OUT can still be chosen: a dose is never blocked (invariant 5).
-                      sublabel={s.on_hand_doses === 0 ? 'OUT' : dosesText(s.on_hand_doses)}
+                      // The tile's word (OUT, CHECK, LOW) over a bare "-3 doses".
+                      sublabel={
+                        describeStock(s.on_hand_doses, s.unit_mode, s.doses_per_vial, s.min_balance_doses).badge ??
+                        dosesText(s.on_hand_doses)
+                      }
                       selected={extras.includes(s.vaccine_id)}
                       onPress={() =>
                         setExtras((xs) =>
