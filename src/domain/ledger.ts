@@ -64,8 +64,10 @@ async function insertMovement(db: Db, ctx: WriteContext, input: MovementInput): 
        id, idempotency_key, vaccine_id, lot_id, delta_doses, movement_type,
        wastage_reason, stock_source, patient_id, patient_label,
        occurred_at, local_date, local_time, tz_offset_minutes, recorded_at,
-       reverses_id, note, needs_detail, created_at, updated_at, device_id
-     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       reverses_id, note, needs_detail, created_at, updated_at, device_id, price_rupees
+     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+       -- A dose stamps today's price, so a later price edit cannot re-price it.
+       (SELECT price_rupees FROM vaccines WHERE id = ?))
      ON CONFLICT(idempotency_key) DO NOTHING`,
     [
       newId(now),
@@ -89,6 +91,7 @@ async function insertMovement(db: Db, ctx: WriteContext, input: MovementInput): 
       now,
       now,
       ctx.deviceId,
+      input.movementType === 'ADMINISTRATION' ? input.vaccineId : null,
     ],
   );
 

@@ -52,6 +52,7 @@ erDiagram
         TEXT    name
         TEXT    dob               "nullable"
         TEXT    guardian_phone    "nullable; searched by last 4 digits"
+        TEXT    sex               "nullable; CHECK: M | F; added in v4 for Trends"
         INTEGER created_at
         INTEGER updated_at
         INTEGER deleted_at

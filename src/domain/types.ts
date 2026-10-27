@@ -33,6 +33,8 @@ export interface Vaccine {
   updated_at: number;
   deleted_at: number | null;
   device_id: string;
+  /** Selling price per dose in whole rupees (m005); null when not set. */
+  price_rupees: number | null;
 }
 
 export interface Lot {
@@ -65,6 +67,8 @@ export interface StockMovement {
   note: string | null;
   needs_detail: number;
   device_id: string;
+  /** The price this dose was given at (m005); null for doses before prices, and for non-doses. */
+  price_rupees: number | null;
 }
 
 /** A row of v_stock_on_hand. */

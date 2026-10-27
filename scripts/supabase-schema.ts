@@ -4,6 +4,8 @@ import { openNodeDb } from '../src/db/driver.node.ts';
 // Same workaround as scripts/dump-schema.ts.
 import { m001 } from '../src/db/migrations/m001_initial.ts';
 import { m002, PUSH_ORDER, SYNC_TABLES } from '../src/db/migrations/m002_sync.ts';
+import { m004 } from '../src/db/migrations/m004_patient_sex.ts';
+import { m005 } from '../src/db/migrations/m005_prices.ts';
 
 /**
  * Generate the Supabase (Postgres) schema FROM the live SQLite schema.
@@ -40,6 +42,8 @@ const main = async () => {
   await db.tx(async (tx) => {
     await m001.up(tx);
     await m002.up(tx);
+    await m004.up(tx);
+    await m005.up(tx);
   });
 
   const out: string[] = [];

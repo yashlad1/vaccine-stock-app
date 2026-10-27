@@ -20,19 +20,23 @@ export interface Patient {
   name: string;
   dob: string | null;
   guardian_phone: string | null;
+  sex: Sex | null;
 }
+
+/** As the clinic records it. Optional everywhere; null is "not recorded". */
+export type Sex = 'M' | 'F';
 
 export async function createPatient(
   db: Db,
-  input: { name: string; dob?: string | null; guardianPhone?: string | null },
+  input: { name: string; dob?: string | null; guardianPhone?: string | null; sex?: Sex | null },
   deviceId: string,
   now: number = Date.now(),
 ): Promise<string> {
   const id = newId(now);
   await db.run(
-    `INSERT INTO patients (id, name, dob, guardian_phone, created_at, updated_at, device_id)
-     VALUES (?,?,?,?,?,?,?)`,
-    [id, input.name.trim(), input.dob ?? null, input.guardianPhone ?? null, now, now, deviceId],
+    `INSERT INTO patients (id, name, dob, guardian_phone, sex, created_at, updated_at, device_id)
+     VALUES (?,?,?,?,?,?,?,?)`,
+    [id, input.name.trim(), input.dob ?? null, input.guardianPhone ?? null, input.sex ?? null, now, now, deviceId],
   );
   return id;
 }
@@ -41,7 +45,7 @@ export function searchPatients(db: Db, q: string, limit = 20): Promise<Patient[]
   const name = `${q.toLowerCase()}%`;
   const phone = `%${q}`;
   return db.all<Patient>(
-    `SELECT id, name, dob, guardian_phone FROM patients
+    `SELECT id, name, dob, guardian_phone, sex FROM patients
       WHERE deleted_at IS NULL
         AND (LOWER(name) LIKE ? OR guardian_phone LIKE ?)
       ORDER BY name COLLATE NOCASE LIMIT ?`,
@@ -52,7 +56,7 @@ export function searchPatients(db: Db, q: string, limit = 20): Promise<Patient[]
 /** Last N distinct children by most recent dose - the one-tap path. */
 export function recentPatients(db: Db, limit = 15): Promise<Patient[]> {
   return db.all<Patient>(
-    `SELECT p.id, p.name, p.dob, p.guardian_phone, MAX(m.occurred_at) AS last_at
+    `SELECT p.id, p.name, p.dob, p.guardian_phone, p.sex, MAX(m.occurred_at) AS last_at
        FROM patients p
        JOIN stock_movements m ON m.patient_id = p.id
       WHERE p.deleted_at IS NULL
@@ -71,8 +75,13 @@ export async function setPatientDob(db: Db, id: string, dob: string, now: number
   await db.run(`UPDATE patients SET dob = ?, updated_at = ? WHERE id = ?`, [dob, now, id]);
 }
 
+/** Same as the date of birth: once per child, and the edit queues for the server. */
+export async function setPatientSex(db: Db, id: string, sex: Sex, now: number = Date.now()) {
+  await db.run(`UPDATE patients SET sex = ?, updated_at = ? WHERE id = ?`, [sex, now, id]);
+}
+
 export function getPatient(db: Db, id: string): Promise<Patient | null> {
-  return db.first<Patient>(`SELECT id, name, dob, guardian_phone FROM patients WHERE id = ?`, [id]);
+  return db.first<Patient>(`SELECT id, name, dob, guardian_phone, sex FROM patients WHERE id = ?`, [id]);
 }
 
 /** A child's vaccination history. Uses the effective view - undone doses are not history. */

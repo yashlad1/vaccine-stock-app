@@ -97,6 +97,11 @@ export async function setMinBalance(
 }
 
 /** Hide from the pickers but keep it in the catalog. Reversible in one tap. */
+/** Selling price per dose in whole rupees, or null to clear it. New doses stamp it; past ones keep theirs. */
+export async function setVaccinePrice(db: Db, vaccineId: string, rupees: number | null, now: number = Date.now()) {
+  await db.run(`UPDATE vaccines SET price_rupees = ?, updated_at = ? WHERE id = ?`, [rupees, now, vaccineId]);
+}
+
 export async function deactivateVaccine(db: Db, vaccineId: string, now: number = Date.now()) {
   await db.run(`UPDATE vaccines SET is_active = 0, updated_at = ? WHERE id = ?`, [now, vaccineId]);
 }

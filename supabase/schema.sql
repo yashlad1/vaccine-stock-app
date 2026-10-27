@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.vaccines (
   updated_at           bigint NOT NULL,
   deleted_at           bigint,
   device_id            text NOT NULL,
+  price_rupees         bigint,
   owner                uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id),
   synced_at            timestamptz NOT NULL DEFAULT now()
 );
@@ -56,6 +57,7 @@ CREATE TABLE IF NOT EXISTS public.patients (
   updated_at           bigint NOT NULL,
   deleted_at           bigint,
   device_id            text NOT NULL,
+  sex                  text,
   owner                uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id),
   synced_at            timestamptz NOT NULL DEFAULT now()
 );
@@ -167,6 +169,7 @@ CREATE TABLE IF NOT EXISTS public.stock_movements (
   created_at           bigint NOT NULL,
   updated_at           bigint NOT NULL,
   device_id            text NOT NULL,
+  price_rupees         bigint,
   owner                uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id),
   synced_at            timestamptz NOT NULL DEFAULT now()
 );
