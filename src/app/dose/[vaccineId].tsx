@@ -110,6 +110,10 @@ export default function DoseScreen() {
   // FEFO as a hint only. lotsInStock is ordered by expiry with undated last;
   // an expired batch is skipped, since Give would warn about it.
   const useFirstId = lots && lots.length > 1 ? lots.find((l) => l.expiry_date && !isExpired(l, today))?.lot_id : undefined;
+  const anotherBatch = !!lots && lots.length > 1;
+  // One batch, expired, is still a choice: it, or "Not sure" for a batch the
+  // app does not have. A plain line would leave every dose raising the confirm.
+  const batchChips = anotherBatch || (lots?.length === 1 && isExpired(lots[0], today));
 
   const typedIsSaved = !!matches?.some((m) => m.name.toLowerCase() === typed.name.toLowerCase());
   const typedNew = childQuery.trim().length >= 2 && !typedIsSaved;
@@ -307,12 +311,13 @@ export default function DoseScreen() {
         : []),
       ...staleExtras.map((x) => `${x.name}: ${x.lot!.lot_number} expired ${expiryToMonthLabel(x.lot!.expiry_date!)}.`),
     ];
+    const pickAnother = anotherBatch && !staleExtras.length;
     Alert.alert(
       lines.length > 1 ? 'These batches have expired' : 'This batch has expired',
       lines.join('\n') +
-        (staleExtras.length ? '\n\nRecord anyway, or go back?' : '\n\nRecord the dose anyway, or go back and pick another batch?'),
+        (pickAnother ? '\n\nRecord the dose anyway, or go back and pick another batch?' : '\n\nRecord anyway, or go back?'),
       [
-        { text: staleExtras.length ? 'Go back' : 'Pick another batch', style: 'cancel' },
+        { text: pickAnother ? 'Pick another batch' : 'Go back', style: 'cancel' },
         { text: 'Record anyway', style: 'destructive', onPress: () => void write(skipChild) },
       ],
     );
@@ -344,8 +349,8 @@ export default function DoseScreen() {
           ) : null}
         </View>
 
-        {/* A batch is a choice only when there are two; one is a line, none a sentence. */}
-        {lots && lots.length > 1 ? (
+        {/* A batch is a choice when there are two, or one has expired; one is a line, none a sentence. */}
+        {lots && batchChips ? (
           <Field dense label="Batch / lot">
             <View style={st.chipRow}>
               {lots.map((l) => (
@@ -370,8 +375,9 @@ export default function DoseScreen() {
         ) : null}
         {expired ? (
           <T style={[st.danger, st.afterBatch]}>
-            This batch expired {expiryToMonthLabel(selected!.expiry_date!)}. Pick another batch if
-            you have one. You can still record the dose.
+            This batch expired {expiryToMonthLabel(selected!.expiry_date!)}.{' '}
+            {anotherBatch ? 'Pick another batch if you have one.' : 'If you are using another batch, pick Not sure.'}{' '}
+            You can still record the dose.
           </T>
         ) : null}
 
