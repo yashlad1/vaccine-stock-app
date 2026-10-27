@@ -5,12 +5,14 @@ import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useQuery } from '../../db/provider';
 import { searchPatients } from '../../db/repo/patients';
+import { loadSyncConfig } from '../../sync/config';
 import { formatAge, todayLocal } from '../../domain/time';
 
 export default function ChildrenScreen() {
   const bottomInset = useBottomInset();
   const [q, setQ] = useState('');
   const today = todayLocal();
+  const { data: serverOn } = useQuery(async (db) => (await loadSyncConfig(db)) !== null);
   const { data, loading, error, reload } = useQuery(
     (db) =>
       q.trim()
@@ -57,8 +59,10 @@ export default function ChildrenScreen() {
           />
         )}
       />
-      <T style={st.note}>
-        Names are saved on this phone and the clinic server. Keep a screen lock on the phone.
+      <T style={[st.note, { paddingBottom: space.lg + bottomInset }]}>
+        {serverOn
+          ? 'Names are saved on this phone and the clinic server. Keep a screen lock on the phone.'
+          : 'Names are only on this phone. Back them up regularly, and keep a screen lock on the phone.'}
       </T>
     </View>
   );
