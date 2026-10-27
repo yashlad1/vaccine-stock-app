@@ -1,12 +1,38 @@
 import React from 'react';
-import { Stack } from 'expo-router';
+import { Pressable } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DbProvider } from '../db/provider';
 import { ToastProvider } from '../ui/snackbar';
 import { AutoSync } from '../sync/auto';
-import { Empty, Loading, Screen } from '../ui/components';
-import { color } from '../ui/tokens';
+import { Empty, Loading, Screen, T } from '../ui/components';
+import { color, space, touch, type, weight } from '../ui/tokens';
+
+/** A worded back control for the modals: icon-only controls are not allowed (CLAUDE.md section 8). */
+function Cancel({ tint }: { tint: string }) {
+  const router = useRouter();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.back()}
+      // Its own gutter, and room before the title: without them "Cancel" sat on
+      // the screen edge and ran into "Give dose" as one phrase.
+      style={{
+        minWidth: touch.min,
+        minHeight: touch.min,
+        justifyContent: 'center',
+        paddingHorizontal: space.lg,
+        marginRight: space.sm,
+      }}
+    >
+      <T style={{ color: tint, fontSize: type.body, fontWeight: weight.semibold }}>Cancel</T>
+    </Pressable>
+  );
+}
+
+const tint = (c: string) => ({ headerTintColor: c });
+const cancel = (c: string) => ({ ...tint(c), headerLeft: () => <Cancel tint={c} /> });
 
 /**
  * The migration gate lives here: nothing renders until the schema is current,
@@ -44,20 +70,20 @@ export default function RootLayout() {
             {/* Full-screen modals, not half-height sheets: full screen is what
                 buys 64dp targets and 18pt+ text, which matters more here than
                 the visual elegance of a peeking sheet. */}
-            <Stack.Screen name="dose/[vaccineId]" options={{ presentation: 'modal', title: 'Give dose' }} />
-            <Stack.Screen name="receive/index" options={{ presentation: 'modal', title: 'Receive stock' }} />
-            <Stack.Screen name="receive/[vaccineId]" options={{ presentation: 'modal', title: 'Receive stock' }} />
-            <Stack.Screen name="reports/today" options={{ title: 'Given today' }} />
+            <Stack.Screen name="dose/[vaccineId]" options={{ presentation: 'modal', title: 'Give dose', ...cancel(color.dose) }} />
+            <Stack.Screen name="receive/index" options={{ presentation: 'modal', title: 'Add stock', ...cancel(color.stock) }} />
+            <Stack.Screen name="receive/[vaccineId]" options={{ presentation: 'modal', title: 'Add stock', ...cancel(color.stock) }} />
+            <Stack.Screen name="reports/today" options={{ title: 'Given today', ...tint(color.more) }} />
             <Stack.Screen
               name="catalog/new"
-              options={{ presentation: 'modal', title: 'New vaccine' }}
+              options={{ presentation: 'modal', title: 'New vaccine', ...tint(color.catalog) }}
             />
-            <Stack.Screen name="catalog/[id]" options={{ title: 'Edit vaccine' }} />
-            <Stack.Screen name="children/index" options={{ title: 'Children' }} />
-            <Stack.Screen name="ledger/index" options={{ title: 'All entries' }} />
-            <Stack.Screen name="backup/index" options={{ title: 'Backup' }} />
-            <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
-            <Stack.Screen name="sync/index" options={{ title: 'Server backup' }} />
+            <Stack.Screen name="catalog/[id]" options={{ title: 'Edit vaccine', ...tint(color.catalog) }} />
+            <Stack.Screen name="children/index" options={{ title: 'Children', ...tint(color.more) }} />
+            <Stack.Screen name="ledger/index" options={{ title: 'All entries', ...tint(color.more) }} />
+            <Stack.Screen name="backup/index" options={{ title: 'Backup', ...tint(color.more) }} />
+            <Stack.Screen name="settings/index" options={{ title: 'Settings', ...tint(color.more) }} />
+            <Stack.Screen name="sync/index" options={{ title: 'Server backup', ...tint(color.more) }} />
           </Stack>
         </ToastProvider>
       </DbProvider>

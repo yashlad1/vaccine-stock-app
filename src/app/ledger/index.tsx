@@ -6,6 +6,7 @@ import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { newId } from '../../domain/ids';
+import { useToast } from '../../ui/snackbar';
 import { reverseMovement } from '../../domain/ledger';
 import { formatAge, formatDate, formatTime12h } from '../../domain/time';
 
@@ -34,6 +35,7 @@ export default function LedgerScreen() {
   const run = useAction();
   const bottomInset = useBottomInset();
   const { db, deviceId, bump } = useDb();
+  const toast = useToast();
 
   const { data, loading, error, reload } = useQuery((d) =>
     d.all<LedgerLine>(
@@ -60,7 +62,13 @@ export default function LedgerScreen() {
     ADMINISTRATION: 'Given',
     WASTAGE: 'Wasted',
     ADJUSTMENT: 'Stock adjustment',
-    REVERSAL: 'Correction',
+    REVERSAL: 'Undone',
+  };
+
+  const deltaColor: Record<string, string> = {
+    ADMINISTRATION: color.dose,
+    RECEIPT: color.stock,
+    OPENING_BALANCE: color.stock,
   };
 
   return (
@@ -72,7 +80,7 @@ export default function LedgerScreen() {
       renderItem={({ item }) => {
         const undone = item.is_reversed === 1;
         return (
-          <View style={[st.row, undone && st.rowUndone]}>
+          <View style={st.row}>
             <View style={{ flex: 1 }}>
               <T style={st.title}>
                 {label[item.movement_type] ?? item.movement_type} · {item.vaccine_name}
@@ -88,23 +96,24 @@ export default function LedgerScreen() {
               </T>
               {!undone && item.movement_type !== 'REVERSAL' ? (
                 <SecondaryButton
-                  label="Correct this entry"
+                  accent="more"
+                  label="Undo this entry"
                   onPress={() =>
-                    void run('correct this entry', async () => {
+                    void run('undo this entry', async () => {
                       await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: item.id });
                       bump();
+                      toast.show(`${item.vaccine_name} entry undone. To put it back, give the dose again.`);
                     })
                   }
                 />
               ) : null}
             </View>
             <View style={{ alignItems: 'flex-end', gap: space.xs }}>
-              <T style={[st.delta, { color: item.delta_doses > 0 ? color.ok : color.danger }]}>
+              <T style={[st.delta, { color: deltaColor[item.movement_type] ?? color.text }]}>
                 {item.delta_doses > 0 ? '+' : ''}
                 {item.delta_doses}
               </T>
-              {undone ? <Badge text="CORRECTED" tone="neutral" /> : null}
-              {item.reverses_id ? <Badge text="CORRECTION" tone="low" /> : null}
+              {undone ? <Badge text="UNDONE" tone="neutral" /> : null}
             </View>
           </View>
         );
@@ -122,7 +131,6 @@ const st = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: color.border,
   },
-  rowUndone: { opacity: 0.6 },
   title: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
   meta: { fontSize: type.min, color: color.textMuted, marginTop: 2 },
   delta: { fontSize: type.title, fontWeight: weight.bold },

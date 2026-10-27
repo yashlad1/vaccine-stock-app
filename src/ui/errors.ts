@@ -60,7 +60,7 @@ export function friendlyError(err: unknown, { what }: ActionLabels): string {
     return 'No internet connection. Your entries are safe on this phone and will upload later.';
   }
   if (has(raw, 'SyncAuthError') || has(raw, 'Invalid login') || has(raw, '401')) {
-    return 'The server rejected the login. Check the details in Settings. Your data is safe on this phone.';
+    return 'The server rejected the login. Check the details on the Server backup screen. Your data is safe on this phone.';
   }
 
   return `Could not ${what}. Nothing was saved. Please try again.`;

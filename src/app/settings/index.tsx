@@ -32,6 +32,7 @@ export default function SettingsScreen() {
       <BigButton
         label="Save clinic name"
         variant="outline"
+        accent="more"
         onPress={() => void run('save the clinic name', async () => {
           await setSetting(db, SETTING.clinicName, clinic.trim());
           bump();
@@ -45,8 +46,8 @@ export default function SettingsScreen() {
       <Row title="This device" subtitle={deviceId.slice(0, 8)} />
       <View style={{ height: space.lg }} />
       <T style={st.note}>
-        This app works fully offline. All clinic records stay on this phone. It connects to the
-        internet only to check for app updates.
+        Works with no internet. Records are saved on this phone and copied to the clinic server
+        when there is signal.
       </T>
     </ScrollView>
   );

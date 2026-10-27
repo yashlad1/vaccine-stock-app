@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { BigButton, Empty, ErrorState, Input, Loading, Row, SecondaryButton, T, useBottomInset } from '../../ui/components';
 import { useAction } from '../../ui/use-action';
 import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
-import { asOfLabel, dosesGiven, dosesGivenTotals, movementStrip } from '../../domain/reports';
+import { asOfLabel, dosesGiven, dosesGivenTotals, missingChildEntries, movementStrip } from '../../domain/reports';
 import { fillMissingChild } from '../../domain/ledger';
-import { formatAge, formatDayLabel, formatTime12h, todayLocal } from '../../domain/time';
+import { formatAge, formatDate, formatDayLabel, formatTime12h, todayLocal } from '../../domain/time';
 import { MovementStrip } from '../../ui/movement-strip';
 
 /** "Vaccines given today, time, count" - the notebook page, arithmetic included. */
@@ -16,10 +17,14 @@ export default function TodayScreen() {
   const bottomInset = useBottomInset();
   const { db, bump } = useDb();
   const today = todayLocal();
+  const missingMode = useLocalSearchParams<{ missing?: string }>().missing === '1';
   const [editing, setEditing] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
 
-  const { data: lines, loading, error, reload } = useQuery((d) => dosesGiven(d, today), [today]);
+  const { data: lines, loading, error, reload } = useQuery(
+    (d) => (missingMode ? missingChildEntries(d, 100) : dosesGiven(d, today)),
+    [today, missingMode],
+  );
   const { data: totals } = useQuery((d) => dosesGivenTotals(d, today), [today]);
   const { data: strip } = useQuery((d) => movementStrip(d, today), [today]);
 
@@ -30,17 +35,24 @@ export default function TodayScreen() {
 
   return (
     <ScrollView style={st.screen} contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}>
-      {/* Same order as the Stock tab: when it was measured, then the number. */}
-      <T style={st.day}>
-        {formatDayLabel()} · {asOfLabel()}
-      </T>
-      <T style={st.total}>
-        {total} {total === 1 ? 'dose' : 'doses'} given
-      </T>
+      <Stack.Screen options={{ title: missingMode ? 'Missing child names' : 'Given today' }} />
+      {missingMode ? (
+        <T style={st.total}>Doses with no name</T>
+      ) : (
+        <>
+          {/* Same order as the Stock tab: when it was measured, then the number. */}
+          <T style={st.day}>
+            {formatDayLabel()} · {asOfLabel()}
+          </T>
+          <T style={st.total}>
+            {total} {total === 1 ? 'dose' : 'doses'} given
+          </T>
+        </>
+      )}
 
-      {strip ? <MovementStrip strip={strip} accent={color.dose} label="Stock today" /> : null}
+      {!missingMode && strip ? <MovementStrip strip={strip} accent={color.dose} label="Stock today" /> : null}
 
-      {totals?.length ? (
+      {!missingMode && totals?.length ? (
         <>
           <T style={st.section}>By vaccine</T>
           {totals.map((t) => (
@@ -49,11 +61,15 @@ export default function TodayScreen() {
         </>
       ) : null}
 
-      <T style={st.section}>Every dose</T>
+      <T style={st.section}>{missingMode ? 'Add a name to each' : 'Every dose'}</T>
       {lines?.length ? (
         lines.map((l) => (
           <View key={l.id} style={st.line}>
-            <T style={st.time}>{formatTime12h(l.local_time)}</T>
+            <T style={st.time}>
+              {missingMode
+                ? `${formatDate(new Date(`${l.local_date}T00:00:00`).getTime())}, ${formatTime12h(l.local_time)}`
+                : formatTime12h(l.local_time)}
+            </T>
             <View style={{ flex: 1 }}>
               <T style={st.vaccine}>
                 {l.vaccine_name}
@@ -81,6 +97,7 @@ export default function TodayScreen() {
                     autoFocus
                   />
                   <BigButton
+                    accent="more"
                     label="Save name"
                     onPress={() => void run("save this child's name", async () => {
                       await fillMissingChild(db, { movementId: l.id, patientLabel: nameDraft.trim() });
@@ -93,6 +110,7 @@ export default function TodayScreen() {
                 </View>
               ) : l.needs_detail ? (
                 <SecondaryButton
+                  accent="more"
                   label="Add the child's name"
                   onPress={() => {
                     setEditing(l.id);
@@ -104,7 +122,11 @@ export default function TodayScreen() {
           </View>
         ))
       ) : (
-        <Empty title="No doses recorded yet today" hint="Tap a vaccine on the Give dose tab." />
+        missingMode ? (
+          <Empty title="Every dose has a name" />
+        ) : (
+          <Empty title="No doses recorded yet today" hint="Tap a vaccine on the Give dose tab." />
+        )
       )}
     </ScrollView>
   );

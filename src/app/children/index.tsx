@@ -58,7 +58,7 @@ export default function ChildrenScreen() {
         )}
       />
       <T style={st.note}>
-        Names are stored only on this phone. Keep a screen lock on the device.
+        Names are saved on this phone and the clinic server. Keep a screen lock on the phone.
       </T>
     </View>
   );

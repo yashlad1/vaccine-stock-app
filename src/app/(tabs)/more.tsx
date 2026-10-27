@@ -100,7 +100,7 @@ export default function MoreScreen() {
                   : 'Everything uploaded'
           }
           right={
-            sync && sync.lastError && sync.pending > 0 ? <Badge text="CHECK" tone="low" /> : undefined
+            sync && sync.lastError && sync.pending > 0 ? <Badge text="NOT SENT" tone="neutral" /> : undefined
           }
           onPress={() => router.push('/sync')}
           last
@@ -130,9 +130,13 @@ export default function MoreScreen() {
         />
         <Row
           title="Missing child names"
-          subtitle="Fill in doses logged without a name"
-          right={missing?.length ? <Badge text={String(missing.length)} tone="low" /> : undefined}
-          onPress={() => router.push('/reports/today')}
+          subtitle={
+            missing?.length
+              ? `${missing.length} ${missing.length === 1 ? 'dose has' : 'doses have'} no name`
+              : 'Fill in doses logged without a name'
+          }
+          right={missing?.length ? <Badge text={String(missing.length)} tone="neutral" /> : undefined}
+          onPress={() => router.push('/reports/today?missing=1')}
         />
         <Row
           title="All entries"
@@ -158,7 +162,7 @@ export default function MoreScreen() {
       </Card>
 
       <T style={st.note}>
-        Everything stays on this phone. Back it up regularly, and keep a screen lock on the phone.
+        Saved on this phone first, and copied to the clinic server. Keep a screen lock on the phone.
       </T>
     </ScrollView>
   );

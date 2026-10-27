@@ -9,7 +9,24 @@ import { SETTING, getNumber, getSetting, markBackedUp } from '../../db/repo/sett
 import { exportBackup, listLocalBackups } from '../../db/backup/export';
 import { commitRestore, describeCurrent, pickBackup, previewBackup } from '../../db/backup/import';
 import { lastBackupLabel } from '../../domain/backup-nag';
-import { formatDate } from '../../domain/time';
+import { formatDate, formatTime12h } from '../../domain/time';
+
+/** Readable row title from the snapshot file-name scheme; unknown names pass through. */
+function backupTitle(name: string): string {
+  let m = /^clinic-backup-(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})\.zip$/.exec(name);
+  if (m) {
+    const at = new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+    return `Backup, ${formatDate(at)}, ${formatTime12h(`${m[4]}:${m[5]}`)}`;
+  }
+  m = /^daily-(\d{4})-(\d{2})-(\d{2})\.db$/.exec(name);
+  if (m) return `Daily copy, ${formatDate(new Date(+m[1], +m[2] - 1, +m[3]).getTime())}`;
+  m = /^(?:premigration-v\d+-to-v\d+|prerestore)-(\d+)\.db$/.exec(name);
+  if (m) {
+    const kind = name.startsWith('prerestore') ? 'Saved before a restore' : 'Saved before an update';
+    return `${kind}, ${formatDate(Number(m[1]))}`;
+  }
+  return name;
+}
 
 /**
  * The screen that decides whether this app is an improvement on paper or a
@@ -104,7 +121,9 @@ export default function BackupScreen() {
       <View style={st.card}>
         <T style={st.status}>{lastBackupLabel(meta.lastBackupAt)}</T>
         <T style={st.sub}>
-          {meta.dosesSinceBackup === 0
+          {meta.lastBackupAt === null
+            ? 'Nothing has been saved to a backup file yet.'
+            : meta.dosesSinceBackup === 0
             ? 'Everything on this phone is backed up.'
             : `${meta.dosesSinceBackup} ${meta.dosesSinceBackup === 1 ? 'entry' : 'entries'} since the last backup.`}
         </T>
@@ -115,11 +134,13 @@ export default function BackupScreen() {
           label={busy === 'export' ? 'Preparing…' : 'Back up now'}
           sublabel="Send it to yourself on WhatsApp or save to Drive"
           onPress={doExport}
+          accent="more"
           disabled={!!busy}
         />
         <BigButton
           label="Restore from a backup"
           variant="outline"
+          accent="more"
           onPress={doRestore}
           disabled={!!busy}
         />
@@ -127,9 +148,8 @@ export default function BackupScreen() {
 
       <T style={st.section}>What is in a backup</T>
       <T style={st.body}>
-        One zip file containing the full database (which is what restores exactly) plus
-        spreadsheet-friendly CSVs (doses.csv, stock_movements.csv, vaccines.csv and
-        patients.csv) that open in Excel or Google Sheets.
+        One file. It restores this phone exactly. It also has a list of doses you can open in
+        Google Sheets.
       </T>
 
       <T style={st.section}>On this phone</T>
@@ -137,7 +157,7 @@ export default function BackupScreen() {
         local.slice(0, 10).map((f) => (
           <Row
             key={f.uri}
-            title={f.name}
+            title={backupTitle(f.name)}
             subtitle={f.size ? `${Math.round(f.size / 1024)} KB` : undefined}
           />
         ))

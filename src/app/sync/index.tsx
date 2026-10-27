@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import {
-  BigButton, Chip, ErrorState, Field, Input, Loading, Row, SecondaryButton, T, useBottomInset,
+  BigButton, Chip, ErrorState, Field, Input, Loading, Row, SecondaryButton, SectionTitle, T, useBottomInset,
 } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
@@ -161,10 +161,24 @@ export default function SyncScreen() {
         </T>
       ) : null}
 
+      <T style={st.section}>Status</T>
+      <Row title="Waiting to upload" right={<T style={st.num}>{status?.pending ?? 0}</T>} />
+      <Row
+        title="Last successful upload"
+        subtitle={status?.lastOkAt ? formatDate(status.lastOkAt) : 'Not yet'}
+      />
+      {status?.lastError ? <T style={st.err}>Last attempt failed: {status.lastError}</T> : null}
+
+      <View style={{ gap: space.md, marginTop: space.md }}>
+        <SecondaryButton accent="more" label="Upload now" onPress={uploadNow} />
+        <SecondaryButton accent="more" label="Bring records down from the server" onPress={bringDown} />
+      </View>
+
+      <SectionTitle>Server details</SectionTitle>
       <Field label="Server backup">
         <View style={st.chipRow}>
-          <Chip label="On" selected={enabled} onPress={() => setEnabled(true)} />
-          <Chip label="Off" selected={!enabled} onPress={() => setEnabled(false)} />
+          <Chip accent="more" label="On" selected={enabled} onPress={() => setEnabled(true)} />
+          <Chip accent="more" label="Off" selected={!enabled} onPress={() => setEnabled(false)} />
         </View>
       </Field>
 
@@ -198,21 +212,8 @@ export default function SyncScreen() {
       </Field>
 
       <View style={{ gap: space.md, marginTop: space.md }}>
-        <SecondaryButton label={busy ? 'Working…' : 'Test the connection'} onPress={test} />
-        <BigButton label="Save" onPress={save} disabled={enabled && !complete} />
-      </View>
-
-      <T style={st.section}>Status</T>
-      <Row title="Waiting to upload" right={<T style={st.num}>{status?.pending ?? 0}</T>} />
-      <Row
-        title="Last successful upload"
-        subtitle={status?.lastOkAt ? formatDate(status.lastOkAt) : 'never'}
-      />
-      {status?.lastError ? <T style={st.err}>Last attempt failed: {status.lastError}</T> : null}
-
-      <View style={{ gap: space.md, marginTop: space.md }}>
-        <SecondaryButton label="Upload now" onPress={uploadNow} />
-        <SecondaryButton label="Bring records down from the server" onPress={bringDown} />
+        <SecondaryButton accent="more" label={busy ? 'Working…' : 'Test the connection'} onPress={test} />
+        <BigButton accent="more" label="Save" onPress={save} disabled={enabled && !complete} />
       </View>
 
       <T style={st.note}>
@@ -227,7 +228,7 @@ const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   intro: { fontSize: type.body, color: color.text, lineHeight: 26, marginBottom: space.lg },
   builtIn: {
-    fontSize: type.label, color: color.ok, fontWeight: weight.semibold,
+    fontSize: type.label, color: color.text, fontWeight: weight.semibold,
     lineHeight: 24, marginBottom: space.lg,
   },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
