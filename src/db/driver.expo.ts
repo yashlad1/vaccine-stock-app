@@ -63,6 +63,56 @@ export const DATABASE_NAME = 'clinic.db';
 
 /** The live database. `migrate()` sets the pragmas it needs. */
 export async function openDeviceDb(name = DATABASE_NAME): Promise<{ db: Db; raw: SQLite.SQLiteDatabase }> {
-  const raw = await SQLite.openDatabaseAsync(name);
+  const raw = Platform.OS === 'web' ? await openInBrowser(name) : await SQLite.openDatabaseAsync(name);
+  if (__DEV__ && Platform.OS === 'web') await loadMacCopy(raw);
   return { db: wrapExpoDb(raw), raw };
+}
+
+/**
+ * The browser lets ONE page hold the database file, so a second tab (or a
+ * reload that beats the old page's exit) is refused. Retrying in the same page
+ * does not help - the VFS is left in an invalid state - so say what to do
+ * instead of showing the raw OPFS error.
+ */
+async function openInBrowser(name: string): Promise<SQLite.SQLiteDatabase> {
+  try {
+    return await SQLite.openDatabaseAsync(name);
+  } catch (e) {
+    if (!/createSyncAccessHandle/.test(String(e))) throw e;
+    throw new Error('Clinic Stock is open in another tab of this browser. Close the other tab, then reload this one.');
+  }
+}
+
+/**
+ * Browser dev loop only: start from the clinic's real records instead of an
+ * empty catalogue, so screens are judged against real volumes and names.
+ *
+ * The copy is the Mac's nightly server backup, served on 127.0.0.1 by
+ * scripts/dev-data-server.ts, so it never leaves this machine. It carries no
+ * settings - no server login, no device id - so this browser cannot sync into
+ * the clinic's record. Loads into an empty database, or over the current one
+ * when the URL has ?macdata. Silent when that server is not running.
+ */
+const MAC_COPY = 'http://127.0.0.1:8099/clinic.db';
+
+async function loadMacCopy(raw: SQLite.SQLiteDatabase) {
+  const force = new URLSearchParams(globalThis.location?.search ?? '').has('macdata');
+  const v = await raw.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  if (v?.user_version && !force) return;
+  const res = await fetch(MAC_COPY).catch(() => null);
+  if (!res?.ok) return;
+  const copy = await SQLite.deserializeDatabaseAsync(new Uint8Array(await res.arrayBuffer()));
+  await SQLite.backupDatabaseAsync({
+    sourceDatabase: copy,
+    sourceDatabaseName: 'main',
+    destDatabase: raw,
+    destDatabaseName: 'main',
+  });
+  await copy.closeAsync();
+  // A server copy has no settings, so the app would take it for a new phone
+  // and seed the starter catalogue over vaccines the clinic has since removed.
+  await raw.runAsync(
+    `INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('catalog_seeded', '1', ?)`,
+    [Date.now()],
+  );
 }
