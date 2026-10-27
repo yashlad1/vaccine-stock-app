@@ -521,7 +521,12 @@ export default function DoseScreen() {
           </Pressable>
         ) : null}
         <BigButton
-          label={chosenExtras.length ? `Give ${chosenExtras.length + 1} vaccines` : `Give ${dosesText(doses)}`}
+          // Doses first, the unit of the whole app: one dose of each added vaccine.
+          label={
+            chosenExtras.length
+              ? `Give ${dosesText(doses + chosenExtras.length)} (${chosenExtras.length + 1} vaccines)`
+              : `Give ${dosesText(doses)}`
+          }
           onPress={() => give(false)}
           disabled={saving}
         />
