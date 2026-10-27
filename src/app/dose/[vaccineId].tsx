@@ -8,14 +8,14 @@ import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 import { newId } from '../../domain/ids';
-import { recordAdministration, reverseMovement, findRecentSimilar } from '../../domain/ledger';
+import { reverseMovement, findRecentSimilar } from '../../domain/ledger';
 import { lotsInStock, lastUsedLot, isExpired } from '../../db/repo/lots';
 import { type Patient, type Sex, createPatient, recentPatients, searchPatients, setPatientDob, setPatientSex } from '../../db/repo/patients';
 import { bumpDosesSinceBackup } from '../../db/repo/settings';
 import { describeStock } from '../../domain/stock';
 import { addDays, expiryToMonthLabel, formatAge, todayLocal } from '../../domain/time';
 import { type DoseNote, stripDoseToken } from '../../domain/names';
-import { coGiven } from '../../domain/visits';
+import { type Visit, type VisitIds, coGiven, recordVisit, visitIds } from '../../domain/visits';
 import { DateOfBirthWheel } from '../../ui/wheel';
 import type { StockRow } from '../../domain/types';
 
@@ -63,11 +63,12 @@ export default function DoseScreen() {
   const [extras, setExtras] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   /**
-   * The ids of THIS Give, minted at the first tap and kept for every retry of
-   * it, so a write that half-happened replays as a no-op instead of a second
-   * dose. The screen closes on success, which ends the intent.
+   * The ids of the last failed tap on Give. A retry with the same inputs
+   * replays them, so a write that half-happened is a no-op instead of a second
+   * dose; changed inputs get new ones (`visitIds`). The screen closes on
+   * success, which ends the intent.
    */
-  const intent = useRef<{ main: string; extras: Record<string, string> } | null>(null);
+  const lastIds = useRef<VisitIds | null>(null);
 
   /** "Asha 2 Dose" searches, and is saved, as "Asha"; the "2" goes to the dose number. */
   const typed = stripDoseToken(childQuery);
@@ -153,13 +154,10 @@ export default function DoseScreen() {
     // would start drifting from the fridge.
     const ok = await run('record this dose', async () => {
       const also = skipChild ? [] : chosenExtras;
-      if (!intent.current) intent.current = { main: newId(), extras: {} };
-      const ids = intent.current;
-      for (const x of also) ids.extras[x.vaccine_id] = ids.extras[x.vaccine_id] ?? newId();
-
+      // A failed nudge lookup is no reason to lose the dose (invariant 5).
       const similar = await findRecentSimilar(db, {
         vaccineId, movementType: 'ADMINISTRATION', deltaDoses: -doses,
-      });
+      }).catch(() => null);
 
       // The ledger keeps the name exactly as typed, dose number and all.
       const label = skipChild ? null : (childLabel ?? (childQuery.trim() || null));
@@ -189,49 +187,31 @@ export default function DoseScreen() {
         );
       }
 
-      const what = doses === 1 ? vaccine.name : `${doses} doses of ${vaccine.name}`;
-      const main = await recordAdministration(
-        db,
-        { deviceId },
-        {
-          clientActionId: ids.main,
-          vaccineId,
-          lotId: effectiveLot,
-          doses,
-          patientId,
-          patientLabel: label,
-          note: skipChild ? undefined : (effectiveDose ?? undefined),
-        },
-      );
-      const written = [{ id: main.movement.id, created: main.created, doses, name: vaccine.name, what }];
-      // A retry replays this Give's own row; that is not a second dose.
-      const doubleTap = !!similar && similar.id !== main.movement.id;
+      const visit: Visit = {
+        vaccineId,
+        doses,
+        lotId: effectiveLot,
+        patientId,
+        patientLabel: label,
+        note: skipChild ? null : effectiveDose,
+        extras: also.map((x) => ({ vaccineId: x.vaccine_id, lotId: x.lot?.lot_id ?? null })),
+      };
+      const ids = (lastIds.current = visitIds(lastIds.current, visit));
+      // The only write whose failure is this Give's failure. Past it, the dose
+      // is in the ledger, and nothing below may say otherwise.
+      const r = await recordVisit(db, { deviceId }, ids, visit);
 
-      // Each added vaccine is its own dose, after the main one. Its failure is
-      // not the main dose's failure: that one stays, and the toast names this.
-      const failed: string[] = [];
-      for (const x of also) {
-        try {
-          const r = await recordAdministration(
-            db,
-            { deviceId },
-            {
-              clientActionId: ids.extras[x.vaccine_id],
-              vaccineId: x.vaccine_id,
-              lotId: x.lot?.lot_id ?? null,
-              doses: 1,
-              patientId,
-              patientLabel: label,
-            },
-          );
-          written.push({ id: r.movement.id, created: r.created, doses: 1, name: x.name, what: x.name });
-        } catch {
-          failed.push(x.name);
-        }
-      }
-      // Only a real write moves the backup nag; a replayed intent is a no-op.
-      const newDoses = written.reduce((n, w) => n + (w.created ? w.doses : 0), 0);
-      if (newDoses) await bumpDosesSinceBackup(db, newDoses);
+      // Described from the rows the ledger holds, a replay included.
+      const nameOf = (id: string) => (id === vaccineId ? vaccine.name : (also.find((x) => x.vaccine_id === id)?.name ?? ''));
+      const written = [r.main, ...r.extras].map(({ movement: m, created }) => {
+        const n = -m.delta_doses;
+        const name = nameOf(m.vaccine_id);
+        return { id: m.id, created, doses: n, name, what: n === 1 ? name : `${n} doses of ${name}` };
+      });
+      const { what } = written[0];
+      const failed = r.failed.map(nameOf);
+      // A retry replays this Give's own row; that is not a second dose.
+      const doubleTap = !!similar && similar.id !== r.main.movement.id;
 
       // AFTER the dose, and its failure is not the dose's failure: invariant 5
       // says nothing about a birthday may stop a vaccination being recorded.
@@ -242,9 +222,11 @@ export default function DoseScreen() {
       if (sexToSave) sexSaved = await setPatientSex(db, childId!, sexToSave).then(() => true, () => false);
       bump();
 
-      const who = label ? stripDoseToken(label).name : null;
-      const age = skipChild ? null : formatAge(dobSaved ? (newDob ?? childDob) : childDob, today);
-      const doseNo = DOSE_CHIPS.find((c) => c.note === effectiveDose);
+      const m = r.main.movement;
+      const who = m.patient_label ? stripDoseToken(m.patient_label).name : null;
+      // An age only for a saved child: an unlinked dose has no date of birth behind it.
+      const age = m.patient_id ? formatAge(dobSaved ? (newDob ?? childDob) : childDob, today) : null;
+      const doseNo = DOSE_CHIPS.find((c) => c.note === m.note);
       const detailsLost = !(dobSaved && sexSaved);
       // Warnings first: the toast holds three lines and the end may be cut.
       const message = [
@@ -270,8 +252,8 @@ export default function DoseScreen() {
           let undoneDoses = 0;
           for (const w of written) {
             try {
-              const r = await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: w.id });
-              if (r.created) undoneDoses += w.doses;
+              const rev = await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: w.id });
+              if (rev.created) undoneDoses += w.doses;
             } catch (e) {
               // One vaccine keeps the plain error toast. Several: undo the
               // rest, then name what is left.
@@ -279,7 +261,8 @@ export default function DoseScreen() {
               notUndone.push(w.name);
             }
           }
-          if (undoneDoses) await bumpDosesSinceBackup(db, -undoneDoses);
+          // Bookkeeping: its failure is not the undo's failure.
+          if (undoneDoses) await bumpDosesSinceBackup(db, -undoneDoses).catch(() => undefined);
           bump();
           if (notUndone.length) {
             toast.showError(

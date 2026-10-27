@@ -1,4 +1,7 @@
 import type { Db } from '../db/driver';
+import { bumpDosesSinceBackup } from '../db/repo/settings';
+import { newId } from './ids';
+import { recordAdministration, type WriteContext, type WriteResult } from './ledger';
 
 export interface CoGiven {
   vaccine_id: string;
@@ -35,4 +38,85 @@ export function coGiven(db: Db, vaccineId: string, sinceLocalDate: string, limit
       LIMIT ?`,
     [vaccineId, sinceLocalDate, limit],
   );
+}
+
+/** One tap on Give: the main vaccine, plus one dose of each vaccine under "Also giving now". */
+export interface Visit {
+  vaccineId: string;
+  doses: number;
+  lotId: string | null;
+  patientId: string | null;
+  patientLabel: string | null;
+  note: string | null;
+  extras: { vaccineId: string; lotId: string | null }[];
+}
+
+export interface VisitIds {
+  /** The inputs these ids were minted for. */
+  key: string;
+  main: string;
+  extras: Record<string, string>;
+}
+
+/**
+ * The clientActionIds for a tap on Give, given the last tap's if it failed.
+ *
+ * The same inputs keep the same ids, so a write that half-happened replays as
+ * a no-op instead of a second dose. Anything changed gets new ids: replaying
+ * the old ones would keep the earlier tap's dose in the ledger while the
+ * toast named the new child, batch or count.
+ */
+export function visitIds(last: VisitIds | null, v: Visit, mint: () => string = newId): VisitIds {
+  const extras = v.extras.map((x) => `${x.vaccineId}:${x.lotId}`).sort();
+  const key = JSON.stringify([v.vaccineId, v.doses, v.lotId, v.patientId, v.patientLabel, v.note, extras]);
+  if (last?.key === key) return last;
+  return { key, main: mint(), extras: Object.fromEntries(v.extras.map((x) => [x.vaccineId, mint()])) };
+}
+
+/**
+ * Write one Give. It fails only if the main dose fails.
+ *
+ * Once that dose is in the ledger, nothing after it may report failure: she
+ * would give it again, and that is a second dose. An added vaccine that fails
+ * comes back in `failed`, for the toast to name, and the backup count is
+ * bookkeeping. Rows come back as the ledger holds them, replays included, so
+ * the toast and Undo describe what is there, not what the screen shows.
+ */
+export async function recordVisit(
+  db: Db,
+  ctx: WriteContext,
+  ids: VisitIds,
+  v: Visit,
+): Promise<{ main: WriteResult; extras: WriteResult[]; failed: string[] }> {
+  const main = await recordAdministration(db, ctx, {
+    clientActionId: ids.main,
+    vaccineId: v.vaccineId,
+    lotId: v.lotId,
+    doses: v.doses,
+    patientId: v.patientId,
+    patientLabel: v.patientLabel,
+    note: v.note ?? undefined,
+  });
+  const extras: WriteResult[] = [];
+  const failed: string[] = [];
+  for (const x of v.extras) {
+    try {
+      extras.push(
+        await recordAdministration(db, ctx, {
+          clientActionId: ids.extras[x.vaccineId],
+          vaccineId: x.vaccineId,
+          lotId: x.lotId,
+          doses: 1,
+          patientId: v.patientId,
+          patientLabel: v.patientLabel,
+        }),
+      );
+    } catch {
+      failed.push(x.vaccineId);
+    }
+  }
+  // Only a real write moves the backup nag; a replayed row is a no-op.
+  const created = [main, ...extras].reduce((n, r) => n + (r.created ? -r.movement.delta_doses : 0), 0);
+  if (created) await bumpDosesSinceBackup(db, created, ctx.now).catch(() => undefined);
+  return { main, extras, failed };
 }

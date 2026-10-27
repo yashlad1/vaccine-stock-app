@@ -3,7 +3,9 @@ import { createPatient, recentPatients } from '../db/repo/patients';
 import { removeVaccine, deactivateVaccine } from '../db/repo/catalog';
 import { recordAdministration, reverseMovement } from './ledger';
 import { dosesGiven, missingChildEntries } from './reports';
-import { coGiven } from './visits';
+import { getNumber, SETTING } from '../db/repo/settings';
+import type { Db } from '../db/driver';
+import { coGiven, recordVisit, visitIds, type Visit } from './visits';
 
 const DAY = 24 * 3600_000;
 const dose = (name: string) => ({ name, unit_mode: 'DOSE' as const, doses_per_vial: 1, min_balance_doses: 0 });
@@ -138,5 +140,122 @@ describe('the dose number reaches the reports', () => {
     await recordAdministration(db, ctx, { clientActionId: 'm', vaccineId: id['Typbar-TCV'], note: 'Booster' });
     expect((await dosesGiven(db, '2026-09-06')).map((l) => l.note)).toEqual(['Dose 2', 'Booster']);
     expect((await missingChildEntries(db)).map((l) => l.note)).toEqual(['Booster']);
+  });
+});
+
+describe('visitIds: a retried Give replays only if nothing changed', () => {
+  const visit: Visit = {
+    vaccineId: 'v', doses: 1, lotId: 'l', patientId: null, patientLabel: 'Asha', note: 'Dose 2',
+    extras: [{ vaccineId: 'x', lotId: 'xl' }, { vaccineId: 'y', lotId: null }],
+  };
+
+  it('mints ids for the first tap, and keeps them for the same inputs', () => {
+    const first = visitIds(null, visit, actions());
+    expect(first).toMatchObject({ main: 'a-1', extras: { x: 'a-2', y: 'a-3' } });
+    expect(visitIds(first, { ...visit }, actions('b'))).toBe(first);
+    // The order the extras were ticked in is not a change.
+    expect(visitIds(first, { ...visit, extras: [...visit.extras].reverse() }, actions('b'))).toBe(first);
+  });
+
+  it.each<[string, Partial<Visit>]>([
+    ['the vaccine', { vaccineId: 'w' }],
+    ['the dose count', { doses: 2 }],
+    ['the batch', { lotId: null }],
+    ['the saved child', { patientId: 'p' }],
+    ['the typed name', { patientLabel: 'Ravi' }],
+    ['the dose number', { note: null }],
+    ['the extras, one more', { extras: [...visit.extras, { vaccineId: 'z', lotId: null }] }],
+    ['the extras, one fewer', { extras: [visit.extras[0]] }],
+    ["an extra's batch", { extras: [{ vaccineId: 'x', lotId: 'other' }, visit.extras[1]] }],
+  ])('mints new ids after a change to %s', (_, change) => {
+    const first = visitIds(null, visit, actions());
+    const next = visitIds(first, { ...visit, ...change }, actions('b'));
+    expect(next.main).toBe('b-1');
+    expect(Object.values(next.extras).every((id) => id.startsWith('b-'))).toBe(true);
+  });
+});
+
+describe('recordVisit: one Give, several vaccines', () => {
+  const setup = async () => {
+    const e = await env();
+    const visit: Visit = {
+      vaccineId: e.id.Rotavac, doses: 1, lotId: null, patientId: null, patientLabel: 'Asha', note: 'Dose 2',
+      extras: [{ vaccineId: e.id.Hexaxim, lotId: null }, { vaccineId: e.id.Varilrix, lotId: null }],
+    };
+    const count = async () =>
+      (await e.db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM stock_movements`))!.n;
+    return { ...e, visit, count };
+  };
+
+  it('replays the same inputs as a no-op, rows and backup count included', async () => {
+    const { db, ctx, visit, count } = await setup();
+    const ids = visitIds(null, visit);
+    const first = await recordVisit(db, ctx, ids, visit);
+    const again = await recordVisit(db, ctx, visitIds(ids, visit), visit);
+
+    expect(await count()).toBe(3);
+    expect([again.main, ...again.extras].map((r) => r.created)).toEqual([false, false, false]);
+    expect([again.main, ...again.extras].map((r) => r.movement.id)).toEqual(
+      [first.main, ...first.extras].map((r) => r.movement.id),
+    );
+    expect(await getNumber(db, SETTING.dosesSinceBackup)).toBe(3);
+  });
+
+  it('writes what the new inputs say when they changed, never the earlier row', async () => {
+    const { db, ctx, visit } = await setup();
+    const ids = visitIds(null, visit);
+    await recordVisit(db, ctx, ids, visit);
+    const changed = { ...visit, patientLabel: 'Ravi', doses: 2 };
+    const r = await recordVisit(db, ctx, visitIds(ids, changed), changed);
+
+    expect(r.main.created).toBe(true);
+    expect(r.main.movement).toMatchObject({ patient_label: 'Ravi', delta_doses: -2, note: 'Dose 2' });
+    expect(r.extras.map((x) => x.movement.patient_label)).toEqual(['Ravi', 'Ravi']);
+  });
+
+  it('reports the dose written when the bookkeeping after it fails', async () => {
+    const { db, ctx, visit, count } = await setup();
+    // The backup count is a settings write; make every one of them fail.
+    const busy: Db = {
+      exec: (s) => db.exec(s),
+      run: (s, p) => (s.includes('settings') ? Promise.reject(new Error('database is locked')) : db.run(s, p)),
+      all: (s, p) => db.all(s, p),
+      first: (s, p) => db.first(s, p),
+      tx: (fn) => db.tx(fn),
+    };
+    const r = await recordVisit(busy, ctx, visitIds(null, visit), visit);
+    expect(r.main.created).toBe(true);
+    expect(r.failed).toEqual([]);
+    expect(await count()).toBe(3);
+  });
+
+  it('keeps the main dose when an added vaccine fails, and names that one', async () => {
+    const { db, ctx, id, visit, count } = await setup();
+    const withBad = { ...visit, extras: [...visit.extras, { vaccineId: 'no-such-vaccine', lotId: null }] };
+    const r = await recordVisit(db, ctx, visitIds(null, withBad), withBad);
+    expect(r.failed).toEqual(['no-such-vaccine']);
+    expect(r.extras.map((x) => x.movement.vaccine_id)).toEqual([id.Hexaxim, id.Varilrix]);
+    expect(await count()).toBe(3);
+  });
+
+  it('fails when the main dose fails, so the retry can replay it', async () => {
+    const { db, ctx, visit, count } = await setup();
+    const bad = { ...visit, vaccineId: 'no-such-vaccine' };
+    await expect(recordVisit(db, ctx, visitIds(null, bad), bad)).rejects.toThrow();
+    expect(await count()).toBe(0);
+  });
+
+  it('undoing every row it returned leaves no dose given and the stock as it was', async () => {
+    const { db, ctx, id, visit, next } = await setup();
+    const r = await recordVisit(db, ctx, visitIds(null, visit), visit);
+    for (const w of [r.main, ...r.extras]) {
+      await reverseMovement(db, ctx, { clientActionId: next(), movementId: w.movement.id });
+    }
+    expect(await dosesGiven(db, '2026-09-06')).toEqual([]);
+    const onHand = await db.all<{ on_hand_doses: number }>(
+      `SELECT on_hand_doses FROM v_stock_on_hand WHERE vaccine_id IN (?, ?, ?)`,
+      [id.Rotavac, id.Hexaxim, id.Varilrix],
+    );
+    expect(onHand.map((s) => s.on_hand_doses)).toEqual([0, 0, 0]);
   });
 });
