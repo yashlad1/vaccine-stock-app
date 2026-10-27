@@ -1,4 +1,4 @@
-import { stamp, todayLocal, expiryFromMonth, expiryToMonthLabel, formatTime12h, formatAge, dateFromParts } from './time';
+import { stamp, todayLocal, expiryFromMonth, expiryToMonthLabel, formatTime12h, formatAge, dateFromParts, addDays, daysBetween, formatLocalDate } from './time';
 
 const IST = 330;
 
@@ -107,5 +107,50 @@ describe('age, in the clinic resolution', () => {
     expect(dateFromParts(2023, 2, 29)).toBeNull();
     expect(dateFromParts(2024, 2, 29)).toBe('2024-02-29');
     expect(dateFromParts(2026, 7, 3)).toBe('2026-07-03');
+  });
+});
+
+describe('addDays', () => {
+  it.each([
+    ['2026-01-31', 1, '2026-02-01'],
+    ['2026-12-31', 1, '2027-01-01'],
+    ['2028-02-28', 1, '2028-02-29'],
+    ['2028-02-29', 1, '2028-03-01'],
+    ['2027-02-28', 1, '2027-03-01'],
+    ['2026-09-06', 0, '2026-09-06'],
+    ['2026-03-01', -1, '2026-02-28'],
+    ['2028-03-01', -1, '2028-02-29'],
+    ['2027-01-01', -1, '2026-12-31'],
+    ['2026-09-06', -56, '2026-07-12'],
+    ['2026-09-06', 60, '2026-11-05'],
+  ])('%s plus %i days is %s', (from, n, expected) => {
+    expect(addDays(from, n)).toBe(expected);
+  });
+});
+
+describe('daysBetween', () => {
+  it.each([
+    ['2026-09-06', '2026-09-06', 0],
+    ['2026-09-06', '2026-09-07', 1],
+    ['2026-12-31', '2027-01-01', 1],
+    ['2028-02-28', '2028-03-01', 2],
+    ['2027-02-28', '2027-03-01', 1],
+    ['2026-01-01', '2027-01-01', 365],
+    ['2028-01-01', '2029-01-01', 366],
+    ['2026-09-07', '2026-09-06', -1],
+    ['2026-09-06', '2026-07-12', -56],
+  ])('from %s to %s is %i days', (a, b, expected) => {
+    expect(daysBetween(a, b)).toBe(expected);
+  });
+});
+
+describe('formatLocalDate', () => {
+  it.each([
+    ['2026-09-06', '6 Sep'],
+    ['2026-01-05', '5 Jan'],
+    ['2028-02-29', '29 Feb'],
+    ['2026-12-31', '31 Dec'],
+  ])('formats %s as %s', (date, expected) => {
+    expect(formatLocalDate(date)).toBe(expected);
   });
 });

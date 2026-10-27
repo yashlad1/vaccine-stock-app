@@ -372,13 +372,16 @@ export function Field({
   label,
   hint,
   children,
+  dense,
 }: {
   label: string;
   hint?: string;
   children: React.ReactNode;
+  /** Half the gap below, for a form where every field is optional and the button is the point. */
+  dense?: boolean;
 }) {
   return (
-    <View style={{ marginBottom: space.xl }}>
+    <View style={{ marginBottom: dense ? space.md : space.xl }}>
       <T style={s.fieldLabel}>{label}</T>
       {hint ? <T style={s.fieldHint}>{hint}</T> : null}
       {children}
@@ -404,15 +407,28 @@ export function Row({
   right,
   onPress,
   last,
+  dense,
 }: {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
   onPress?: () => void;
   last?: boolean;
+  /**
+   * Height for what the row IS, not one size for everything: a row she taps
+   * keeps the 56dp floor, a line she only reads sits at its text height. The
+   * text keeps its size either way; only the empty space around it goes.
+   */
+  dense?: boolean;
 }) {
   const body = (
-    <View style={[s.row, last && { borderBottomWidth: 0 }]}>
+    <View
+      style={[
+        s.row,
+        dense && (onPress ? s.rowDenseTap : s.rowDenseRead),
+        last && { borderBottomWidth: 0 },
+      ]}
+    >
       <View style={{ flex: 1 }}>
         <T style={s.rowTitle}>{title}</T>
         {subtitle ? <T style={s.rowSub}>{subtitle}</T> : null}
@@ -614,6 +630,8 @@ export const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.border,
   },
+  rowDenseTap: { minHeight: touch.min, paddingVertical: space.sm },
+  rowDenseRead: { minHeight: 0, paddingVertical: space.sm },
   rowTitle: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
   rowSub: { fontSize: type.label, color: color.textMuted, marginTop: 2 },
   chevron: { fontSize: type.big, color: color.borderControl, marginTop: -4 },

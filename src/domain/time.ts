@@ -67,7 +67,7 @@ export function expiryToMonthLabel(expiryDate: string): string {
  */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export function formatAge(dob: string | null, onLocalDate: string): string | null {
+function ageParts(dob: string | null, onLocalDate: string): { days: number; months: number } | null {
   // Only the wheel writes dob, but pulled and restored rows do not pass
   // through it, and '26-07-2026' would otherwise read as "2000 y 1 m".
   if (!dob || !ISO_DATE.test(dob) || !ISO_DATE.test(onLocalDate)) return null;
@@ -76,7 +76,18 @@ export function formatAge(dob: string | null, onLocalDate: string): string | nul
   // UTC on both sides, so a daylight-saving hour cannot shave a day off.
   const days = (Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000;
   if (!(days >= 0)) return null; // unreadable, or born after the dose: a typo, not an age
-  const months = (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0);
+  return { days, months: (y2 - y1) * 12 + (m2 - m1) - (d2 < d1 ? 1 : 0) };
+}
+
+/** Whole months old on that date, by the same rules as `formatAge`. */
+export function ageInMonths(dob: string | null, onLocalDate: string): number | null {
+  return ageParts(dob, onLocalDate)?.months ?? null;
+}
+
+export function formatAge(dob: string | null, onLocalDate: string): string | null {
+  const age = ageParts(dob, onLocalDate);
+  if (!age) return null;
+  const { days, months } = age;
   // Weeks count from the date, not from months: a month is not four weeks.
   if (months < 6) return `${Math.floor(days / 7)} w`;
   if (months < 24) return `${months} m`;
@@ -89,6 +100,26 @@ export function dateFromParts(year: number, month1to12: number, day: number): st
   const d = new Date(Date.UTC(year, month1to12 - 1, day));
   if (d.getUTCMonth() !== month1to12 - 1 || d.getUTCDate() !== day) return null;
   return `${year}-${p2(month1to12)}-${p2(day)}`;
+}
+
+/** Calendar arithmetic on stored local dates. UTC, so no daylight-saving hour moves a day. */
+export function addDays(localDate: string, n: number): string {
+  const [y, m, d] = localDate.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return `${t.getUTCFullYear()}-${p2(t.getUTCMonth() + 1)}-${p2(t.getUTCDate())}`;
+}
+
+/** Whole days from `a` to `b`; negative when `b` is earlier. */
+export function daysBetween(a: string, b: string): number {
+  const [y1, m1, d1] = a.split('-').map(Number);
+  const [y2, m2, d2] = b.split('-').map(Number);
+  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000);
+}
+
+/** "30 Nov" from a stored local date. */
+export function formatLocalDate(localDate: string): string {
+  const [, m, d] = localDate.split('-').map(Number);
+  return `${d} ${MONTHS[m - 1]}`;
 }
 
 /** The local date N days before `at`, for usage windows and backup nags. */
