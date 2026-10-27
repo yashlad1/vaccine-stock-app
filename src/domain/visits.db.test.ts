@@ -241,6 +241,35 @@ describe('recordVisit: one Give, several vaccines', () => {
     expect(await count()).toBe(3);
   });
 
+  it('replays a main dose that was written although its call failed', async () => {
+    const { db, ctx, visit, count } = await setup();
+    // The insert commits, then reading the row back fails, once.
+    let failOnce = true;
+    const flaky: Db = {
+      exec: (s) => db.exec(s),
+      run: (s, p) => db.run(s, p),
+      all: (s, p) => db.all(s, p),
+      first: (s, p) => {
+        if (failOnce && s.includes('idempotency_key')) {
+          failOnce = false;
+          return Promise.reject(new Error('disk I/O error'));
+        }
+        return db.first(s, p);
+      },
+      tx: (fn) => db.tx(fn),
+    };
+    const ids = visitIds(null, visit);
+    await expect(recordVisit(flaky, ctx, ids, visit)).rejects.toThrow('disk I/O error');
+    expect(await count()).toBe(1);
+
+    const r = await recordVisit(flaky, ctx, visitIds(ids, visit), visit);
+    expect(r.main.created).toBe(false);
+    expect(r.extras.map((x) => x.created)).toEqual([true, true]);
+    expect(await count()).toBe(3);
+    // The replayed dose was counted by neither call; the backup nag is behind by one, never ahead.
+    expect(await getNumber(db, SETTING.dosesSinceBackup)).toBe(2);
+  });
+
   it('fails when the main dose fails, so the retry can replay it', async () => {
     const { db, ctx, visit, count } = await setup();
     const bad = { ...visit, vaccineId: 'no-such-vaccine' };
