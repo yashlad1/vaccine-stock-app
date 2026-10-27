@@ -211,11 +211,28 @@ function withVials(row: StockRow, line: OrderLine): OrderLine | null {
   return line;
 }
 
+/** Doses given in the eight weeks before today. */
+function givenInWindow(ledger: Ledger, vaccineId: string, today: string): number {
+  let doses = 0;
+  eachDay(ledger.days.get(vaccineId) ?? [], addDays(today, -RATE_WINDOW_DAYS), addDays(today, -1), (d) => {
+    doses += d.given;
+  });
+  return doses;
+}
+
 /** Every active vaccine that needs ordering: below zero first, then soonest to run out. */
 export function orderList(rows: StockRow[], ledger: Ledger, today: string): OrderLine[] {
   const lines = rows
     .filter((r) => r.is_active)
-    .map((r) => suggestOrder(r, usageRate(ledger, r.vaccine_id, today)))
+    .map((r) => {
+      const perDay = usageRate(ledger, r.vaccine_id, today);
+      // A vaccine at its safety limit but not given at all in eight weeks is
+      // one the clinic does not use, not one to reorder: on 27 Oct that was
+      // 17 lines of a 26-line list. Same rule as Give dose's in-use counts.
+      // Below zero always shows: that is a missing delivery, used or not.
+      if (perDay === null && r.on_hand_doses >= 0 && !givenInWindow(ledger, r.vaccine_id, today)) return null;
+      return suggestOrder(r, perDay);
+    })
     .filter((l): l is OrderLine => l !== null);
   const daysLeft = (l: OrderLine) => (l.perDay ? l.onHand / l.perDay : Infinity);
   return lines.sort(

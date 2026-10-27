@@ -298,6 +298,27 @@ describe('orderList', () => {
       ['Gamma', 0], ['Zeta', 0], ['Beta', 46], ['Alpha', 18],
     ]);
   });
+
+  it('with no rate, tops up only vaccines given in the last eight weeks', () => {
+    const ledger: Ledger = {
+      names: new Map(),
+      days: new Map([
+        // 2 doses in the window: too few for a rate, but the vaccine is in use.
+        ['used', [{ local_date: '2026-07-01', delta: 3, given: 0 }, { local_date: '2026-08-20', delta: -2, given: 2 }]],
+        // Given only before the window opened (12 Jul): not in use any more.
+        ['old', [{ local_date: '2026-05-01', delta: 3, given: 0 }, { local_date: '2026-06-01', delta: -3, given: 3 }]],
+      ]),
+    };
+    const rows = [
+      row({ vaccine_id: 'used', name: 'Used', on_hand_doses: 1, min_balance_doses: 5 }),
+      row({ vaccine_id: 'old', name: 'Old', on_hand_doses: 0, min_balance_doses: 5 }),
+      row({ vaccine_id: 'never', name: 'Never', on_hand_doses: 0, min_balance_doses: 5 }),
+      row({ vaccine_id: 'owed', name: 'Owed', on_hand_doses: -2, min_balance_doses: 5 }),
+    ];
+    expect(orderList(rows, ledger, TODAY).map((l) => [l.name, l.order, l.belowZero])).toEqual([
+      ['Owed', 0, true], ['Used', 4, false],
+    ]);
+  });
 });
 
 describe('expiringLots', () => {
