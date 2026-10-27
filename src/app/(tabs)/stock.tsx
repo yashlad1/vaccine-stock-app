@@ -159,10 +159,6 @@ export default function AddStockScreen() {
                         />
                       </View>
                     ) : null}
-                    <T style={[st.rowSub, st.note]}>
-                      Enough for 4 weeks, based on the last 8 weeks. Check the
-                      fridge first.
-                    </T>
                   </Card>
                 )}
 
@@ -299,7 +295,6 @@ const st = StyleSheet.create({
   chipRow: { flexDirection: "row", gap: space.sm, flexWrap: "wrap" },
   listRow: { paddingHorizontal: space.lg, backgroundColor: color.surface },
   flushCard: { paddingVertical: 0 },
-  note: { paddingBottom: space.sm },
   orderQty: {
     fontSize: type.body,
     fontWeight: weight.bold,
