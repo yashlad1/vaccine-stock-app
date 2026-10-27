@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import type { Db, RunResult } from './driver';
+import { SYNC_TABLES } from './migrations/m002_sync';
 
 /**
  * The device adapter. This is the ONLY file in the app allowed to import
@@ -115,4 +116,16 @@ async function loadMacCopy(raw: SQLite.SQLiteDatabase) {
     `INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('catalog_seeded', '1', ?)`,
     [Date.now()],
   );
+  // Make this copy unable to sync, whatever else is configured. An explicit
+  // '0' beats the EXPO_PUBLIC_SYNC_* embedded config (sync/config.ts), and with
+  // no device_id or credentials, nothing queued, a stray push has nothing to
+  // send. Only reached from the web dev build (the caller checks).
+  await raw.runAsync(
+    `INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('sync_enabled', '0', ?)`,
+    [Date.now()],
+  );
+  await raw.runAsync(
+    `DELETE FROM settings WHERE key IN ('device_id','sync_url','sync_key','sync_email','sync_password')`,
+  );
+  for (const t of SYNC_TABLES) await raw.runAsync(`UPDATE ${t} SET dirty = 0 WHERE dirty <> 0`);
 }
