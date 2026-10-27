@@ -154,9 +154,14 @@ export interface MovementStrip {
   now: number;
 }
 
-/** One day's strip: the Stock tab and Given today. */
-export function movementStrip(db: Db, localDate: string, vaccineId?: string): Promise<MovementStrip> {
-  return periodStrip(db, localDate, localDate, vaccineId);
+/** One day's strip: the Stock tab (active vaccines) and Given today (`activeOnly = false`, every dose given). */
+export function movementStrip(
+  db: Db,
+  localDate: string,
+  vaccineId?: string,
+  activeOnly = true,
+): Promise<MovementStrip> {
+  return periodStrip(db, localDate, localDate, vaccineId, activeOnly);
 }
 
 /**
@@ -170,13 +175,20 @@ export async function periodStrip(
   from: string,
   to: string,
   vaccineId?: string,
+  activeOnly = true,
 ): Promise<MovementStrip> {
   // Whole-clinic: only vaccines the Stock list shows, so a removed vaccine's
   // leftover doses are not counted anywhere (the remove dialog promises that).
   // A single vaccine keeps its own numbers whatever its state.
+  // `activeOnly = false` is for Given today (see movementStrip): its list and
+  // headline name every dose given, so a vaccine removed or retired later in
+  // the day must not make the strip disagree with them. A dose given is a
+  // dose given, whatever became of the catalog row afterwards.
   const vFilter = vaccineId
     ? 'AND vaccine_id = ?'
-    : 'AND vaccine_id IN (SELECT id FROM vaccines WHERE deleted_at IS NULL AND is_active = 1)';
+    : activeOnly
+      ? 'AND vaccine_id IN (SELECT id FROM vaccines WHERE deleted_at IS NULL AND is_active = 1)'
+      : '';
   const vArg = vaccineId ? [vaccineId] : [];
 
   // `now` is read straight off the ledger rather than accumulated from the
@@ -197,14 +209,21 @@ export async function periodStrip(
     [from, ...vArg],
   );
 
-  // The range's activity uses the EFFECTIVE view, so a dose recorded and
-  // undone inside it does not inflate "given".
+  // The range's activity drops an original only when its reversal ALSO falls
+  // inside the range, so a dose recorded and undone within it does not inflate
+  // "given". (v_movement_effective would drop it for a reversal made any time
+  // later, so a past month would show a correction made afterwards, while its
+  // `now` still includes the original.) A reversal after `to` is simply not
+  // part of this range; one before `from` is absorbed by `corrections`.
   const rows = await db.all<{ movement_type: string; n: number }>(
     `SELECT movement_type, COALESCE(SUM(delta_doses),0) AS n
-       FROM v_movement_effective
-      WHERE local_date >= ? AND local_date <= ? AND stock_source = 'CLINIC_STOCK' ${vFilter}
+       FROM stock_movements m
+      WHERE local_date >= ? AND local_date <= ? AND stock_source = 'CLINIC_STOCK'
+        AND movement_type <> 'REVERSAL' ${vFilter}
+        AND NOT EXISTS (SELECT 1 FROM stock_movements r
+                         WHERE r.reverses_id = m.id AND r.local_date >= ? AND r.local_date <= ?)
       GROUP BY movement_type`,
-    [from, to, ...vArg],
+    [from, to, ...vArg, from, to],
   );
   const by = (t: string) => rows.find((r) => r.movement_type === t)?.n ?? 0;
   // Guard against -0: SUM of nothing negated renders as "-0 doses" on screen.
