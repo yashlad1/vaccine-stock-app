@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BigButton, Chip, Empty, ErrorState, Field, Footer, Input, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
+import { BigButton, Badge, Chip, Empty, ErrorState, Field, Footer, Input, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
 import { color, radius, space, touch, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
@@ -10,7 +10,7 @@ import { useAction } from '../../ui/use-action';
 import { newId } from '../../domain/ids';
 import { recordAdministration, reverseMovement, findRecentSimilar } from '../../domain/ledger';
 import { lotsInStock, lastUsedLot, isExpired } from '../../db/repo/lots';
-import { type Patient, createPatient, recentPatients, searchPatients, setPatientDob } from '../../db/repo/patients';
+import { type Patient, type Sex, createPatient, recentPatients, searchPatients, setPatientDob, setPatientSex } from '../../db/repo/patients';
 import { bumpDosesSinceBackup } from '../../db/repo/settings';
 import { describeStock } from '../../domain/stock';
 import { expiryToMonthLabel, formatAge, todayLocal } from '../../domain/time';
@@ -42,6 +42,9 @@ export default function DoseScreen() {
   const [childDob, setChildDob] = useState<string | null>(null);
   const [newDob, setNewDob] = useState<string | null>(null);
   const [editingDob, setEditingDob] = useState(false);
+  /** Boy or girl: on file, and one chosen here to save with the dose. */
+  const [childSex, setChildSex] = useState<Sex | null>(null);
+  const [newSex, setNewSex] = useState<Sex | null>(null);
   const [saving, setSaving] = useState(false);
 
   const { data: vaccine, error, reload } = useQuery(
@@ -63,11 +66,13 @@ export default function DoseScreen() {
 
   const typedIsSaved = !!matches?.some((m) => m.name.toLowerCase() === childQuery.trim().toLowerCase());
 
-  const pick = (p: Pick<Patient, 'id' | 'name' | 'dob'>) => {
+  const pick = (p: Pick<Patient, 'id' | 'name' | 'dob' | 'sex'>) => {
     setChildId(p.id);
     setChildLabel(p.name);
     setChildDob(p.dob);
     setNewDob(null);
+    setChildSex(p.sex);
+    setNewSex(null);
     setEditingDob(false);
   };
 
@@ -81,6 +86,7 @@ export default function DoseScreen() {
     vaccine.min_balance_doses,
   );
   const wouldGoNegative = vaccine.on_hand_doses - doses < 0;
+  const stockInk = stock.level === 'OK' ? color.textMuted : stock.level === 'LOW' ? color.low : color.danger;
 
   /**
    * `skipChild` is passed explicitly by the Skip button. It must not be
@@ -110,16 +116,18 @@ export default function DoseScreen() {
       // fails, the dose still records with the name alone (invariant 5).
       let patientId = skipChild ? null : childId;
       let dobSaved = true;
-      if (!skipChild && !childId && label && newDob) {
-        patientId = await createPatient(db, { name: label, dob: newDob }, deviceId).then(
+      let sexSaved = true;
+      if (!skipChild && !childId && label && (newDob || newSex)) {
+        patientId = await createPatient(db, { name: label, dob: newDob, sex: newSex }, deviceId).then(
           (id) => {
             // Held on screen, so a retry after a failed dose write reuses this
             // child instead of saving the same name twice.
-            pick({ id, name: label, dob: newDob });
+            pick({ id, name: label, dob: newDob, sex: newSex });
             return id;
           },
           () => {
             dobSaved = false;
+            sexSaved = false;
             return null;
           },
         );
@@ -145,13 +153,21 @@ export default function DoseScreen() {
       // Reported inside the one toast so the undo on it is not replaced.
       const dobToSave = !skipChild && childId && newDob && newDob !== childDob ? newDob : null;
       if (dobToSave) dobSaved = await setPatientDob(db, childId!, dobToSave).then(() => true, () => false);
+      const sexToSave = !skipChild && childId && newSex && newSex !== childSex ? newSex : null;
+      if (sexToSave) sexSaved = await setPatientSex(db, childId!, sexToSave).then(() => true, () => false);
       bump();
 
       const age = skipChild ? null : formatAge(dobSaved ? (newDob ?? childDob) : childDob, today);
-      const who = label ? ` to ${label}${age ? ` (${age})` : ''}` : '';
-      const note = similar ? ' (a similar dose was recorded moments ago)' : '';
-      const dobNote = dobSaved ? '' : ' The date of birth did not save. Add it next time.';
-      toast.show(`${doses} × ${vaccine.name} recorded${who}.${note}${dobNote}`, async () => {
+      // The toast holds two lines, so the warning comes first and the rest is short.
+      const what = doses === 1 ? vaccine.name : `${doses} doses of ${vaccine.name}`;
+      const message = similar
+        ? `${what} given again. Tap Undo if it was a double tap.`
+        : !(dobSaved && sexSaved)
+          ? `${what} given. Child's details not saved.`
+          : label
+            ? `${what} given to ${label}${age ? `, ${age}` : ''}.`
+            : `${what} given.`;
+      toast.show(message, async () => {
         // Undo writes a REVERSING ENTRY. It never deletes, so the correction is
         // auditable and stays available from the Ledger screen forever.
         await run('undo that dose', async () => {
@@ -195,9 +211,18 @@ export default function DoseScreen() {
       <ScrollView contentContainerStyle={[st.content, centred]} keyboardShouldPersistTaps="handled">
         {/* The vaccine name IS the confirmation, and it costs no tap. */}
         <T style={st.name}>{vaccine.name}</T>
-        <T style={st.stock}>
-          {stock.primary} in stock
-        </T>
+        <View style={st.stockBlock}>
+          <View style={st.stockRow}>
+            <T style={[st.stock, { color: stockInk }]}>{stock.primary} in stock</T>
+            {stock.badge ? <Badge text={stock.badge} tone={stock.level === 'LOW' ? 'low' : 'danger'} /> : null}
+          </View>
+          {wouldGoNegative ? (
+            <T style={st.danger}>
+              Stock will go below zero, to {vaccine.on_hand_doses - doses}. A delivery was probably
+              not logged. The dose is still recorded.
+            </T>
+          ) : null}
+        </View>
 
         <Field
           label="Batch / lot"
@@ -218,7 +243,7 @@ export default function DoseScreen() {
             </View>
           ) : null}
           {expired ? (
-            <T style={st.warn}>
+            <T style={st.danger}>
               This batch expired {expiryToMonthLabel(selected!.expiry_date!)}. Pick another batch if
               you have one. You can still record the dose.
             </T>
@@ -237,6 +262,8 @@ export default function DoseScreen() {
                   setChildQuery('');
                   setChildDob(null);
                   setNewDob(null);
+                  setChildSex(null);
+                  setNewSex(null);
                 }}
               />
             </View>
@@ -248,7 +275,10 @@ export default function DoseScreen() {
                 onChangeText={(t) => {
                   setChildQuery(t);
                   // The wheel goes away below two letters; so does its date.
-                  if (t.trim().length < 2) setNewDob(null);
+                  if (t.trim().length < 2) {
+                    setNewDob(null);
+                    setNewSex(null);
+                  }
                 }}
                 autoCorrect={false}
                 autoCapitalize="words"
@@ -275,7 +305,7 @@ export default function DoseScreen() {
                   onPress={async () => {
                     const name = childQuery.trim();
                     const id = await createPatient(db, { name }, deviceId);
-                    pick({ id, name, dob: null });
+                    pick({ id, name, dob: null, sex: null });
                     bump();
                   }}
                 >
@@ -317,16 +347,18 @@ export default function DoseScreen() {
           </Field>
         ) : null}
 
+        {childId || (childQuery.trim().length >= 2 && !typedIsSaved) ? (
+          <Field label="Boy or girl" hint="Optional.">
+            <View style={st.chipRow}>
+              <Chip label="Boy" selected={(newSex ?? childSex) === 'M'} onPress={() => setNewSex('M')} />
+              <Chip label="Girl" selected={(newSex ?? childSex) === 'F'} onPress={() => setNewSex('F')} />
+            </View>
+          </Field>
+        ) : null}
+
         <Field label="Doses">
           <Stepper value={doses} onChange={setDoses} min={1} max={20} />
         </Field>
-
-        {wouldGoNegative ? (
-          <T style={st.warn}>
-            This will take stock below zero ({vaccine.on_hand_doses - doses} doses). That usually
-            means a delivery was never logged. The dose will still be recorded.
-          </T>
-        ) : null}
       </ScrollView>
 
       <Footer gap={space.md}>
@@ -354,10 +386,12 @@ const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   content: { padding: space.lg, paddingBottom: space.xxl },
   name: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
-  stock: { fontSize: type.label, color: color.textMuted, marginTop: space.xs, marginBottom: space.xl },
+  stockBlock: { marginTop: space.xs, marginBottom: space.xl },
+  stockRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
+  stock: { fontSize: type.label, color: color.textMuted },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
   age: { fontSize: type.title, fontWeight: weight.bold, color: color.text },
-  warn: { fontSize: type.label, fontWeight: weight.semibold, color: color.low, marginTop: space.sm },
+  danger: { fontSize: type.label, fontWeight: weight.semibold, color: color.danger, marginTop: space.sm },
   addRow: { minHeight: touch.min, justifyContent: 'center', marginTop: space.sm },
   addText: { fontSize: type.body, fontWeight: weight.semibold, color: color.dose },
   skip: { minHeight: touch.min, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
