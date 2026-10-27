@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BigButton, Chip, ErrorState, Field, Footer, Input, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
-import { color, space, type } from '../../ui/tokens';
+import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
-import { removeVaccine, restoreVaccine, vaccineUsage } from '../../db/repo/catalog';
+import { removeVaccine, restoreVaccine, setVaccinePrice, vaccineUsage } from '../../db/repo/catalog';
+import { parseRupees } from '../../domain/money';
 import type { UnitMode, Vaccine } from '../../domain/types';
 
 /**
@@ -32,6 +33,7 @@ export default function EditVaccineScreen() {
   const [dosesPerVial, setDosesPerVial] = useState(1);
   const [minBalance, setMinBalance] = useState(0);
   const [active, setActive] = useState(true);
+  const [price, setPrice] = useState('');
 
   useEffect(() => {
     if (!vaccine) return;
@@ -40,12 +42,16 @@ export default function EditVaccineScreen() {
     setDosesPerVial(vaccine.doses_per_vial);
     setMinBalance(vaccine.min_balance_doses);
     setActive(vaccine.is_active === 1);
+    setPrice(vaccine.price_rupees == null ? '' : String(vaccine.price_rupees));
   }, [vaccine]);
 
   if (error) return <ErrorState error={error} onRetry={reload} what="load this vaccine" />;
   if (!vaccine) return <Loading />;
 
+  const parsedPrice = parseRupees(price);
+
   const save = () => void run('save this vaccine', async () => {
+    if (parsedPrice === undefined) return;
     // A single-dose presentation cannot claim more than one dose per vial; the
     // database enforces this too, so keep the UI consistent with it.
     const dpv = unitMode === 'DOSE' ? 1 : Math.max(1, dosesPerVial);
@@ -56,6 +62,7 @@ export default function EditVaccineScreen() {
         WHERE id = ?`,
       [name.trim(), unitMode, dpv, minBalance, active ? 1 : 0, Date.now(), id],
     );
+    await setVaccinePrice(db, id, parsedPrice);
     bump();
     toast.show(`Saved ${name.trim()}.`);
     router.back();
@@ -131,6 +138,11 @@ export default function EditVaccineScreen() {
           <Stepper accent="catalog" value={minBalance} onChange={setMinBalance} min={0} max={200} quickValues={[0, 5, 10, 20]} />
         </Field>
 
+        <Field label="Price per dose (₹)" hint="Optional. Used for the sales value on Trends.">
+          <Input value={price} onChangeText={setPrice} keyboardType="number-pad" />
+          {parsedPrice === undefined ? <T style={st.error}>Enter the price in whole rupees, like 1250.</T> : null}
+        </Field>
+
         <Field label="Show in the list?" hint="Hiding keeps all history; it never deletes anything.">
           <View style={st.chipRow}>
             <Chip accent="catalog" label="Shown" selected={active} onPress={() => setActive(true)} />
@@ -148,7 +160,7 @@ export default function EditVaccineScreen() {
         </View>
       </ScrollView>
       <Footer>
-        <BigButton accent="catalog" label="Save changes" onPress={save} disabled={!name.trim()} />
+        <BigButton accent="catalog" label="Save changes" onPress={save} disabled={!name.trim() || parsedPrice === undefined} />
       </Footer>
     </View>
   );
@@ -157,6 +169,7 @@ export default function EditVaccineScreen() {
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  error: { fontSize: type.label, color: color.danger, fontWeight: weight.semibold, lineHeight: 22 },
   removeBlock: { marginTop: space.xxl, gap: space.sm },
   removeHint: { fontSize: type.min, color: color.textMuted, lineHeight: 21 },
 });

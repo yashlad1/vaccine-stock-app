@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Badge, BigButton, Card, Chip, ErrorState, Footer, Input, Loading, T, useBottomInset } from '../../ui/components';
+import { Badge, BigButton, Chip, ErrorState, Footer, Input, Loading, Row, T, useBottomInset } from '../../ui/components';
 import { color, radius, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { searchRank } from '../../domain/search';
@@ -9,12 +9,14 @@ import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 import { isPrimaryDevice } from '../../sync/adopt';
+import { formatRupees } from '../../domain/money';
 import { listRemovedVaccines, listVaccines, restoreVaccine } from '../../db/repo/catalog';
 
-/** "Vials of 10 · keep 20 doses" - the two numbers that drive the arithmetic. */
-function describeUnit(v: { unit_mode: string; doses_per_vial: number; min_balance_doses: number }) {
+/** "Vials of 10 · Safety limit 20 doses" - the two numbers that drive the arithmetic. */
+function describeUnit(v: { unit_mode: string; doses_per_vial: number; min_balance_doses: number; price_rupees?: number | null }) {
   const unit = v.unit_mode === 'VIAL' ? `Vials of ${v.doses_per_vial}` : 'Single doses';
-  return `${unit} · keep ${v.min_balance_doses} doses`;
+  const base = `${unit} · Safety limit ${v.min_balance_doses} ${v.min_balance_doses === 1 ? 'dose' : 'doses'}`;
+  return v.price_rupees == null ? base : `${base} · ${formatRupees(v.price_rupees)} a dose`;
 }
 
 /**
@@ -67,15 +69,11 @@ export default function VaccinesScreen() {
               {(active ?? []).length} {(active ?? []).length === 1 ? 'vaccine' : 'vaccines'}
             </T>
 
-            <Card tone="catalog" style={{ marginTop: space.md }}>
-              <T style={st.noteTitle}>Check doses per vial</T>
-              <T style={st.noteBody}>
-                Pack sizes vary by manufacturer. A wrong number here multiplies into every stock
-                count for that vaccine, so check it against your fridge before you rely on it.
-              </T>
-            </Card>
+            <T style={st.note}>
+              Check doses per vial against the pack. A wrong number skews every count.
+            </T>
 
-            <View style={{ marginTop: space.lg, gap: space.md }}>
+            <View style={{ marginTop: space.md, gap: space.sm }}>
               <Input
                 placeholder="Search vaccine"
                 value={q}
@@ -123,38 +121,37 @@ export default function VaccinesScreen() {
          */
         renderItem={({ item }) =>
           showRemoved ? (
-            <View style={st.row}>
-              <View style={{ flex: 1 }}>
-                <T style={st.rowName}>{item.name}</T>
-                <T style={st.rowSub}>{describeUnit(item)}</T>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Add ${item.name} back`}
-                onPress={() => void run(`add ${item.name} back`, async () => {
-                  await restoreVaccine(db, item.id);
-                  bump();
-                  toast.show(`${item.name} added back.`);
-                })}
-                style={({ pressed }) => [st.action, pressed && { opacity: 0.6 }]}
-              >
-                <T style={[st.actionText, { color: color.catalog }]}>Add back</T>
-              </Pressable>
+            <View style={st.rowWrap}>
+              <Row
+                dense
+                title={item.name}
+                subtitle={describeUnit(item)}
+                right={
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add ${item.name} back`}
+                    onPress={() => void run(`add ${item.name} back`, async () => {
+                      await restoreVaccine(db, item.id);
+                      bump();
+                      toast.show(`${item.name} added back.`);
+                    })}
+                    style={({ pressed }) => [st.action, pressed && { opacity: 0.6 }]}
+                  >
+                    <T style={[st.actionText, { color: color.catalog }]}>Add back</T>
+                  </Pressable>
+                }
+              />
             </View>
           ) : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Edit ${item.name}`}
-              onPress={() => router.push(`/catalog/${item.id}`)}
-              style={({ pressed }) => [st.row, pressed && { backgroundColor: color.catalogSoft }]}
-            >
-              <View style={{ flex: 1 }}>
-                <T style={st.rowName}>{item.name}</T>
-                <T style={st.rowSub}>{describeUnit(item)}</T>
-              </View>
-              {!item.is_active ? <Badge text="HIDDEN" tone="neutral" /> : null}
-              <T style={st.chevron}>›</T>
-            </Pressable>
+            <View style={st.rowWrap}>
+              <Row
+                dense
+                title={item.name}
+                subtitle={describeUnit(item)}
+                right={!item.is_active ? <Badge text="HIDDEN" tone="neutral" /> : undefined}
+                onPress={() => router.push(`/catalog/${item.id}`)}
+              />
+            </View>
           )
         }
       />
@@ -188,26 +185,13 @@ export default function VaccinesScreen() {
 
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
-  headerWrap: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
+  headerWrap: { paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.sm },
   total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
-  noteTitle: { fontSize: type.label, fontWeight: weight.bold, color: color.catalog },
-  noteBody: { fontSize: type.min, color: color.text, lineHeight: 21, marginTop: space.xs },
+  note: { fontSize: type.min, color: color.textMuted, lineHeight: 20, marginTop: space.xs },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   emptyText: { fontSize: type.body, color: color.textMuted, textAlign: 'center', lineHeight: 26 },
 
-  row: {
-    minHeight: 68,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    paddingVertical: space.md,
-    paddingHorizontal: space.lg,
-    backgroundColor: color.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: color.border,
-  },
-  rowName: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
-  rowSub: { fontSize: type.label, color: color.textMuted, marginTop: 2 },
+  rowWrap: { paddingHorizontal: space.lg, backgroundColor: color.surface },
   action: {
     minHeight: 56,
     minWidth: 56,
@@ -217,7 +201,6 @@ const st = StyleSheet.create({
     borderRadius: radius.sm,
   },
   actionText: { fontSize: type.label, fontWeight: weight.semibold },
-  chevron: { fontSize: type.title, color: color.textMuted, marginTop: -2 },
   notPrimary: { fontSize: type.label, color: color.textMuted, lineHeight: 24, textAlign: 'center' },
 
 });

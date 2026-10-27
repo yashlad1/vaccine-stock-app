@@ -6,7 +6,8 @@ import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
-import { insertVaccine } from '../../db/repo/catalog';
+import { insertVaccine, setVaccinePrice } from '../../db/repo/catalog';
+import { parseRupees } from '../../domain/money';
 import type { UnitMode } from '../../domain/types';
 
 /**
@@ -27,12 +28,16 @@ export default function NewVaccineScreen() {
   const [unitMode, setUnitMode] = useState<UnitMode>('DOSE');
   const [dosesPerVial, setDosesPerVial] = useState(10);
   const [minBalance, setMinBalance] = useState(5);
+  const [price, setPrice] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const parsedPrice = parseRupees(price);
 
   const save = async () => {
     setError(null);
+    if (parsedPrice === undefined) return;
     try {
-      await insertVaccine(
+      const id = await insertVaccine(
         db,
         {
           name: name.trim(),
@@ -43,6 +48,7 @@ export default function NewVaccineScreen() {
         },
         deviceId,
       );
+      if (parsedPrice !== null) await setVaccinePrice(db, id, parsedPrice);
       bump();
       toast.show(`${name.trim()} added.`);
       router.back();
@@ -125,6 +131,11 @@ export default function NewVaccineScreen() {
           />
         </Field>
 
+        <Field label="Price per dose (₹)" hint="Optional. Used for the sales value on Trends.">
+          <Input value={price} onChangeText={setPrice} keyboardType="number-pad" />
+          {parsedPrice === undefined ? <T style={st.error}>Enter the price in whole rupees, like 1250.</T> : null}
+        </Field>
+
         {error ? <T style={st.error}>{error}</T> : null}
       </ScrollView>
 
@@ -133,7 +144,7 @@ export default function NewVaccineScreen() {
           accent="catalog"
           label="Add vaccine"
           onPress={save}
-          disabled={!name.trim()}
+          disabled={!name.trim() || parsedPrice === undefined}
           sublabel={name.trim() ? undefined : 'Enter the trade name first'}
         />
       </Footer>
