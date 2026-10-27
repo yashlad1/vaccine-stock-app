@@ -63,6 +63,13 @@ export const color = {
   catalog: '#6D28D9', // violet-700 - Vaccines; clinic-queue has no third hue
   catalogSoft: '#EDE9FE',
   more: '#334155', // slate-700, kept clear of textMuted
+  /**
+   * Trends. The only hue left clear of the blue, teal, violet and slate
+   * accents and of the amber, red and green reserved for stock levels.
+   * Measured 6.0:1 on white, 5.7:1 on the ground, 5.1:1 on its soft tint.
+   */
+  trends: '#BE185D', // pink-700
+  trendsSoft: '#FCE7F3', // pink-100
 
   /**
    * Reserved for stock LEVELS only; never reused as a context accent.
@@ -95,12 +102,13 @@ export const color = {
   pressed: 'rgba(15, 23, 42, 0.06)',
 } as const;
 
-export type Accent = 'dose' | 'stock' | 'catalog' | 'more';
+export type Accent = 'dose' | 'stock' | 'catalog' | 'trends' | 'more';
 
 export const accentColor: Record<Accent, string> = {
   dose: color.dose,
   stock: color.stock,
   catalog: color.catalog,
+  trends: color.trends,
   more: color.more,
 };
 
@@ -108,6 +116,7 @@ export const accentSoft: Record<Accent, string> = {
   dose: color.doseSoft,
   stock: color.stockSoft,
   catalog: color.catalogSoft,
+  trends: color.trendsSoft,
   more: color.surfaceSunken,
 };
 

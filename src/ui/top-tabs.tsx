@@ -1,5 +1,5 @@
-import React from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { centred } from './layout';
 import type { BottomTabBarProps } from 'expo-router/build/react-navigation/bottom-tabs/types';
@@ -10,7 +10,7 @@ import { type Accent, accentColor, accentSoft, color, radius, space, touch, type
  * Top tab bar.
  *
  * Written by hand rather than pulling in @react-navigation/material-top-tabs
- * and react-native-pager-view: two native dependencies for a four-item
+ * and react-native-pager-view: two native dependencies for a five-item
  * segmented control is a bad trade, and this way the 56dp targets and the
  * per-tab accent colour are enforced here rather than fought with overrides.
  *
@@ -28,18 +28,38 @@ const ACCENTS: Record<string, Accent> = {
   index: 'dose',
   stock: 'stock',
   vaccines: 'catalog',
+  trends: 'trends',
   more: 'more',
 };
 
+type Spot = { x: number; width: number };
+
+/** Centres a tab in the bar; ScrollView clamps the ends. No animation, by rule. */
+function centreOn(bar: ScrollView | null, spot: Spot | undefined, viewport: number) {
+  if (bar && spot) bar.scrollTo({ x: Math.max(0, spot.x + spot.width / 2 - viewport / 2), animated: false });
+}
+
 export function TopTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const bar = useRef<ScrollView>(null);
+  const spots = useRef<Record<string, Spot>>({});
+  const focusedKey = state.routes[state.index].key;
+
+  // Five tabs overflow a phone even at font scale 1x, so the bar scrolls. The
+  // focused tab must stay on screen: a tab bar whose active tab is out of
+  // sight says nothing about where she is, and the accent is the safety cue.
+  useEffect(() => {
+    centreOn(bar.current, spots.current[focusedKey], width);
+  }, [focusedKey, width]);
 
   return (
     <View style={[st.wrap, { paddingTop: insets.top }]}>
       <ScrollView
+        ref={bar}
         horizontal
         showsHorizontalScrollIndicator={false}
-        // Centred and bounded on a tablet, so the four tabs stay together as
+        // Centred and bounded on a tablet, so the five tabs stay together as
         // a group instead of drifting apart across ten inches. On a phone this
         // is a no-op.
         contentContainerStyle={[st.row, centred]}
@@ -62,6 +82,12 @@ export function TopTabBar({ state, descriptors, navigation }: BottomTabBarProps)
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
               accessibilityLabel={label}
+              onLayout={(e) => {
+                const { x, width: w } = e.nativeEvent.layout;
+                spots.current[route.key] = { x, width: w };
+                // The first layout lands after the effect above has run.
+                if (focused) centreOn(bar.current, spots.current[route.key], width);
+              }}
               onPress={() => {
                 const event = navigation.emit({
                   type: 'tabPress',

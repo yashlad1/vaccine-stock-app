@@ -25,17 +25,22 @@ export function MovementStrip({
   strip,
   accent = color.stock,
   label = 'Today',
+  openingLabel = 'Opening',
+  nowLabel = 'Now',
 }: {
   strip: Strip;
   /** The screen's own accent, so the total belongs to the screen it sits on. */
   accent?: string;
   label?: string;
+  /** A week or a month reads Start and End, the handbook's words for a period. */
+  openingLabel?: string;
+  nowLabel?: string;
 }) {
   return (
     <Card tone="soft" style={{ marginTop: space.md }}>
       <T style={st.label}>{label}</T>
       <View style={st.row}>
-        <Term label="Opening" value={strip.opening} />
+        <Term label={openingLabel} value={strip.opening} />
         <Term label="+ Received" value={strip.received} />
         <Term label="− Given" value={strip.given} />
         <Term label="− Wasted" value={strip.wasted} />
@@ -43,7 +48,7 @@ export function MovementStrip({
         {strip.corrections !== 0 ? (
           <Term label="Corrections" value={strip.corrections} signed />
         ) : null}
-        <Term label="= Now" value={strip.now} colour={accent} />
+        <Term label={`= ${nowLabel}`} value={strip.now} colour={accent} />
       </View>
     </Card>
   );
