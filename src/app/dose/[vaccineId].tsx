@@ -69,6 +69,11 @@ export default function DoseScreen() {
    * success, which ends the intent.
    */
   const lastIds = useRef<VisitIds | null>(null);
+  /**
+   * Set in the same tick as the tap. `saving` is state, so two taps in one
+   * frame both read it as false, and both saved the typed child.
+   */
+  const busy = useRef(false);
 
   /** "Asha 2 Dose" searches, and is saved, as "Asha"; the "2" goes to the dose number. */
   const typed = stripDoseToken(childQuery);
@@ -147,7 +152,8 @@ export default function DoseScreen() {
    * half-typed name, and a button that says "no name" has to mean it.
    */
   const write = async (skipChild: boolean) => {
-    if (saving) return;
+    if (busy.current) return;
+    busy.current = true;
     setSaving(true);
     // A failed write must SAY so. Silently doing nothing here is the worst
     // outcome in the app: she would assume the dose was recorded, and stock
@@ -274,8 +280,11 @@ export default function DoseScreen() {
     });
     setSaving(false);
     // Only leave the screen if it actually saved, so a failure leaves her
-    // where she can read the message and try again.
+    // where she can read the message and try again. After a save the guard
+    // stays up: a tap still queued (a second expired-batch dialog) must not
+    // write again or go back a second screen.
     if (ok) router.back();
+    else busy.current = false;
   };
 
   /**
