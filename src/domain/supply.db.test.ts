@@ -216,8 +216,21 @@ describe('suggestOrder', () => {
     expect(l.order).toBe(0);
   });
 
-  it('is null with no rate', () => {
-    expect(suggestOrder(row({ on_hand_doses: 5 }), null)).toBeNull();
+  it('is null with no rate above the safety limit', () => {
+    expect(suggestOrder(row({ on_hand_doses: 6, min_balance_doses: 5 }), null)).toBeNull();
+    expect(suggestOrder(row({ on_hand_doses: 5 }), null)).toBeNull(); // no limit set, nothing to top up to
+  });
+
+  it('with no rate, below the safety limit, orders up to the limit', () => {
+    const l = suggestOrder(row({ on_hand_doses: 2, min_balance_doses: 5 }), null)!;
+    expect(l).toMatchObject({ order: 3, perDay: null, belowZero: false });
+    expect(suggestOrder(row({ on_hand_doses: 0, min_balance_doses: 5 }), null)!.order).toBe(5);
+  });
+
+  it('with no rate, a vial vaccine orders whole vials; at the limit exactly there is nothing to top up', () => {
+    const vial = { unit_mode: 'VIAL' as const, doses_per_vial: 10, min_balance_doses: 15 };
+    expect(suggestOrder(row({ on_hand_doses: 8, ...vial }), null)!.order).toBe(10); // 7 -> 1 vial
+    expect(suggestOrder(row({ on_hand_doses: 15, ...vial }), null)).toBeNull();
   });
 
   it('is null with enough stock above the safety limit', () => {
@@ -302,8 +315,20 @@ describe('expiringLots', () => {
     expect(r[0]).toMatchObject({ expired: true, mayWaste: 5, onHand: 5 });
     // 1 a day reaches 21 doses by the end of the 20th day: 30 - 21 = 9 wasted.
     expect(r[1]).toMatchObject({ expired: false, mayWaste: 9 });
-    // Batch A takes the first 30 doses, so by day 30 (31 doses) only 1 is left for B.
-    expect(r[2]).toMatchObject({ expired: false, mayWaste: 39 });
+    // A supplies only the 21 doses it can before it expires, so by day 30
+    // (31 doses) 10 are left for B: 40 - 10 = 30 wasted. (Charging B for all
+    // 30 of A's doses, 9 of which were never drawn, made this 39.)
+    expect(r[2]).toMatchObject({ expired: false, mayWaste: 30 });
+  });
+
+  it('does not count the part of today already given as still to come', async () => {
+    const t = await env(['A']);
+    await t.steady('A', 1);
+    const a = await t.lot('A', 'A1', '2026-09-26'); // 20 days
+    await t.receive('A', 30, -60, a);
+    await t.give('A', 1, 0, a); // today's dose is already out of the 30
+    const [l] = await expiringLots(t.db, await t.ledger(), TODAY);
+    expect(l).toMatchObject({ onHand: 29, mayWaste: 9 }); // 20 more days, not 21: 29 - 20
   });
 
   it('treats a batch expiring today as usable today', async () => {
