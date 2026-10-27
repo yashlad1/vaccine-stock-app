@@ -472,12 +472,12 @@ export function Banner({
       <T style={[s.bannerText, { color: map.fg }]}>{text}</T>
       <View style={s.bannerActions}>
         {actionLabel && onAction ? (
-          <Pressable accessibilityRole="button" onPress={onAction} style={s.bannerBtn}>
+          <Pressable accessibilityRole="button" onPress={onAction} hitSlop={{ top: 6, bottom: 6 }} style={s.bannerBtn}>
             <T style={[s.bannerBtnText, { color: map.fg }]}>{actionLabel}</T>
           </Pressable>
         ) : null}
         {onDismiss ? (
-          <Pressable accessibilityRole="button" onPress={onDismiss} style={s.bannerBtn}>
+          <Pressable accessibilityRole="button" onPress={onDismiss} hitSlop={{ top: 6, bottom: 6 }} style={s.bannerBtn}>
             <T style={[s.bannerBtnText, { color: map.fg }]}>Later</T>
           </Pressable>
         ) : null}

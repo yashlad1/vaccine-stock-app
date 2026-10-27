@@ -106,7 +106,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           pointerEvents="box-none"
         >
           <View style={[st.bar, toast.tone === 'error' && st.barError]}>
-            <T style={st.text} numberOfLines={2}>
+            <T style={st.text} numberOfLines={3}>
               {toast.message}
             </T>
             {toast.onUndo ? (
