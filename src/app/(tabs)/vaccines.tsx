@@ -174,7 +174,6 @@ export default function VaccinesScreen() {
           <BigButton
             accent="catalog"
             label="Add a new vaccine"
-            sublabel="Trade name, how it is counted, safety limit"
             onPress={() => router.push('/catalog/new')}
           />
         )}

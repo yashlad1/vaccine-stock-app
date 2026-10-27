@@ -271,7 +271,6 @@ export default function AddStockScreen() {
         <BigButton
           accent="stock"
           label="Add stock"
-          sublabel="Log a delivery that has arrived"
           onPress={() => router.push("/receive")}
         />
       </Footer>
