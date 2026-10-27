@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FlatList, StyleSheet, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import {
   Badge,
@@ -14,6 +14,7 @@ import {
   SectionTitle,
   SecondaryButton,
   T,
+  s as base,
   useBottomInset,
 } from "../../ui/components";
 import { color, space, type, weight } from "../../ui/tokens";
@@ -29,10 +30,15 @@ import {
   lastsLabel,
   loadLedger,
   orderList,
-  usageRate,
 } from "../../domain/supply";
 
 const CAP = 3;
+const dosesText = (n: number) => `${n} ${Math.abs(n) === 1 ? "dose" : "doses"}`;
+/** "31 Mar", plus the year when it is not this one: "31 Mar 2028". */
+const expiryLabel = (date: string, today: string) =>
+  date.slice(0, 4) === today.slice(0, 4)
+    ? formatLocalDate(date)
+    : `${formatLocalDate(date)} ${date.slice(0, 4)}`;
 
 /**
  * ADD STOCK - deliveries in, plus the current position.
@@ -97,7 +103,12 @@ export default function AddStockScreen() {
     return <ErrorState error={error} onRetry={reload} what="load your stock" />;
   if (loading && !rows) return <Loading label="Loading stock" />;
 
-  const totalDoses = decorated.reduce((n, x) => n + x.row.on_hand_doses, 0);
+  // A negative count is a missing delivery, not stock to subtract: it is
+  // flagged CHECK on its own row, and must not shrink the total.
+  const totalDoses = decorated.reduce(
+    (n, x) => n + Math.max(0, x.row.on_hand_doses),
+    0,
+  );
 
   return (
     <View style={st.screen}>
@@ -110,7 +121,7 @@ export default function AddStockScreen() {
         ListHeaderComponent={
           <View style={st.headerWrap}>
             <T style={st.eyebrow}>{asOfLabel()}</T>
-            <T style={st.total}>{totalDoses} doses in stock</T>
+            <T style={st.total}>{dosesText(totalDoses)} in stock</T>
 
             {strip ? <MovementStrip strip={strip} /> : null}
 
@@ -135,7 +146,9 @@ export default function AddStockScreen() {
                             ? "Count is below zero. Check deliveries first."
                             : [
                                 `${o.onHand} left`,
-                                lastsLabel(o.onHand, o.perDay)?.toLowerCase(),
+                                o.perDay === null
+                                  ? "not used enough to estimate"
+                                  : lastsLabel(o.onHand, o.perDay)?.toLowerCase(),
                               ]
                                 .filter(Boolean)
                                 .join(" · ")
@@ -144,7 +157,7 @@ export default function AddStockScreen() {
                           o.belowZero ? (
                             <Badge text="CHECK" tone="danger" />
                           ) : (
-                            <T style={st.orderQty}>Order {o.order}</T>
+                            <T style={st.orderQty}>Order {dosesText(o.order)}</T>
                           )
                         }
                         onPress={() => router.push(`/receive/${o.vaccine_id}`)}
@@ -170,11 +183,11 @@ export default function AddStockScreen() {
                         <Row
                           dense
                           key={l.lot_id}
-                          title={`${l.name}, batch ${l.lot_number}: use by ${formatLocalDate(l.expiry_date)}`}
+                          title={`${l.name}, batch ${l.lot_number}: use by ${expiryLabel(l.expiry_date, today)}`}
                           subtitle={
                             l.expired
-                              ? `${l.onHand} doses left. Do not use.`
-                              : `About ${l.onHand} doses left.${l.mayWaste ? ` About ${l.mayWaste} may not be used in time.` : ""}`
+                              ? `${dosesText(l.onHand)} left. Do not use.`
+                              : `About ${dosesText(l.onHand)} left.${l.mayWaste ? ` About ${dosesText(l.mayWaste)} may not be used in time.` : ""}`
                           }
                           right={
                             l.expired ? (
@@ -226,41 +239,29 @@ export default function AddStockScreen() {
             </View>
           </View>
         }
-        renderItem={({ item }) => {
-          const lasts = ledger
-            ? lastsLabel(
-                item.row.on_hand_doses,
-                usageRate(ledger, item.row.vaccine_id, today),
-              )
-            : null;
-          const limit = item.row.min_balance_doses;
-          return (
-            <View style={st.listRow}>
-              <Row
-                dense
-                title={item.row.name}
-                subtitle={[
-                  item.d.primary,
-                  limit > 0
-                    ? `Safety limit ${limit} ${limit === 1 ? "dose" : "doses"}`
-                    : null,
-                  lasts,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-                right={
-                  item.d.badge ? (
+        renderItem={({ item }) => (
+          <View style={st.listRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push(`/receive/${item.row.vaccine_id}`)}
+              style={({ pressed }) => (pressed ? { backgroundColor: color.pressed } : null)}
+            >
+              <View style={[base.row, base.rowDenseTap]}>
+                <View style={st.nameWrap}>
+                  <T style={base.rowTitle}>{item.row.name}</T>
+                  {item.d.badge ? (
                     <Badge
                       text={item.d.badge}
                       tone={item.d.level === "LOW" ? "low" : "danger"}
                     />
-                  ) : undefined
-                }
-                onPress={() => router.push(`/receive/${item.row.vaccine_id}`)}
-              />
-            </View>
-          );
-        }}
+                  ) : null}
+                </View>
+                <T style={st.count}>{item.d.primary}</T>
+                <T style={base.chevron}>›</T>
+              </View>
+            </Pressable>
+          </View>
+        )}
       />
 
       <Footer floating>
@@ -294,6 +295,20 @@ const st = StyleSheet.create({
   },
   chipRow: { flexDirection: "row", gap: space.sm, flexWrap: "wrap" },
   listRow: { paddingHorizontal: space.lg, backgroundColor: color.surface },
+  nameWrap: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    columnGap: space.sm,
+  },
+  count: {
+    fontSize: type.body,
+    fontWeight: weight.bold,
+    color: color.text,
+    textAlign: "right",
+    flexShrink: 0,
+  },
   flushCard: { paddingVertical: 0 },
   orderQty: {
     fontSize: type.body,

@@ -249,6 +249,19 @@ describe('periodStrip: the same equation over a week or a month', () => {
     expect(s.opening + s.received - s.given - s.wasted + s.adjusted + s.corrections).toBe(s.now);
   });
 
+  it('a past period does not show a correction made after it, and still adds up', async () => {
+    const { db, ctx, bcg, lot, next } = await env();
+    await recordReceipt(db, { ...ctx, now: T0 - 5 * DAY }, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 30 }); // 1 Sep
+    const a = await recordAdministration(db, { ...ctx, now: T0 - 3 * DAY }, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 4 }); // 3 Sep
+    await reverseMovement(db, ctx, { clientActionId: next(), movementId: a.movement.id }); // undone on 6 Sep
+
+    // 1-4 Sep: as the notebook stood then, the dose was given.
+    const past = await periodStrip(db, '2026-09-01', '2026-09-04', bcg);
+    expect(past).toMatchObject({ received: 30, given: 4, corrections: 0, now: 26 });
+    // 1-6 Sep: the dose and its undo are both inside, so neither counts.
+    expect(await periodStrip(db, FROM, TO, bcg)).toMatchObject({ given: 0, corrections: 0, now: 30 });
+  });
+
   it('leaves removed vaccines out of the clinic total but keeps a single one', async () => {
     const { db, ctx, bcg, penta, lot, next } = await env();
     await recordReceipt(db, { ...ctx, now: T0 - 2 * DAY }, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 10 });
@@ -257,6 +270,25 @@ describe('periodStrip: the same equation over a week or a month', () => {
 
     expect((await periodStrip(db, FROM, TO)).now).toBe(10);
     expect((await periodStrip(db, FROM, TO, penta)).now).toBe(12);
+  });
+});
+
+describe('Given today: the list, the headline and the strip agree', () => {
+  it('counts a dose of a vaccine removed since, because the list shows it', async () => {
+    const { db, ctx, bcg, penta, lot, next } = await env();
+    await recordOpeningBalance(db, { ...ctx, now: T0 - DAY }, { clientActionId: next(), vaccineId: penta, doses: 12 });
+    await recordReceipt(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 20 });
+    await recordAdministration(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 3 });
+    await recordAdministration(db, ctx, { clientActionId: next(), vaccineId: penta, doses: 2 });
+    await db.run(`UPDATE vaccines SET deleted_at = ? WHERE id = ?`, ['2026-09-06T00:00:00Z', penta]);
+
+    const listed = (await dosesGiven(db, '2026-09-06')).reduce((n, l) => n + l.doses, 0);
+    const totals = (await dosesGivenTotals(db, '2026-09-06')).reduce((n, t) => n + t.doses, 0);
+    expect(listed).toBe(5);
+    expect(totals).toBe(5);
+    expect((await movementStrip(db, '2026-09-06', undefined, false)).given).toBe(5);
+    // The Stock tab's strip (the default) stays on the vaccines its list shows.
+    expect((await movementStrip(db, '2026-09-06')).given).toBe(3);
   });
 });
 

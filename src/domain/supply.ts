@@ -189,17 +189,26 @@ export interface OrderLine {
 export function suggestOrder(row: StockRow, perDay: number | null): OrderLine | null {
   const base = { vaccine_id: row.vaccine_id, name: row.name, onHand: row.on_hand_doses, perDay };
   if (row.on_hand_doses < 0) return { ...base, order: 0, belowZero: true };
-  if (perDay === null) return null;
+  if (perDay === null) {
+    // No usable rate, but at or below the safety limit it still needs stock:
+    // top up to the limit and say the rate is a guess.
+    if (row.on_hand_doses > row.min_balance_doses) return null;
+    return withVials(row, { ...base, order: row.min_balance_doses - row.on_hand_doses, belowZero: false });
+  }
   const due =
     row.on_hand_doses <= row.min_balance_doses || row.on_hand_doses / perDay < ORDER_WHEN_DAYS_LEFT;
   if (!due) return null;
-  let order = Math.ceil(perDay * ORDER_COVER_DAYS) - row.on_hand_doses;
-  if (order <= 0) return null;
-  // Vials come whole; the doctor still reads doses (invariant 4).
+  const order = Math.ceil(perDay * ORDER_COVER_DAYS) - row.on_hand_doses;
+  return withVials(row, { ...base, order, belowZero: false });
+}
+
+/** Vials come whole; the doctor still reads doses (invariant 4). Null when nothing is left to order. */
+function withVials(row: StockRow, line: OrderLine): OrderLine | null {
+  if (line.order <= 0) return null;
   if (row.unit_mode === 'VIAL' && row.doses_per_vial > 1) {
-    order = Math.ceil(order / row.doses_per_vial) * row.doses_per_vial;
+    return { ...line, order: Math.ceil(line.order / row.doses_per_vial) * row.doses_per_vial };
   }
-  return { ...base, order, belowZero: false };
+  return line;
 }
 
 /** Every active vaccine that needs ordering: below zero first, then soonest to run out. */
@@ -247,16 +256,21 @@ export async function expiringLots(db: Db, ledger: Ledger, today: string): Promi
     [addDays(today, USE_SOON_DAYS)],
   );
 
-  const usedFirst = new Map<string, number>();
+  // Doses already drawn from earlier-expiring batches of the same vaccine.
+  const drawn = new Map<string, number>();
   return rows.map((lot) => {
     const expired = lot.expiry_date < today;
     if (expired) return { ...lot, expired, mayWaste: lot.onHand };
     const perDay = usageRate(ledger, lot.vaccine_id, today);
     if (perDay === null) return { ...lot, expired, mayWaste: null };
-    const before = usedFirst.get(lot.vaccine_id) ?? 0;
-    usedFirst.set(lot.vaccine_id, before + lot.onHand);
-    // Through the printed day: expiry is stored as the last usable day.
-    const reach = Math.floor(perDay * (daysBetween(today, lot.expiry_date) + 1)) - before;
-    return { ...lot, expired, mayWaste: Math.max(0, lot.onHand - Math.max(0, reach)) };
+    const before = drawn.get(lot.vaccine_id) ?? 0;
+    // Use through the printed day (the last usable day). Today's doses already
+    // given are out of `onHand`, so only the rest of today's rate is still to come.
+    const givenToday = ledger.days.get(lot.vaccine_id)?.find((d) => d.local_date === today)?.given ?? 0;
+    const demand = Math.max(0, perDay - givenToday) + perDay * daysBetween(today, lot.expiry_date);
+    const reach = Math.max(0, Math.floor(demand) - before);
+    // Only what this batch actually supplies counts against the next one.
+    drawn.set(lot.vaccine_id, before + Math.min(lot.onHand, reach));
+    return { ...lot, expired, mayWaste: lot.onHand - Math.min(lot.onHand, reach) };
   });
 }

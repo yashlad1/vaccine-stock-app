@@ -11,9 +11,12 @@ import { newId } from '../../domain/ids';
 import { recordReceipt, reverseMovement } from '../../domain/ledger';
 import { findOrCreateLot } from '../../db/repo/lots';
 import { describeStock, dosesFromVials } from '../../domain/stock';
+import { lastsLabel, loadLedger, usageRate } from '../../domain/supply';
 import { MonthYearWheel } from '../../ui/wheel';
-import { expiryFromMonth } from '../../domain/time';
+import { expiryFromMonth, todayLocal } from '../../domain/time';
 import type { FundingSource, StockRow } from '../../domain/types';
+
+const dosesText = (n: number) => `${n} ${n === 1 ? 'dose' : 'doses'}`;
 
 /**
  * Log a delivery. This is where the expensive keystrokes live - once per box,
@@ -37,6 +40,11 @@ export default function ReceiveScreen() {
   const { data: vaccine, error, reload } = useQuery(
     (d) => d.first<StockRow>(`SELECT * FROM v_stock_on_hand WHERE vaccine_id = ?`, [vaccineId]),
     [vaccineId],
+  );
+
+  const { data: lasts } = useQuery(
+    async (d) => lastsLabel(vaccine?.on_hand_doses ?? 0, usageRate(await loadLedger(d), vaccineId, todayLocal())),
+    [vaccineId, vaccine?.on_hand_doses],
   );
 
   if (error) return <ErrorState error={error} onRetry={reload} what="load this vaccine" />;
@@ -130,6 +138,9 @@ export default function ReceiveScreen() {
           <Stepper accent="stock" value={qty} onChange={setQty} min={1} max={500} quickValues={[1, 5, 10, 20, 50]} />
         </Field>
 
+        <T style={st.fact}>In stock now: {describeStock(vaccine.on_hand_doses, vaccine.unit_mode, vaccine.doses_per_vial, vaccine.min_balance_doses).primary}</T>
+        <T style={st.fact}>Safety limit: {dosesText(vaccine.min_balance_doses)}</T>
+        {lasts ? <T style={st.fact}>{lasts}</T> : null}
         <T style={st.after}>After adding: {after.primary}</T>
       </ScrollView>
 
@@ -152,5 +163,6 @@ const st = StyleSheet.create({
   name: { fontSize: type.big, fontWeight: weight.bold, color: color.text },
   sub: { fontSize: type.label, color: color.textMuted, marginTop: space.xs, marginBottom: space.xl },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
+  fact: { fontSize: type.label, color: color.textMuted, marginBottom: space.xs },
   after: { fontSize: type.body, fontWeight: weight.semibold, color: color.stock },
 });
