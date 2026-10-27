@@ -87,6 +87,8 @@ export interface DoseLine {
   local_date: string;
   /** The child's date of birth, for the age at this dose (`formatAge`). */
   dob: string | null;
+  /** The dose number from the dose screen: 'Dose 1' to 'Dose 3', or 'Booster'. */
+  note: string | null;
 }
 
 /** The notebook page, replicated - but with the arithmetic done for you. */
@@ -94,7 +96,7 @@ export function dosesGiven(db: Db, localDate: string): Promise<DoseLine[]> {
   return db.all<DoseLine>(
     `SELECT m.id, m.local_time, v.name AS vaccine_name, l.lot_number,
             m.patient_label,
-            -m.delta_doses AS doses, m.needs_detail, m.local_date, p.dob
+            -m.delta_doses AS doses, m.needs_detail, m.local_date, p.dob, m.note
        FROM v_movement_effective m
        JOIN vaccines v ON v.id = m.vaccine_id
        LEFT JOIN lots  l ON l.id = m.lot_id
@@ -242,7 +244,7 @@ export function missingChildEntries(db: Db, limit = 50): Promise<DoseLine[]> {
   return db.all<DoseLine>(
     `SELECT m.id, m.local_time, v.name AS vaccine_name, l.lot_number,
             m.patient_label,
-            -m.delta_doses AS doses, m.needs_detail, m.local_date, p.dob
+            -m.delta_doses AS doses, m.needs_detail, m.local_date, p.dob, m.note
        FROM v_movement_effective m
        JOIN vaccines v ON v.id = m.vaccine_id
        LEFT JOIN lots  l ON l.id = m.lot_id

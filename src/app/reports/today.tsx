@@ -82,6 +82,7 @@ export default function TodayScreen() {
                 const parts = [
                   l.patient_label,
                   formatAge(l.dob, l.local_date),
+                  l.note,
                   l.lot_number ? `batch ${l.lot_number}` : null,
                 ].filter(Boolean);
                 return parts.length ? <T style={st.meta}>{parts.join(' · ')}</T> : null;

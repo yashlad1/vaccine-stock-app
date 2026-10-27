@@ -6,12 +6,12 @@ import { newId } from '../../domain/ids';
  * the ledger: inventory records must stay valid with patient rows redacted.
  *
  * Capture is designed around not typing. In order of how often each is used:
- *   1. `recentPatients()` - one tap. Hits constantly: second and third doses in
- *      a series, and siblings vaccinated together.
+ *   1. `recentPatients()` - one tap, for the children given a dose TODAY: the
+ *      2nd and 3rd vaccine of a visit, and siblings. A child back on another
+ *      day is rare (at most 15 of 229 named doses), so older ones are search.
  *   2. `searchPatients()` - name prefix OR last 4 digits of the guardian's
- *      phone. Parents reliably remember phone numbers; names get spelled a
- *      dozen ways.
- *   3. `createPatient()` - inline quick-add, name only, from the dose screen.
+ *      phone.
+ *   3. `createPatient()` - a typed name, saved on Give from the dose screen.
  *   4. Skip entirely - always allowed.
  */
 
@@ -53,16 +53,19 @@ export function searchPatients(db: Db, q: string, limit = 20): Promise<Patient[]
   );
 }
 
-/** Last N distinct children by most recent dose - the one-tap path. */
-export function recentPatients(db: Db, limit = 15): Promise<Patient[]> {
+/**
+ * The children given a dose on `localDate` (today), latest first - the one-tap
+ * path. The effective view, so an undone dose does not keep a child listed.
+ */
+export function recentPatients(db: Db, localDate: string, limit = 3): Promise<Patient[]> {
   return db.all<Patient>(
     `SELECT p.id, p.name, p.dob, p.guardian_phone, p.sex, MAX(m.occurred_at) AS last_at
        FROM patients p
-       JOIN stock_movements m ON m.patient_id = p.id
-      WHERE p.deleted_at IS NULL
+       JOIN v_movement_effective m ON m.patient_id = p.id
+      WHERE p.deleted_at IS NULL AND m.movement_type = 'ADMINISTRATION' AND m.local_date = ?
       GROUP BY p.id
       ORDER BY last_at DESC LIMIT ?`,
-    [limit],
+    [localDate, limit],
   );
 }
 

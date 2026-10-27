@@ -93,6 +93,8 @@ export default function LedgerScreen() {
                 {item.movement_type === 'ADMINISTRATION' && formatAge(item.dob, item.local_date)
                   ? ` · ${formatAge(item.dob, item.local_date)}`
                   : ''}
+                {/* The dose number from the dose screen ("Dose 2", "Booster"). */}
+                {item.movement_type === 'ADMINISTRATION' && item.note ? ` · ${item.note}` : ''}
               </T>
               {!undone && item.movement_type !== 'REVERSAL' ? (
                 <SecondaryButton

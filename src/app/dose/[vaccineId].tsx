@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BigButton, Badge, Chip, Empty, ErrorState, Field, Footer, Input, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { BigButton, Badge, Chip, ErrorState, Field, Footer, Input, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
 import { color, radius, space, touch, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
@@ -13,9 +13,21 @@ import { lotsInStock, lastUsedLot, isExpired } from '../../db/repo/lots';
 import { type Patient, type Sex, createPatient, recentPatients, searchPatients, setPatientDob, setPatientSex } from '../../db/repo/patients';
 import { bumpDosesSinceBackup } from '../../db/repo/settings';
 import { describeStock } from '../../domain/stock';
-import { expiryToMonthLabel, formatAge, todayLocal } from '../../domain/time';
+import { addDays, expiryToMonthLabel, formatAge, todayLocal } from '../../domain/time';
+import { type DoseNote, stripDoseToken } from '../../domain/names';
+import { coGiven } from '../../domain/visits';
 import { DateOfBirthWheel } from '../../ui/wheel';
 import type { StockRow } from '../../domain/types';
+
+/** The dose-number chips, and the note each writes on the dose. */
+const DOSE_CHIPS: { label: string; note: DoseNote }[] = [
+  { label: '1st', note: 'Dose 1' },
+  { label: '2nd', note: 'Dose 2' },
+  { label: '3rd', note: 'Dose 3' },
+  { label: 'Booster', note: 'Booster' },
+];
+
+const dosesText = (n: number) => `${n} ${Math.abs(n) === 1 ? 'dose' : 'doses'}`;
 
 /**
  * The dose modal. Target: 3 taps from launch (tile -> child chip -> GIVE), or
@@ -45,7 +57,20 @@ export default function DoseScreen() {
   /** Boy or girl: on file, and one chosen here to save with the dose. */
   const [childSex, setChildSex] = useState<Sex | null>(null);
   const [newSex, setNewSex] = useState<Sex | null>(null);
+  /** undefined = not touched, so a dose number typed into the name preselects; null = cleared. */
+  const [doseNote, setDoseNote] = useState<DoseNote | null | undefined>(undefined);
+  /** Vaccine ids ticked under "Also giving now". */
+  const [extras, setExtras] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  /**
+   * The ids of THIS Give, minted at the first tap and kept for every retry of
+   * it, so a write that half-happened replays as a no-op instead of a second
+   * dose. The screen closes on success, which ends the intent.
+   */
+  const intent = useRef<{ main: string; extras: Record<string, string> } | null>(null);
+
+  /** "Asha 2 Dose" searches, and is saved, as "Asha"; the "2" goes to the dose number. */
+  const typed = stripDoseToken(childQuery);
 
   const { data: vaccine, error, reload } = useQuery(
     (d) => d.first<StockRow>(`SELECT * FROM v_stock_on_hand WHERE vaccine_id = ?`, [vaccineId]),
@@ -53,18 +78,45 @@ export default function DoseScreen() {
   );
   const { data: lots } = useQuery((d) => lotsInStock(d, vaccineId), [vaccineId]);
   const { data: preferredLot } = useQuery((d) => lastUsedLot(d, vaccineId), [vaccineId]);
-  const { data: recent } = useQuery((d) => recentPatients(d, 12), []);
+  const { data: recent } = useQuery((d) => recentPatients(d, today, 3), [today]);
   const { data: matches } = useQuery(
-    (d) => (childQuery.trim().length >= 2 ? searchPatients(d, childQuery.trim(), 8) : Promise.resolve([])),
-    [childQuery],
+    (d) => (typed.name.length >= 2 ? searchPatients(d, typed.name, 8) : Promise.resolve([])),
+    [typed.name],
+  );
+  const { data: suggestions } = useQuery(
+    async (d) => {
+      const rows = await coGiven(d, vaccineId, addDays(today, -90));
+      // Each added vaccine takes the batch its own screen would preselect.
+      return Promise.all(
+        rows.map(async (r) => ({
+          ...r,
+          lot: (await lastUsedLot(d, r.vaccine_id)) ?? (await lotsInStock(d, r.vaccine_id))[0] ?? null,
+        })),
+      );
+    },
+    [vaccineId, today],
   );
 
   // Preselect the most-recently-used lot, so lot choice is usually zero taps.
   const effectiveLot = lotId !== undefined ? lotId : (preferredLot?.lot_id ?? lots?.[0]?.lot_id ?? null);
   const selected = useMemo(() => lots?.find((l) => l.lot_id === effectiveLot) ?? null, [lots, effectiveLot]);
   const expired = selected ? isExpired(selected, today) : false;
+  // FEFO as a hint only. lotsInStock is ordered by expiry with undated last;
+  // an expired batch is skipped, since Give would warn about it.
+  const useFirstId = lots && lots.length > 1 ? lots.find((l) => l.expiry_date && !isExpired(l, today))?.lot_id : undefined;
 
-  const typedIsSaved = !!matches?.some((m) => m.name.toLowerCase() === childQuery.trim().toLowerCase());
+  const typedIsSaved = !!matches?.some((m) => m.name.toLowerCase() === typed.name.toLowerCase());
+  const typedNew = childQuery.trim().length >= 2 && !typedIsSaved;
+  /**
+   * The optional details show once a child is chosen or a new name typed. Not
+   * when the typed name IS a saved child: that child's chip, with the age, is
+   * right there. What is hidden is never written.
+   */
+  const childDetails = !!childId || typedNew;
+  const effectiveDose = childDetails ? (doseNote !== undefined ? doseNote : typed.dose) : null;
+  const chosenExtras = childDetails ? (suggestions ?? []).filter((s) => extras.includes(s.vaccine_id)) : [];
+  // The one rule for saving a typed name as a child, used by the hint and by write().
+  const savesTypedChild = !childId && typedNew && !!(newDob || newSex || effectiveDose);
 
   const pick = (p: Pick<Patient, 'id' | 'name' | 'dob' | 'sex'>) => {
     setChildId(p.id);
@@ -100,25 +152,29 @@ export default function DoseScreen() {
     // outcome in the app: she would assume the dose was recorded, and stock
     // would start drifting from the fridge.
     const ok = await run('record this dose', async () => {
-      // Minted here, at the tap, and reused for any retry of THIS intent.
-      const clientActionId = newId();
+      const also = skipChild ? [] : chosenExtras;
+      if (!intent.current) intent.current = { main: newId(), extras: {} };
+      const ids = intent.current;
+      for (const x of also) ids.extras[x.vaccine_id] = ids.extras[x.vaccine_id] ?? newId();
 
       const similar = await findRecentSimilar(db, {
         vaccineId, movementType: 'ADMINISTRATION', deltaDoses: -doses,
       });
 
+      // The ledger keeps the name exactly as typed, dose number and all.
       const label = skipChild ? null : (childLabel ?? (childQuery.trim() || null));
 
-      // A typed name with a date of birth becomes a saved child, so the age is
-      // on this dose and fills in by itself next visit. On the server, 198 of
-      // 204 doses had a typed name and none a saved child: typing IS the
-      // common path, so this is where the age has to work. If saving the child
-      // fails, the dose still records with the name alone (invariant 5).
+      // A typed name with a date of birth, a sex or a dose number becomes a
+      // saved child (without the dose number in the name), so the age is on
+      // this dose and the child is one tap on the next vaccine today. On the
+      // server, 198 of 204 doses had a typed name and none a saved child:
+      // typing IS the common path. If saving the child fails, the dose still
+      // records with the name alone (invariant 5).
       let patientId = skipChild ? null : childId;
       let dobSaved = true;
       let sexSaved = true;
-      if (!skipChild && !childId && label && (newDob || newSex)) {
-        patientId = await createPatient(db, { name: label, dob: newDob, sex: newSex }, deviceId).then(
+      if (!skipChild && savesTypedChild && label) {
+        patientId = await createPatient(db, { name: typed.name, dob: newDob, sex: newSex }, deviceId).then(
           (id) => {
             // Held on screen, so a retry after a failed dose write reuses this
             // child instead of saving the same name twice.
@@ -133,20 +189,49 @@ export default function DoseScreen() {
         );
       }
 
-      const { movement, created } = await recordAdministration(
+      const what = doses === 1 ? vaccine.name : `${doses} doses of ${vaccine.name}`;
+      const main = await recordAdministration(
         db,
         { deviceId },
         {
-          clientActionId,
+          clientActionId: ids.main,
           vaccineId,
           lotId: effectiveLot,
           doses,
           patientId,
           patientLabel: label,
+          note: skipChild ? undefined : (effectiveDose ?? undefined),
         },
       );
+      const written = [{ id: main.movement.id, created: main.created, doses, name: vaccine.name, what }];
+      // A retry replays this Give's own row; that is not a second dose.
+      const doubleTap = !!similar && similar.id !== main.movement.id;
+
+      // Each added vaccine is its own dose, after the main one. Its failure is
+      // not the main dose's failure: that one stays, and the toast names this.
+      const failed: string[] = [];
+      for (const x of also) {
+        try {
+          const r = await recordAdministration(
+            db,
+            { deviceId },
+            {
+              clientActionId: ids.extras[x.vaccine_id],
+              vaccineId: x.vaccine_id,
+              lotId: x.lot?.lot_id ?? null,
+              doses: 1,
+              patientId,
+              patientLabel: label,
+            },
+          );
+          written.push({ id: r.movement.id, created: r.created, doses: 1, name: x.name, what: x.name });
+        } catch {
+          failed.push(x.name);
+        }
+      }
       // Only a real write moves the backup nag; a replayed intent is a no-op.
-      if (created) await bumpDosesSinceBackup(db, doses);
+      const newDoses = written.reduce((n, w) => n + (w.created ? w.doses : 0), 0);
+      if (newDoses) await bumpDosesSinceBackup(db, newDoses);
 
       // AFTER the dose, and its failure is not the dose's failure: invariant 5
       // says nothing about a birthday may stop a vaccination being recorded.
@@ -157,23 +242,50 @@ export default function DoseScreen() {
       if (sexToSave) sexSaved = await setPatientSex(db, childId!, sexToSave).then(() => true, () => false);
       bump();
 
+      const who = label ? stripDoseToken(label).name : null;
       const age = skipChild ? null : formatAge(dobSaved ? (newDob ?? childDob) : childDob, today);
-      // The toast holds two lines, so the warning comes first and the rest is short.
-      const what = doses === 1 ? vaccine.name : `${doses} doses of ${vaccine.name}`;
-      const message = similar
-        ? `${what} given again. Tap Undo if it was a double tap.`
-        : !(dobSaved && sexSaved)
-          ? `${what} given. Child's details not saved.`
-          : label
-            ? `${what} given to ${label}${age ? `, ${age}` : ''}.`
-            : `${what} given.`;
+      const doseNo = DOSE_CHIPS.find((c) => c.note === effectiveDose);
+      const detailsLost = !(dobSaved && sexSaved);
+      // Warnings first: the toast holds three lines and the end may be cut.
+      const message = [
+        failed.length ? `${failed.join(', ')} not saved. Give ${failed.length === 1 ? 'it' : 'them'} again.` : null,
+        written.length > 1
+          ? `${doubleTap ? 'Given again? Tap Undo if it was a double tap. ' : ''}${detailsLost ? "Child's details not saved. " : ''}` +
+            `${written.length} vaccines given${who ? ` to ${who}` : ''}: ${written.map((w) => w.what).join(', ')}.`
+          : doubleTap
+            ? `${what} given again. Tap Undo if it was a double tap.`
+            : detailsLost
+              ? `${what} given. Child's details not saved.`
+              : who
+                ? `${what} given to ${who}${age ? `, ${age}` : ''}${doseNo ? `, ${doseNo.label.toLowerCase()} dose` : ''}.`
+                : `${what} given.`,
+      ].filter(Boolean).join(' ');
+
       toast.show(message, async () => {
-        // Undo writes a REVERSING ENTRY. It never deletes, so the correction is
-        // auditable and stays available from the Ledger screen forever.
+        // Undo writes a REVERSING ENTRY for every dose this Give wrote. It
+        // never deletes, so the correction is auditable and stays available
+        // from the Ledger screen forever.
         await run('undo that dose', async () => {
-          const r = await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: movement.id });
-          if (r.created) await bumpDosesSinceBackup(db, -doses);
+          const notUndone: string[] = [];
+          let undoneDoses = 0;
+          for (const w of written) {
+            try {
+              const r = await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: w.id });
+              if (r.created) undoneDoses += w.doses;
+            } catch (e) {
+              // One vaccine keeps the plain error toast. Several: undo the
+              // rest, then name what is left.
+              if (written.length === 1) throw e;
+              notUndone.push(w.name);
+            }
+          }
+          if (undoneDoses) await bumpDosesSinceBackup(db, -undoneDoses);
           bump();
+          if (notUndone.length) {
+            toast.showError(
+              `Could not undo ${notUndone.join(', ')}. Undo ${notUndone.length === 1 ? 'it' : 'them'} from All entries on More.`,
+            );
+          }
         });
       });
     });
@@ -191,66 +303,87 @@ export default function DoseScreen() {
    * wrong - refusing the write means the dose goes unlogged, and an unlogged
    * dose is the drift this whole app exists to prevent. CLAUDE.md section 8
    * lists "expired lot" among the few genuine reasons to confirm, so confirm
-   * is exactly what this does.
+   * is exactly what this does. An added vaccine's batch joins the same
+   * dialog: one confirm, never a second.
    */
   const give = (skipChild: boolean) => {
-    if (!expired) return void write(skipChild);
+    const staleExtras = skipChild ? [] : chosenExtras.filter((x) => x.lot && isExpired(x.lot, today));
+    if (!expired && !staleExtras.length) return void write(skipChild);
+    const lines = [
+      ...(expired
+        ? [`${staleExtras.length ? `${vaccine.name}: ` : ''}${selected?.lot_number ?? 'This batch'} expired ${expiryToMonthLabel(selected!.expiry_date!)}.`]
+        : []),
+      ...staleExtras.map((x) => `${x.name}: ${x.lot!.lot_number} expired ${expiryToMonthLabel(x.lot!.expiry_date!)}.`),
+    ];
     Alert.alert(
-      'This batch has expired',
-      `${selected?.lot_number ?? 'This batch'} expired ${expiryToMonthLabel(selected!.expiry_date!)}.` +
-        '\n\nRecord the dose anyway, or go back and pick another batch?',
+      lines.length > 1 ? 'These batches have expired' : 'This batch has expired',
+      lines.join('\n') +
+        (staleExtras.length ? '\n\nRecord anyway, or go back?' : '\n\nRecord the dose anyway, or go back and pick another batch?'),
       [
-        { text: 'Pick another batch', style: 'cancel' },
+        { text: staleExtras.length ? 'Go back' : 'Pick another batch', style: 'cancel' },
         { text: 'Record anyway', style: 'destructive', onPress: () => void write(skipChild) },
       ],
     );
   };
 
+  const clearChild = () => {
+    setNewDob(null);
+    setNewSex(null);
+    setDoseNote(undefined);
+    setExtras([]);
+  };
+
   return (
     <View style={st.screen}>
+      <Stack.Screen options={{ title: `Give ${vaccine.name}` }} />
       <ScrollView contentContainerStyle={[st.content, centred]} keyboardShouldPersistTaps="handled">
         {/* The vaccine name IS the confirmation, and it costs no tap. */}
-        <T style={st.name}>{vaccine.name}</T>
-        <View style={st.stockBlock}>
-          <View style={st.stockRow}>
+        <View style={st.head}>
+          <View style={st.headRow}>
+            <T style={st.name}>{vaccine.name}</T>
             <T style={[st.stock, { color: stockInk }]}>{stock.primary} in stock</T>
             {stock.badge ? <Badge text={stock.badge} tone={stock.level === 'LOW' ? 'low' : 'danger'} /> : null}
           </View>
           {wouldGoNegative ? (
             <T style={st.danger}>
-              Stock will go below zero, to {vaccine.on_hand_doses - doses}. A delivery was probably
-              not logged. The dose is still recorded.
+              Stock will go below zero, to {vaccine.on_hand_doses - doses}. A delivery was probably not
+              added. Tapping Give still records the dose.
             </T>
           ) : null}
         </View>
 
-        <Field
-          label="Batch / lot"
-          hint={lots?.length ? undefined : 'No batch recorded yet. You can still log the dose.'}
-        >
-          {lots?.length ? (
+        {/* A batch is a choice only when there are two; one is a line, none a sentence. */}
+        {lots && lots.length > 1 ? (
+          <Field dense label="Batch / lot">
             <View style={st.chipRow}>
               {lots.map((l) => (
                 <Chip
                   key={l.lot_id}
                   label={l.lot_number}
-                  sublabel={`${l.on_hand_doses} left${l.expiry_date ? ` · exp ${expiryToMonthLabel(l.expiry_date)}` : ''}`}
+                  sublabel={`${l.on_hand_doses} left${l.expiry_date ? ` · exp ${expiryToMonthLabel(l.expiry_date)}` : ''}${l.lot_id === useFirstId ? ' · use first' : ''}`}
                   selected={effectiveLot === l.lot_id}
                   onPress={() => setLotId(l.lot_id)}
                 />
               ))}
               <Chip label="Not sure" selected={effectiveLot === null} onPress={() => setLotId(null)} />
             </View>
-          ) : null}
-          {expired ? (
-            <T style={st.danger}>
-              This batch expired {expiryToMonthLabel(selected!.expiry_date!)}. Pick another batch if
-              you have one. You can still record the dose.
-            </T>
-          ) : null}
-        </Field>
+          </Field>
+        ) : lots?.length === 1 ? (
+          <T style={st.batch}>
+            Batch {lots[0].lot_number}
+            {lots[0].expiry_date ? ` · exp ${expiryToMonthLabel(lots[0].expiry_date)}` : ''}
+          </T>
+        ) : lots ? (
+          <T style={[st.batch, st.muted]}>No batch recorded for this vaccine.</T>
+        ) : null}
+        {expired ? (
+          <T style={[st.danger, st.afterBatch]}>
+            This batch expired {expiryToMonthLabel(selected!.expiry_date!)}. Pick another batch if
+            you have one. You can still record the dose.
+          </T>
+        ) : null}
 
-        <Field label="Child" hint="Optional. You can add the name later.">
+        <Field dense label="Child">
           {childLabel ? (
             <View style={st.chipRow}>
               <Chip label={childLabel} selected onPress={() => undefined} />
@@ -261,31 +394,27 @@ export default function DoseScreen() {
                   setChildLabel(null);
                   setChildQuery('');
                   setChildDob(null);
-                  setNewDob(null);
                   setChildSex(null);
-                  setNewSex(null);
+                  clearChild();
                 }}
               />
             </View>
           ) : (
             <>
               <Input
-                placeholder="Type 2 letters, or a phone number"
+                placeholder="Child's name"
                 value={childQuery}
                 onChangeText={(t) => {
                   setChildQuery(t);
-                  // The wheel goes away below two letters; so does its date.
-                  if (t.trim().length < 2) {
-                    setNewDob(null);
-                    setNewSex(null);
-                  }
+                  // The details go away below two letters; so do their values.
+                  if (t.trim().length < 2) clearChild();
                 }}
                 autoCorrect={false}
                 autoCapitalize="words"
-                accessibilityLabel="Search or add child"
+                accessibilityLabel="Child's name"
               />
               {matches?.length ? (
-                <View style={st.chipRow}>
+                <View style={[st.chipRow, st.below]}>
                   {matches.map((p) => (
                     <Chip
                       key={p.id}
@@ -298,71 +427,92 @@ export default function DoseScreen() {
                   ))}
                 </View>
               ) : null}
-              {childQuery.trim().length >= 2 && !typedIsSaved ? (
-                <Pressable
-                  accessibilityRole="button"
-                  style={st.addRow}
-                  onPress={async () => {
-                    const name = childQuery.trim();
-                    const id = await createPatient(db, { name }, deviceId);
-                    pick({ id, name, dob: null, sex: null });
-                    bump();
-                  }}
-                >
-                  <T style={st.addText}>+ Add "{childQuery.trim()}" as a new child</T>
-                </Pressable>
-              ) : null}
+              {savesTypedChild ? <T style={st.hint}>New child. Saved when you tap Give.</T> : null}
               {!childQuery && recent?.length ? (
-                <View style={st.chipRow}>
-                  {recent.map((p) => (
-                    <Chip
-                      key={p.id}
-                      label={p.name}
-                      // Age tells siblings and namesakes apart faster than a
-                      // date of birth would (clinic-queue's Age component).
-                      sublabel={formatAge(p.dob, today) ?? undefined}
-                      onPress={() => pick(p)}
-                    />
-                  ))}
-                </View>
+                <>
+                  <T style={st.hint}>Given a dose today</T>
+                  <View style={[st.chipRow, st.below]}>
+                    {recent.map((p) => (
+                      <Chip
+                        key={p.id}
+                        label={p.name}
+                        sublabel={formatAge(p.dob, today) ?? undefined}
+                        onPress={() => pick(p)}
+                      />
+                    ))}
+                  </View>
+                </>
               ) : null}
             </>
           )}
         </Field>
 
         {childId && childDob && !editingDob ? (
-          <Field label="Age">
+          <Field dense label="Age">
             <View style={st.chipRow}>
               <T style={st.age}>{formatAge(childDob, today) ?? 'Check the date of birth'}</T>
               <SecondaryButton label="Change date of birth" onPress={() => setEditingDob(true)} />
             </View>
           </Field>
-        ) : childId || (childQuery.trim().length >= 2 && !typedIsSaved) ? (
-          // Also for a name that is only typed: that is how almost every dose
-          // is entered. Not when the typed name IS a saved child - the chip
-          // with that child's age is right above, and a date here would save
-          // the same child twice. Keyed so a different child starts blank.
-          <Field label="Date of birth" hint="Optional. Saved with the child, so the age fills in by itself next time.">
+        ) : childDetails ? (
+          // Keyed so a different child starts blank.
+          <Field dense label="Date of birth">
             <DateOfBirthWheel key={childId ?? 'typed'} today={today} initial={childDob} onChange={setNewDob} />
           </Field>
         ) : null}
 
-        {childId || (childQuery.trim().length >= 2 && !typedIsSaved) ? (
-          <Field label="Boy or girl" hint="Optional.">
-            <View style={st.chipRow}>
-              <Chip label="Boy" selected={(newSex ?? childSex) === 'M'} onPress={() => setNewSex('M')} />
-              <Chip label="Girl" selected={(newSex ?? childSex) === 'F'} onPress={() => setNewSex('F')} />
-            </View>
-          </Field>
+        {childDetails ? (
+          <>
+            <Field dense label="Boy or girl">
+              <View style={st.chipRow}>
+                <Chip label="Boy" selected={(newSex ?? childSex) === 'M'} onPress={() => setNewSex('M')} />
+                <Chip label="Girl" selected={(newSex ?? childSex) === 'F'} onPress={() => setNewSex('F')} />
+              </View>
+            </Field>
+            <Field dense label="Which dose">
+              <View style={st.chipRow}>
+                {DOSE_CHIPS.map((c) => (
+                  <Chip
+                    key={c.note}
+                    label={c.label}
+                    selected={effectiveDose === c.note}
+                    // Tapping the chosen one clears it.
+                    onPress={() => setDoseNote(effectiveDose === c.note ? null : c.note)}
+                  />
+                ))}
+              </View>
+            </Field>
+            {suggestions?.length ? (
+              <Field dense label="Also giving now">
+                <View style={st.chipRow}>
+                  {suggestions.map((s) => (
+                    <Chip
+                      key={s.vaccine_id}
+                      label={s.name}
+                      // OUT can still be chosen: a dose is never blocked (invariant 5).
+                      sublabel={s.on_hand_doses === 0 ? 'OUT' : dosesText(s.on_hand_doses)}
+                      selected={extras.includes(s.vaccine_id)}
+                      onPress={() =>
+                        setExtras((xs) =>
+                          xs.includes(s.vaccine_id) ? xs.filter((x) => x !== s.vaccine_id) : [...xs, s.vaccine_id],
+                        )
+                      }
+                    />
+                  ))}
+                </View>
+              </Field>
+            ) : null}
+          </>
         ) : null}
 
-        <Field label="Doses">
+        <Field dense label="Doses">
           <Stepper value={doses} onChange={setDoses} min={1} max={20} />
         </Field>
       </ScrollView>
 
       <Footer gap={space.md}>
-        {!childLabel ? (
+        {/* With a name typed, Give records it; "no name" would contradict the box. */}
+        {!childLabel && !childQuery.trim() ? (
           <Pressable
             accessibilityRole="button"
             onPress={() => give(true)}
@@ -373,7 +523,7 @@ export default function DoseScreen() {
           </Pressable>
         ) : null}
         <BigButton
-          label={`Give ${doses} ${doses === 1 ? 'dose' : 'doses'}`}
+          label={chosenExtras.length ? `Give ${chosenExtras.length + 1} vaccines` : `Give ${dosesText(doses)}`}
           onPress={() => give(false)}
           disabled={saving}
         />
@@ -385,15 +535,18 @@ export default function DoseScreen() {
 const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   content: { padding: space.lg, paddingBottom: space.xxl },
+  head: { marginBottom: space.md },
+  headRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.md, rowGap: space.xs },
   name: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
-  stockBlock: { marginTop: space.xs, marginBottom: space.xl },
-  stockRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
   stock: { fontSize: type.label, color: color.textMuted },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, alignItems: 'center' },
+  below: { marginTop: space.sm },
+  batch: { fontSize: type.label, fontWeight: weight.semibold, color: color.text, marginBottom: space.md },
+  muted: { color: color.textMuted, fontWeight: weight.regular },
+  afterBatch: { marginTop: 0, marginBottom: space.md },
+  hint: { fontSize: type.min, color: color.textMuted, marginTop: space.sm },
   age: { fontSize: type.title, fontWeight: weight.bold, color: color.text },
   danger: { fontSize: type.label, fontWeight: weight.semibold, color: color.danger, marginTop: space.sm },
-  addRow: { minHeight: touch.min, justifyContent: 'center', marginTop: space.sm },
-  addText: { fontSize: type.body, fontWeight: weight.semibold, color: color.dose },
   skip: { minHeight: touch.min, alignItems: 'center', justifyContent: 'center', borderRadius: radius.md },
   skipText: { fontSize: type.body, fontWeight: weight.semibold, color: color.dose },
 });
