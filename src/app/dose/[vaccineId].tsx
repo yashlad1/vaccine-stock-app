@@ -121,15 +121,19 @@ export default function DoseScreen() {
   const batchChips = anotherBatch || (lots?.length === 1 && isExpired(lots[0], today));
 
   const typedIsSaved = !!matches?.some((m) => m.name.toLowerCase() === typed.name.toLowerCase());
-  const typedNew = childQuery.trim().length >= 2 && !typedIsSaved;
+  const typedName = childQuery.trim().length >= 2;
+  const typedNew = typedName && !typedIsSaved;
   /**
-   * The optional details show once a child is chosen or a new name typed. Not
-   * when the typed name IS a saved child: that child's chip, with the age, is
-   * right there. What is hidden is never written.
+   * Which dose and Also giving now belong to the dose, so they show for any
+   * name, chosen or typed: a typed "Asha 2 dose" still preselects 2nd. Date of
+   * birth and Boy or girl belong to the child, so not when the typed name IS a
+   * saved child: that child's chip, with the age, is right there. What is
+   * hidden is never written.
    */
+  const named = !!childId || typedName;
   const childDetails = !!childId || typedNew;
-  const effectiveDose = childDetails ? (doseNote !== undefined ? doseNote : typed.dose) : null;
-  const chosenExtras = childDetails ? (suggestions ?? []).filter((s) => extras.includes(s.vaccine_id)) : [];
+  const effectiveDose = named ? (doseNote !== undefined ? doseNote : typed.dose) : null;
+  const chosenExtras = named ? (suggestions ?? []).filter((s) => extras.includes(s.vaccine_id)) : [];
   // The one rule for saving a typed name as a child, used by the hint and by write().
   const savesTypedChild = !childId && typedNew && !!(newDob || newSex || effectiveDose);
 
@@ -466,13 +470,16 @@ export default function DoseScreen() {
         ) : null}
 
         {childDetails ? (
+          <Field dense label="Boy or girl">
+            <View style={st.chipRow}>
+              <Chip label="Boy" selected={(newSex ?? childSex) === 'M'} onPress={() => setNewSex('M')} />
+              <Chip label="Girl" selected={(newSex ?? childSex) === 'F'} onPress={() => setNewSex('F')} />
+            </View>
+          </Field>
+        ) : null}
+
+        {named ? (
           <>
-            <Field dense label="Boy or girl">
-              <View style={st.chipRow}>
-                <Chip label="Boy" selected={(newSex ?? childSex) === 'M'} onPress={() => setNewSex('M')} />
-                <Chip label="Girl" selected={(newSex ?? childSex) === 'F'} onPress={() => setNewSex('F')} />
-              </View>
-            </Field>
             <Field dense label="Which dose">
               <View style={st.chipRow}>
                 {DOSE_CHIPS.map((c) => (
