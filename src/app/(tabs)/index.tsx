@@ -94,7 +94,7 @@ export default function GiveDoseScreen() {
           <Pressable
             accessibilityRole="button"
             onPress={() => router.push('/reports/today')}
-            hitSlop={{ top: 15, bottom: 15, left: 4, right: 8 }}
+            hitSlop={{ top: 18, bottom: 18, left: 4, right: 8 }}
           >
             <T style={[st.status, st.statusCount]}>
               {dosesToday} {dosesToday === 1 ? 'dose' : 'doses'} today

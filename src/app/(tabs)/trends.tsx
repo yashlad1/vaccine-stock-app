@@ -317,7 +317,7 @@ function StockView({
       {/* Stock counts the vaccines on her list; doses given count every dose,
           removed vaccines included. Say so when they differ, or the page
           shows two "given" numbers for one period. */}
-      {left > 0 ? <T style={st.note}>Given leaves out {doses(left)} of vaccines you have since removed.</T> : null}
+      {left > 0 ? <T style={st.note}>Given leaves out {doses(left)} of vaccines you have since removed or hidden.</T> : null}
 
       {end >= firstEntry ? (
         <>

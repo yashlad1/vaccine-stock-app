@@ -76,7 +76,7 @@ export default function RootLayout() {
             <Stack.Screen name="reports/today" options={{ title: 'Given today', ...tint(color.more) }} />
             <Stack.Screen
               name="catalog/new"
-              options={{ presentation: 'modal', title: 'New vaccine', ...tint(color.catalog) }}
+              options={{ presentation: 'modal', title: 'New vaccine', ...cancel(color.catalog) }}
             />
             <Stack.Screen name="catalog/[id]" options={{ title: 'Edit vaccine', ...tint(color.catalog) }} />
             <Stack.Screen name="children/index" options={{ title: 'Children', ...tint(color.more) }} />
