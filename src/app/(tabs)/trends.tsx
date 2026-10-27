@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Chip, ErrorState, Loading, Row, SecondaryButton, SectionTitle, T, useBottomInset } from '../../ui/components';
 import { BarRow, ColumnChart } from '../../ui/charts';
 import { MovementStrip } from '../../ui/movement-strip';
-import { color, space, type, weight } from '../../ui/tokens';
+import { accentSoft, color, space, touch, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useQuery } from '../../db/provider';
 import { asOfLabel, periodStrip, type MovementStrip as Strip } from '../../domain/reports';
@@ -138,6 +138,7 @@ export default function TrendsScreen() {
       </View>
 
       <Card style={{ marginTop: space.md }}>
+        <T style={st.caption}>Doses given {grain === 'week' ? 'each week' : 'each month'}</T>
         <ColumnChart
           key={grain}
           accent="trends"
@@ -244,7 +245,6 @@ function VaccinesView({
         (a, b) => (rupees.get(b.key) ?? -1) - (rupees.get(a.key) ?? -1) || b.doses - a.doses,
       )
     : summary.byVaccine;
-  const top = bySales ? Math.max(0, ...rupees.values()) : (list[0]?.doses ?? 0);
 
   return (
     <>
@@ -256,21 +256,25 @@ function VaccinesView({
         </View>
       ) : null}
       <T style={st.hint}>Tap a vaccine to see only its children and stock.</T>
-      {capped(list, all, chosen).map((v) => {
+      {capped(list, all, chosen).map((v, i) => {
         const r = rupees.get(v.key);
-        const value = r === undefined ? String(v.doses) : `${v.doses} · ${formatRupees(r)}`;
+        const on = v.key === chosen;
         return (
-          <BarRow
+          <Pressable
             key={v.key}
-            accent="trends"
-            label={v.label}
-            value={value}
-            fraction={top ? (bySales ? (r ?? 0) : v.doses) / top : 0}
-            selected={v.key === chosen}
-            muted={!!chosen && v.key !== chosen}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={`${i + 1}, ${v.label}, ${doses(v.doses)}${r === undefined ? '' : `, ${formatRupees(r)}`}`}
             onPress={() => onPick(v.key)}
-            accessibilityLabel={`${v.label}, ${doses(v.doses)}${r === undefined ? '' : `, ${formatRupees(r)}`}`}
-          />
+            style={({ pressed }) => [st.rank, on ? { backgroundColor: accentSoft.trends } : pressed ? { backgroundColor: color.pressed } : null]}
+          >
+            <T style={st.rankNo}>{i + 1}</T>
+            <T style={[st.rankName, on && { fontWeight: weight.bold }]}>{v.label}</T>
+            <View style={st.rankEnd}>
+              <T style={st.rankDoses}>{doses(v.doses)}</T>
+              {r !== undefined ? <T style={st.rankMoney}>{formatRupees(r)}</T> : null}
+            </View>
+          </Pressable>
         );
       })}
       {list.length > CAP && !all ? <SecondaryButton accent="trends" label={`Show all ${list.length}`} onPress={showAll} /> : null}
@@ -354,7 +358,7 @@ function Shares({ tallies, total }: { tallies: Tally[]; total: number }) {
         key={t.key}
         accent="trends"
         label={t.label}
-        value={withPercent ? `${t.doses} · ${pct}%` : String(t.doses)}
+        value={withPercent ? `${doses(t.doses)} · ${pct}%` : doses(t.doses)}
         fraction={total ? t.doses / total : 0}
         // Missing data, not a group: grey, so it reads as a gap to fill.
         muted={t.key === NOT_RECORDED_KEY}
@@ -375,6 +379,22 @@ const st = StyleSheet.create({
   notice: { fontSize: type.label, color: color.text, marginTop: space.sm },
   filter: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.md, marginTop: space.xs },
   filterText: { fontSize: type.body, fontWeight: weight.bold, color: color.text },
+  caption: { fontSize: type.min, color: color.textMuted, fontWeight: weight.semibold, paddingHorizontal: space.sm, paddingTop: space.sm },
+  rank: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    minHeight: touch.min,
+    paddingVertical: space.xs,
+    paddingHorizontal: space.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.border,
+  },
+  rankNo: { width: 24, fontSize: type.label, color: color.textMuted },
+  rankName: { flex: 1, fontSize: type.body, fontWeight: weight.semibold, color: color.text },
+  rankEnd: { alignItems: 'flex-end' },
+  rankDoses: { fontSize: type.body, fontWeight: weight.bold, color: color.text },
+  rankMoney: { fontSize: type.label, fontWeight: weight.semibold, color: color.textMuted },
   hint: { fontSize: type.min, color: color.textMuted, marginBottom: space.xs },
   note: { fontSize: type.min, color: color.textMuted, lineHeight: 21, marginTop: space.md },
   plain: { fontSize: type.body, color: color.text, marginTop: space.md },
