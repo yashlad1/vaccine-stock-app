@@ -47,8 +47,12 @@ export function vaccinesInStock(db: Db): Promise<StockRow[]> {
  * doses, so pinning those to the first screenful makes the common dose entry a
  * zero-scroll single tap. Deterministic (30-day dose count, then name) so it is
  * testable rather than mysterious.
+ *
+ * Usage counts up to YESTERDAY (`beforeLocalDate` is exclusive, pass today).
+ * Counting today made a tile jump past its neighbours right after a dose, so
+ * the grid moved between one child and the next and broke muscle memory.
  */
-export function vaccinesByUsage(db: Db, sinceLocalDate: string): Promise<(StockRow & { recent_doses: number })[]> {
+export function vaccinesByUsage(db: Db, sinceLocalDate: string, beforeLocalDate: string): Promise<(StockRow & { recent_doses: number })[]> {
   return db.all(
     // `aliases` is joined rather than read from the view: the view predates
     // the search work and section 2 keeps migrations additive, so replacing it
@@ -59,12 +63,12 @@ export function vaccinesByUsage(db: Db, sinceLocalDate: string): Promise<(StockR
        LEFT JOIN (
          SELECT vaccine_id, -SUM(delta_doses) AS recent_doses
            FROM v_movement_effective
-          WHERE movement_type = 'ADMINISTRATION' AND local_date >= ?
+          WHERE movement_type = 'ADMINISTRATION' AND local_date >= ? AND local_date < ?
           GROUP BY vaccine_id
        ) u ON u.vaccine_id = s.vaccine_id
       WHERE s.is_active = 1
       ORDER BY recent_doses DESC, s.name COLLATE NOCASE`,
-    [sinceLocalDate],
+    [sinceLocalDate, beforeLocalDate],
   );
 }
 
@@ -133,24 +137,44 @@ export function dosesGivenTotals(
  * argument by showing both readings reconciling on one line.
  */
 export interface MovementStrip {
+  /** First day covered. */
+  from: string;
+  /** Last day covered; the same as `from` for a one-day strip. */
   localDate: string;
   opening: number;
   received: number;
   given: number;
   wasted: number;
   adjusted: number;
-  /** Reversals booked today against movements dated BEFORE today. */
+  /** Reversals booked in the range against movements dated BEFORE it. */
   corrections: number;
   /** opening + received - given - wasted + adjusted + corrections */
   now: number;
 }
 
-export async function movementStrip(
+/** One day's strip: the Stock tab and Given today. */
+export function movementStrip(db: Db, localDate: string, vaccineId?: string): Promise<MovementStrip> {
+  return periodStrip(db, localDate, localDate, vaccineId);
+}
+
+/**
+ * The same equation over a range, `from` to `to` inclusive: the UIP
+ * handbook's monthly summary (start, received, given, wasted, end). `opening`
+ * is the balance before `from` and `now` the balance at the end of `to`, so a
+ * range that is still running ends on today's balance.
+ */
+export async function periodStrip(
   db: Db,
-  localDate: string,
+  from: string,
+  to: string,
   vaccineId?: string,
 ): Promise<MovementStrip> {
-  const vFilter = vaccineId ? 'AND vaccine_id = ?' : '';
+  // Whole-clinic: only vaccines the Stock list shows, so a removed vaccine's
+  // leftover doses are not counted anywhere (the remove dialog promises that).
+  // A single vaccine keeps its own numbers whatever its state.
+  const vFilter = vaccineId
+    ? 'AND vaccine_id = ?'
+    : 'AND vaccine_id IN (SELECT id FROM vaccines WHERE deleted_at IS NULL AND is_active = 1)';
   const vArg = vaccineId ? [vaccineId] : [];
 
   // `now` is read straight off the ledger rather than accumulated from the
@@ -160,25 +184,25 @@ export async function movementStrip(
   const nowRow = await db.first<{ n: number }>(
     `SELECT COALESCE(SUM(delta_doses),0) AS n FROM stock_movements
       WHERE local_date <= ? AND stock_source = 'CLINIC_STOCK' ${vFilter}`,
-    [localDate, ...vArg],
+    [to, ...vArg],
   );
 
-  // Opening balance sums the RAW table: a reversal dated before today has
+  // Opening balance sums the RAW table: a reversal dated before the range has
   // already cancelled its original arithmetically.
   const openingRow = await db.first<{ n: number }>(
     `SELECT COALESCE(SUM(delta_doses),0) AS n FROM stock_movements
       WHERE local_date < ? AND stock_source = 'CLINIC_STOCK' ${vFilter}`,
-    [localDate, ...vArg],
+    [from, ...vArg],
   );
 
-  // Today's activity uses the EFFECTIVE view, so a dose recorded and undone
-  // today does not inflate "given".
+  // The range's activity uses the EFFECTIVE view, so a dose recorded and
+  // undone inside it does not inflate "given".
   const rows = await db.all<{ movement_type: string; n: number }>(
     `SELECT movement_type, COALESCE(SUM(delta_doses),0) AS n
        FROM v_movement_effective
-      WHERE local_date = ? AND stock_source = 'CLINIC_STOCK' ${vFilter}
+      WHERE local_date >= ? AND local_date <= ? AND stock_source = 'CLINIC_STOCK' ${vFilter}
       GROUP BY movement_type`,
-    [localDate, ...vArg],
+    [from, to, ...vArg],
   );
   const by = (t: string) => rows.find((r) => r.movement_type === t)?.n ?? 0;
   // Guard against -0: SUM of nothing negated renders as "-0 doses" on screen.
@@ -192,12 +216,12 @@ export async function movementStrip(
   const adjusted = by('ADJUSTMENT');
 
   // What the activity lines above cannot show: the arithmetic effect of
-  // reversals that undo entries from a DIFFERENT day. The original still sits
-  // inside `opening` while the reversal is dated today, so without this term
-  // the strip would present a derivation that does not add up.
+  // reversals that undo entries from BEFORE the range. The original still
+  // sits inside `opening` while the reversal is dated inside the range, so
+  // without this term the strip would present a derivation that does not add up.
   const corrections = now - (opening + received - given - wasted + adjusted);
 
-  return { localDate, opening, received, given, wasted, adjusted, corrections, now };
+  return { from, localDate: to, opening, received, given, wasted, adjusted, corrections, now };
 }
 
 /** Every report renders its as-of time. A stock number without one is a rumour. */

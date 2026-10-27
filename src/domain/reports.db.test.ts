@@ -1,4 +1,4 @@
-import { makeTestDb, actions, T0, IST } from '../db/testing';
+import { makeTestDb, actions, T0 } from '../db/testing';
 import { findOrCreateLot } from '../db/repo/lots';
 import { createPatient } from '../db/repo/patients';
 import {
@@ -6,7 +6,7 @@ import {
   recordOpeningBalance, reverseMovement,
 } from './ledger';
 import {
-  dosesGiven, dosesGivenTotals, movementStrip, stockOnHand, vaccinesInStock,
+  dosesGiven, dosesGivenTotals, movementStrip, periodStrip, stockOnHand, vaccinesInStock,
   vaccinesByUsage, missingChildEntries, asOfLabel,
 } from './reports';
 
@@ -54,10 +54,43 @@ describe('Report 1: vaccine stock, names, unique values', () => {
     }
     await recordAdministration(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot });
 
-    const rows = await vaccinesByUsage(db, '2026-08-07');
+    const rows = await vaccinesByUsage(db, '2026-08-07', '2026-09-07');
     expect(rows[0].name).toBe('Pentavac PFS');
     expect(rows[0].recent_doses).toBe(5);
     expect(rows[1].recent_doses).toBe(1);
+  });
+});
+
+describe('grid ordering holds still', () => {
+  it('ignores today, counts yesterday', async () => {
+    const { db, ctx, bcg, penta, lot, next } = await env();
+    await recordReceipt(db, { ...ctx, now: T0 - 2 * DAY }, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 30 });
+    await recordReceipt(db, { ...ctx, now: T0 - 2 * DAY }, { clientActionId: next(), vaccineId: penta, lotId: null as never, doses: 30 })
+      .catch(() => undefined);
+    const order = async () => (await vaccinesByUsage(db, '2026-08-07', '2026-09-06')).map((r) => r.name);
+    expect(await order()).toEqual(['BCG', 'Pentavac PFS']);
+    await recordAdministration(db, ctx, { clientActionId: next(), vaccineId: penta });
+    expect(await order()).toEqual(['BCG', 'Pentavac PFS']);
+    await recordAdministration(db, { ...ctx, now: T0 - DAY }, { clientActionId: next(), vaccineId: penta });
+    expect(await order()).toEqual(['Pentavac PFS', 'BCG']);
+  });
+});
+
+describe('movement strip ignores removed vaccines', () => {
+  it('excludes a removed vaccine and equals the active list total', async () => {
+    const { db, ctx, bcg, penta, lot, next } = await env();
+    await recordReceipt(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 30 });
+    await recordAdministration(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot });
+    await recordOpeningBalance(db, { ...ctx, now: T0 - DAY }, { clientActionId: next(), vaccineId: penta, doses: 12 });
+    await recordAdministration(db, ctx, { clientActionId: next(), vaccineId: penta });
+    await db.run(`UPDATE vaccines SET deleted_at = ? WHERE id = ?`, ['2026-09-06T00:00:00Z', penta]);
+
+    const s = await movementStrip(db, '2026-09-06');
+    expect(s).toMatchObject({ opening: 0, received: 30, given: 1, now: 29, corrections: 0 });
+    const list = await stockOnHand(db, { activeOnly: true });
+    expect(s.now).toBe(list.reduce((n, r) => n + r.on_hand_doses, 0));
+    // A single removed vaccine still reports its own numbers.
+    expect((await movementStrip(db, '2026-09-06', penta)).now).toBe(11);
   });
 });
 
@@ -167,6 +200,63 @@ describe('Report 3: the movement strip reconciles', () => {
     const s = await movementStrip(db, '2026-09-06', bcg);
     expect(s.adjusted).toBe(-2);
     expect(s.now).toBe(28);
+  });
+});
+
+describe('periodStrip: the same equation over a week or a month', () => {
+  // T0 is 6 Sep 2026. The range below is 1-6 Sep; 31 Aug is before it.
+  const FROM = '2026-09-01';
+  const TO = '2026-09-06';
+
+  it('is movementStrip when the range is one day', async () => {
+    const { db, ctx, bcg, lot, next } = await env();
+    await recordOpeningBalance(db, { ...ctx, now: T0 - DAY }, { clientActionId: next(), vaccineId: bcg, doses: 30 });
+    await recordReceipt(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 20 });
+    await recordAdministration(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 3 });
+    expect(await periodStrip(db, '2026-09-06', '2026-09-06', bcg)).toEqual(await movementStrip(db, '2026-09-06', bcg));
+  });
+
+  it('starts on the balance before the range and ends on the balance at its last day', async () => {
+    const { db, ctx, bcg, lot, next } = await env();
+    const on = (daysBefore: number) => ({ ...ctx, now: T0 - daysBefore * DAY });
+    await recordReceipt(db, on(6), { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 30 }); // 31 Aug
+    await recordReceipt(db, on(4), { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 20 }); // 2 Sep
+    await recordAdministration(db, on(3), { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 5 });
+    await recordWastage(db, on(1), { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 2, reason: 'BREAKAGE' });
+    await recordAdministration(db, { ...ctx, now: T0 + DAY }, { clientActionId: next(), vaccineId: bcg, lotId: lot }); // 7 Sep, after
+
+    const s = await periodStrip(db, FROM, TO, bcg);
+    expect(s).toMatchObject({ from: FROM, localDate: TO, opening: 30, received: 20, given: 5, wasted: 2, corrections: 0, now: 43 });
+  });
+
+  it('a dose given and undone on different days inside the range is neither given nor a correction', async () => {
+    const { db, ctx, bcg, lot, next } = await env();
+    await recordReceipt(db, { ...ctx, now: T0 - 5 * DAY }, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 30 });
+    const a = await recordAdministration(db, { ...ctx, now: T0 - 3 * DAY }, { clientActionId: next(), vaccineId: bcg, lotId: lot });
+    await reverseMovement(db, ctx, { clientActionId: next(), movementId: a.movement.id });
+
+    const s = await periodStrip(db, FROM, TO, bcg);
+    expect(s).toMatchObject({ received: 30, given: 0, corrections: 0, now: 30 });
+  });
+
+  it('books a reversal of an entry from BEFORE the range as a correction, and still adds up', async () => {
+    const { db, ctx, bcg, lot, next } = await env();
+    const recv = await recordReceipt(db, { ...ctx, now: T0 - 10 * DAY }, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 30 });
+    await reverseMovement(db, { ...ctx, now: T0 - 2 * DAY }, { clientActionId: next(), movementId: recv.movement.id });
+
+    const s = await periodStrip(db, FROM, TO, bcg);
+    expect(s).toMatchObject({ opening: 30, corrections: -30, now: 0 });
+    expect(s.opening + s.received - s.given - s.wasted + s.adjusted + s.corrections).toBe(s.now);
+  });
+
+  it('leaves removed vaccines out of the clinic total but keeps a single one', async () => {
+    const { db, ctx, bcg, penta, lot, next } = await env();
+    await recordReceipt(db, { ...ctx, now: T0 - 2 * DAY }, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 10 });
+    await recordOpeningBalance(db, { ...ctx, now: T0 - 2 * DAY }, { clientActionId: next(), vaccineId: penta, doses: 12 });
+    await db.run(`UPDATE vaccines SET deleted_at = ? WHERE id = ?`, ['2026-09-06T00:00:00Z', penta]);
+
+    expect((await periodStrip(db, FROM, TO)).now).toBe(10);
+    expect((await periodStrip(db, FROM, TO, penta)).now).toBe(12);
   });
 });
 

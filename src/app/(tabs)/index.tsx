@@ -32,7 +32,7 @@ export default function GiveDoseScreen() {
   const today = todayLocal();
   const since = daysAgoLocal(30);
 
-  const { data: rows, loading, error, reload } = useQuery((db) => vaccinesByUsage(db, since), [since]);
+  const { data: rows, loading, error, reload } = useQuery((db) => vaccinesByUsage(db, since, today), [since, today]);
   const { data: given } = useQuery((db) => dosesGivenTotals(db, today), [today]);
   const { data: awaiting } = useQuery((d) => isAwaitingCatalog(d), []);
 
@@ -167,7 +167,10 @@ export default function GiveDoseScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`${item.name}, ${d.primary}`}
-              onPress={() => router.push(`/dose/${item.vaccine_id}`)}
+              onPress={() => {
+                setQ('');
+                router.push(`/dose/${item.vaccine_id}`);
+              }}
               style={({ pressed }) => [st.tile, pressed && st.tilePressed]}
             >
               <T style={st.tileName} numberOfLines={3}>
