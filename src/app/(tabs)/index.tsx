@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Badge, ErrorState, Input, Loading, SecondaryButton, T, useBottomInset } from '../../ui/components';
+import { Badge, Chip, ErrorState, Input, Loading, SecondaryButton, SectionTitle, T, useBottomInset } from '../../ui/components';
 import { color, radius, space, type, weight } from '../../ui/tokens';
 import { useDb, useQuery } from '../../db/provider';
 import { dosesGivenTotals, vaccinesByUsage } from '../../domain/reports';
@@ -51,14 +51,20 @@ export default function GiveDoseScreen() {
    * there is none, and CHECK means the balance went negative and a delivery was
    * probably never logged. CLAUDE.md section 8 requires the colour AND the
    * right word.
+   *
+   * OUT and LOW count only vaccines given in the last 30 days. Supply systems
+   * report stock-outs only for products the facility carries; counting every
+   * catalog entry made "16 OUT" mostly vaccines she does not use, and a badge
+   * that is mostly noise gets ignored. CHECK always counts: a negative balance
+   * is a missing receipt whatever the usage.
    */
   const counts = useMemo(() => {
     const c = { CHECK: 0, OUT: 0, LOW: 0 };
     for (const r of rows ?? []) {
       const level = describeStockRow(r).level;
       if (level === 'NEGATIVE') c.CHECK += 1;
-      else if (level === 'OUT') c.OUT += 1;
-      else if (level === 'LOW') c.LOW += 1;
+      else if (r.recent_doses > 0 && level === 'OUT') c.OUT += 1;
+      else if (r.recent_doses > 0 && level === 'LOW') c.LOW += 1;
     }
     return c;
   }, [rows]);
@@ -72,16 +78,25 @@ export default function GiveDoseScreen() {
     ] as const
   ).filter(([, n]) => n > 0);
 
+  // In use (given in the last 30 days) stay tiles; the rest become chips below.
+  // CHECK always stays a tile: a negative balance needs attention whatever the use.
+  const tiles = filtered.filter((r) => r.recent_doses > 0 || describeStockRow(r).level === 'NEGATIVE');
+  const idle = filtered.filter((r) => !tiles.includes(r));
+
   if (error) return <ErrorState error={error} onRetry={reload} what="load your vaccines" />;
   if (loading && !rows) return <Loading label="Loading vaccines" />;
 
   return (
     <View style={st.screen}>
       <View style={st.header}>
-        <View style={{ flex: 1 }}>
-          <T style={st.eyebrow}>{formatDayLabel()}</T>
-          <Pressable accessibilityRole="button" onPress={() => router.push('/reports/today')}>
-            <T style={st.count}>
+        <View style={st.statusLeft}>
+          <T style={st.status}>{formatDayLabel()} ·</T>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/reports/today')}
+            hitSlop={{ top: 15, bottom: 15, left: 4, right: 8 }}
+          >
+            <T style={[st.status, st.statusCount]}>
               {dosesToday} {dosesToday === 1 ? 'dose' : 'doses'} today
             </T>
           </Pressable>
@@ -91,6 +106,7 @@ export default function GiveDoseScreen() {
             accessibilityRole="button"
             accessibilityLabel={flags.map(([w, n]) => `${n} ${w}`).join(', ')}
             onPress={() => router.push('/stock')}
+            hitSlop={{ top: 15, bottom: 15 }}
             style={st.flags}
           >
             {flags.map(([word, n, tone]) => (
@@ -116,7 +132,7 @@ export default function GiveDoseScreen() {
       </View>
 
       <FlatList
-        data={filtered}
+        data={tiles}
         keyExtractor={(r) => r.vaccine_id}
         // FlatList caches its layout per column count, so it must be re-keyed
         // when that changes - otherwise a rotation leaves the old grid behind.
@@ -126,8 +142,31 @@ export default function GiveDoseScreen() {
         contentContainerStyle={[st.grid, { paddingBottom: space.xxl + bottomInset }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        ListFooterComponent={
+          idle.length ? (
+            <View>
+              <SectionTitle>Not given in the last 30 days</SectionTitle>
+              <View style={st.chips}>
+                {idle.map((r) => {
+                  const d = describeStockRow(r);
+                  return (
+                    <Chip
+                      key={r.vaccine_id}
+                      label={r.name}
+                      sublabel={d.badge ?? d.primary}
+                      onPress={() => {
+                        setQ('');
+                        router.push(`/dose/${r.vaccine_id}`);
+                      }}
+                    />
+                  );
+                })}
+              </View>
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
-          <View style={{ padding: space.xl }}>
+          idle.length ? null : <View style={{ padding: space.xl }}>
             {q ? (
               <T style={st.emptyText}>No vaccine matches &quot;{q}&quot;.</T>
             ) : awaiting ? (
@@ -166,7 +205,7 @@ export default function GiveDoseScreen() {
           return (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${item.name}, ${d.primary}`}
+              accessibilityLabel={`${item.name}, ${d.primary}${d.badge ? `, ${d.badge}` : ''}`}
               onPress={() => {
                 setQ('');
                 router.push(`/dose/${item.vaccine_id}`);
@@ -205,19 +244,18 @@ const st = StyleSheet.create({
   flags: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, justifyContent: 'flex-end' },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: space.md,
+    flexWrap: 'wrap',
+    gap: space.xs,
     paddingHorizontal: space.lg,
     paddingTop: space.lg,
     paddingBottom: space.md,
   },
-  eyebrow: {
-    fontSize: type.min,
-    color: color.textMuted,
-    fontWeight: weight.semibold,
-    letterSpacing: 0.4,
-  },
-  count: { fontSize: type.hero, fontWeight: weight.bold, color: color.text, marginTop: 2 },
+  statusLeft: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  status: { fontSize: type.body, color: color.textMuted, fontWeight: weight.semibold },
+  statusCount: { color: color.text, fontWeight: weight.bold },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm },
   pad: { paddingHorizontal: space.lg, paddingBottom: space.md, gap: space.md },
   emptyText: { fontSize: type.body, color: color.textMuted, textAlign: 'center', lineHeight: 26 },
   emptyHint: {
