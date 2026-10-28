@@ -82,7 +82,7 @@ export default function ReceiveScreen() {
         doses,
       });
       bump();
-      toast.show(`Added ${doses} doses of ${vaccine.name}.`, async () => {
+      toast.show(`Added ${doses} ${doses === 1 ? 'dose' : 'doses'} of ${vaccine.name}.`, async () => {
         await run('undo that delivery', async () => {
           await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: movement.id });
           bump();

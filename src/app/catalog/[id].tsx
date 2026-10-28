@@ -82,12 +82,12 @@ export default function EditVaccineScreen() {
     const lines = [`"${vaccine.name}" will be removed from every list and picker.`];
     if (usage.onHandDoses !== 0) {
       lines.push(
-        `\nWARNING: ${usage.onHandDoses} doses are currently in stock. That stock will no longer be counted anywhere.`,
+        `\nWARNING: ${usage.onHandDoses} ${Math.abs(usage.onHandDoses) === 1 ? 'dose is' : 'doses are'} currently in stock. That stock will no longer be counted anywhere.`,
       );
     }
     if (usage.movements > 0) {
       lines.push(
-        `\n${usage.dosesGiven} doses given and ${usage.movements} entries stay in your records. Nothing is erased. You can add it back at any time.`,
+        `\n${usage.dosesGiven} ${usage.dosesGiven === 1 ? 'dose' : 'doses'} given and ${usage.movements} ${usage.movements === 1 ? 'entry stays' : 'entries stay'} in your records. Nothing is erased. You can add it back at any time.`,
       );
     } else {
       lines.push('\nIt has never been used, so nothing is lost.');
