@@ -62,11 +62,12 @@ export default function AddStockScreen() {
   } = useQuery((db) => stockOnHand(db, { activeOnly: true }), []);
   const { data: strip } = useQuery((db) => movementStrip(db, today), [today]);
 
-  const { data: ledger } = useQuery((db) => loadLedger(db), [today]);
-  const { data: lots } = useQuery(
-    async (db) => expiringLots(db, await loadLedger(db), today),
-    [today],
-  );
+  const { data: supply } = useQuery(async (db) => {
+    const ledger = await loadLedger(db);
+    return { ledger, lots: await expiringLots(db, ledger, today) };
+  }, [today]);
+  const ledger = supply?.ledger;
+  const lots = supply?.lots;
   const [allOrder, setAllOrder] = useState(false);
   const [allSoon, setAllSoon] = useState(false);
   const orders = useMemo(
@@ -75,7 +76,7 @@ export default function AddStockScreen() {
   );
 
   const decorated = useMemo(
-    () => (rows ?? []).map((r) => ({ row: r, d: describeStockRow(r) })),
+    () => (rows ?? []).map((r) => ({ ...r, d: describeStockRow(r) })),
     [rows],
   );
   // LOW, OUT and CHECK together - everything that wants a decision. Named for
@@ -88,15 +89,7 @@ export default function AddStockScreen() {
       filter === "low"
         ? lows
         : [...lows, ...decorated.filter((x) => x.d.level === "OK")];
-    if (!q.trim()) return list;
-    // Rank the rows, then put the decorations back on in that order.
-    const ranked = searchRank(
-      list.map((x) => x.row),
-      q,
-    );
-    return ranked.map((row) =>
-      list.find((x) => x.row.vaccine_id === row.vaccine_id)!,
-    );
+    return searchRank(list, q);
   }, [decorated, lows, filter, q]);
 
   if (error)
@@ -106,7 +99,7 @@ export default function AddStockScreen() {
   // A negative count is a missing delivery, not stock to subtract: it is
   // flagged CHECK on its own row, and must not shrink the total.
   const totalDoses = decorated.reduce(
-    (n, x) => n + Math.max(0, x.row.on_hand_doses),
+    (n, x) => n + Math.max(0, x.on_hand_doses),
     0,
   );
 
@@ -114,7 +107,7 @@ export default function AddStockScreen() {
     <Screen>
       <FlatList
         data={shown}
-        keyExtractor={(x) => x.row.vaccine_id}
+        keyExtractor={(x) => x.vaccine_id}
         contentContainerStyle={[centred, { paddingBottom: 140 + bottomInset }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -133,7 +126,7 @@ export default function AddStockScreen() {
                     : "Order this week"}
                 </SectionTitle>
                 {orders.length === 0 ? (
-                  <T style={st.rowSub}>Nothing to order this week.</T>
+                  <T style={base.rowSub}>Nothing to order this week.</T>
                 ) : (
                   <Card style={st.flushCard}>
                     {(allOrder ? orders : orders.slice(0, CAP)).map((o) => (
@@ -164,13 +157,11 @@ export default function AddStockScreen() {
                       />
                     ))}
                     {orders.length > CAP && !allOrder ? (
-                      <View>
-                        <SecondaryButton
-                          accent="stock"
-                          label={`Show all ${orders.length}`}
-                          onPress={() => setAllOrder(true)}
-                        />
-                      </View>
+                      <SecondaryButton
+                        accent="stock"
+                        label={`Show all ${orders.length}`}
+                        onPress={() => setAllOrder(true)}
+                      />
                     ) : null}
                   </Card>
                 )}
@@ -200,13 +191,11 @@ export default function AddStockScreen() {
                         />
                       ))}
                       {lots.length > CAP && !allSoon ? (
-                        <View>
-                          <SecondaryButton
-                            accent="stock"
-                            label={`Show all ${lots.length}`}
-                            onPress={() => setAllSoon(true)}
-                          />
-                        </View>
+                        <SecondaryButton
+                          accent="stock"
+                          label={`Show all ${lots.length}`}
+                          onPress={() => setAllSoon(true)}
+                        />
                       ) : null}
                     </Card>
                   </>
@@ -243,12 +232,12 @@ export default function AddStockScreen() {
           <View style={st.listRow}>
             <Pressable
               accessibilityRole="button"
-              onPress={() => router.push(`/receive/${item.row.vaccine_id}`)}
+              onPress={() => router.push(`/receive/${item.vaccine_id}`)}
               style={({ pressed }) => (pressed ? { backgroundColor: color.pressed } : null)}
             >
               <View style={[base.row, base.rowDenseTap]}>
                 <View style={st.nameWrap}>
-                  <T style={base.rowTitle}>{item.row.name}</T>
+                  <T style={base.rowTitle}>{item.name}</T>
                   {item.d.badge ? (
                     <Badge
                       text={item.d.badge}
@@ -314,5 +303,4 @@ const st = StyleSheet.create({
     fontWeight: weight.bold,
     color: color.stock,
   },
-  rowSub: { fontSize: type.label, color: color.textMuted, marginTop: 2 },
 });
