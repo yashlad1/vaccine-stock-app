@@ -116,14 +116,14 @@ export default function VaccinesScreen() {
          * lives there too, so reaching it takes a deliberate navigation rather
          * than a mis-aimed tap between patients.
          */
-        renderItem={({ item }) =>
-          showRemoved ? (
-            <View style={st.rowWrap}>
-              <Row
-                dense
-                title={item.name}
-                subtitle={describeUnit(item)}
-                right={
+        renderItem={({ item }) => (
+          <View style={st.rowWrap}>
+            <Row
+              dense
+              title={item.name}
+              subtitle={describeUnit(item)}
+              right={
+                showRemoved ? (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Add ${item.name} back`}
@@ -136,21 +136,14 @@ export default function VaccinesScreen() {
                   >
                     <T style={[st.actionText, { color: color.catalog }]}>Add back</T>
                   </Pressable>
-                }
-              />
-            </View>
-          ) : (
-            <View style={st.rowWrap}>
-              <Row
-                dense
-                title={item.name}
-                subtitle={describeUnit(item)}
-                right={!item.is_active ? <Badge text="HIDDEN" tone="neutral" /> : undefined}
-                onPress={() => router.push(`/catalog/${item.id}`)}
-              />
-            </View>
-          )
-        }
+                ) : !item.is_active ? (
+                  <Badge text="HIDDEN" tone="neutral" />
+                ) : undefined
+              }
+              onPress={showRemoved ? undefined : () => router.push(`/catalog/${item.id}`)}
+            />
+          </View>
+        )}
       />
 
       <Footer floating>
