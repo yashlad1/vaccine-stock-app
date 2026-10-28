@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { BigButton, Empty, ErrorState, Input, Loading, Row, SecondaryButton, T, useBottomInset } from '../../ui/components';
@@ -8,7 +8,7 @@ import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { asOfLabel, dosesGiven, dosesGivenTotals, missingChildEntries, movementStrip } from '../../domain/reports';
 import { fillMissingChild } from '../../domain/ledger';
-import { formatAge, formatDate, formatDayLabel, formatTime12h, todayLocal } from '../../domain/time';
+import { formatAge, formatDayLabel, formatLocalDate, formatTime12h, todayLocal } from '../../domain/time';
 import { MovementStrip } from '../../ui/movement-strip';
 
 /** "Vaccines given today, time, count" - the notebook page, arithmetic included. */
@@ -68,7 +68,7 @@ export default function TodayScreen() {
             {/* Missing-names rows carry a date too; stacked above the row it cannot squeeze it at 1.6x. */}
             {missingMode ? (
               <T style={st.time}>
-                {`${formatDate(new Date(`${l.local_date}T00:00:00`).getTime())}, ${formatTime12h(l.local_time)}`}
+                {`${formatLocalDate(l.local_date)}, ${formatTime12h(l.local_time)}`}
               </T>
             ) : (
               <T style={st.time}>{formatTime12h(l.local_time)}</T>

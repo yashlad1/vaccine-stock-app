@@ -1,4 +1,3 @@
-import React from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { Badge, Empty, ErrorState, Loading, SecondaryButton, T, useBottomInset } from '../../ui/components';
 import { useAction } from '../../ui/use-action';
@@ -8,7 +7,7 @@ import { useDb, useQuery } from '../../db/provider';
 import { newId } from '../../domain/ids';
 import { useToast } from '../../ui/snackbar';
 import { reverseMovement } from '../../domain/ledger';
-import { formatAge, formatDate, formatTime12h } from '../../domain/time';
+import { formatAge, formatLocalDate, formatTime12h } from '../../domain/time';
 
 interface LedgerLine {
   id: string;
@@ -29,7 +28,7 @@ interface LedgerLine {
  * The full audit trail, corrections included.
  *
  * Because undo writes a reversing entry rather than deleting, a correction
- * remains possible here forever - the 8-second snackbar is only the fast path.
+ * remains possible here forever - the 3.5-second snackbar is only the fast path.
  */
 export default function LedgerScreen() {
   const run = useAction();
@@ -79,6 +78,7 @@ export default function LedgerScreen() {
       contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}
       renderItem={({ item }) => {
         const undone = item.is_reversed === 1;
+        const age = item.movement_type === 'ADMINISTRATION' ? formatAge(item.dob, item.local_date) : null;
         return (
           <View style={st.row}>
             <View style={{ flex: 1 }}>
@@ -86,13 +86,11 @@ export default function LedgerScreen() {
                 {label[item.movement_type] ?? item.movement_type} · {item.vaccine_name}
               </T>
               <T style={st.meta}>
-                {formatDate(new Date(`${item.local_date}T00:00:00`).getTime())},{' '}
+                {formatLocalDate(item.local_date)},{' '}
                 {formatTime12h(item.local_time)}
                 {item.lot_number ? ` · batch ${item.lot_number}` : ''}
                 {item.patient_label ? ` · ${item.patient_label}` : ''}
-                {item.movement_type === 'ADMINISTRATION' && formatAge(item.dob, item.local_date)
-                  ? ` · ${formatAge(item.dob, item.local_date)}`
-                  : ''}
+                {age ? ` · ${age}` : ''}
                 {/* The dose number from the dose screen ("Dose 2", "Booster"). */}
                 {item.movement_type === 'ADMINISTRATION' && item.note ? ` · ${item.note}` : ''}
               </T>

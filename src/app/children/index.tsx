@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { Empty, ErrorState, Input, Loading, Row, T, useBottomInset } from '../../ui/components';
-import { color, space, type, weight } from '../../ui/tokens';
+import { color, space, type } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useQuery } from '../../db/provider';
 import { searchPatients } from '../../db/repo/patients';
@@ -14,13 +14,7 @@ export default function ChildrenScreen() {
   const today = todayLocal();
   const { data: serverOn } = useQuery(async (db) => (await loadSyncConfig(db)) !== null);
   const { data, loading, error, reload } = useQuery(
-    (db) =>
-      q.trim()
-        ? searchPatients(db, q.trim(), 100)
-        : db.all<{ id: string; name: string; dob: string | null; guardian_phone: string | null }>(
-            `SELECT id, name, dob, guardian_phone FROM patients
-              WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE LIMIT 200`,
-          ),
+    (db) => searchPatients(db, q.trim(), q.trim() ? 100 : 200),
     [q],
   );
 
