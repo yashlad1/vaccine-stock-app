@@ -40,24 +40,24 @@ app on the clinic devices.
 
 ## Deploying it
 
-### 1. Fill in the config
+### 1. Config
 
-```sh
-cp web/config.example.js web/config.js
-```
+Nothing to fill in by hand. `scripts/deploy-web.sh` generates `web/config.js` (project URL,
+`sb_publishable_…` key, clinic email; **no password**, the page asks for that) from the EAS
+environment variables, deploys, and deletes the file again.
 
-Put the project URL, the `sb_publishable_…` key, and the clinic email in it. **No password** — the
-page asks for that and the browser remembers the session.
-
-`web/config.js` is gitignored. The publishable key is safe in a web page — `anon` is `REVOKE`d from
-every table and view, so the key alone returns 401 for everything — but the repo is public, and
-CLAUDE.md section 13 forbids committing anything that identifies the clinic.
+`web/config.js` is **not** gitignored: a gitignore line changes the OTA fingerprint, so it was
+removed. If you ever create it by hand (`cp web/config.example.js web/config.js`), never commit it
+and delete it when you are done. The publishable key is safe in a web page, since `anon` is
+`REVOKE`d from every table and view, so the key alone returns 401 for everything. But the repo is
+public, and CLAUDE.md section 13 forbids committing anything that identifies the clinic.
 
 ### 2. Deploy it
 
 **Live at https://clinic-stock.expo.app**
 
 ```sh
+scripts/deploy-web.sh prod      # or `preview` to rehearse; it runs this command:
 npx --yes eas-cli@23.2.0 deploy --export-dir web --prod --non-interactive --dev-domain clinic-stock
 ```
 

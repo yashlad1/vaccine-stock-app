@@ -1,4 +1,6 @@
-// Copy to config.js and fill in. config.js is gitignored.
+// scripts/deploy-web.sh generates config.js for each deploy and deletes it afterwards.
+// config.js is NOT gitignored (that would rotate the OTA fingerprint): if you create
+// it by hand, never commit it, and delete it when done.
 //
 // The publishable key is safe to place in a web page: `anon` has been REVOKEd
 // from every table and view, so this key ALONE returns 401 for everything. It
