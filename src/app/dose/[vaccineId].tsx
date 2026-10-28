@@ -8,14 +8,14 @@ import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 import { newId } from '../../domain/ids';
-import { recordAdministration, reverseMovement, findRecentSimilar } from '../../domain/ledger';
+import { reverseMovement, findRecentSimilar } from '../../domain/ledger';
 import { lotsInStock, lastUsedLot, isExpired } from '../../db/repo/lots';
 import { type Patient, type Sex, createPatient, recentPatients, searchPatients, setPatientDob, setPatientSex } from '../../db/repo/patients';
 import { bumpDosesSinceBackup } from '../../db/repo/settings';
 import { describeStock } from '../../domain/stock';
 import { addDays, expiryToMonthLabel, formatAge, todayLocal } from '../../domain/time';
 import { type DoseNote, stripDoseToken } from '../../domain/names';
-import { coGiven } from '../../domain/visits';
+import { type Visit, type VisitIds, coGiven, recordVisit, visitIds } from '../../domain/visits';
 import { DateOfBirthWheel } from '../../ui/wheel';
 import type { StockRow } from '../../domain/types';
 
@@ -63,11 +63,17 @@ export default function DoseScreen() {
   const [extras, setExtras] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   /**
-   * The ids of THIS Give, minted at the first tap and kept for every retry of
-   * it, so a write that half-happened replays as a no-op instead of a second
-   * dose. The screen closes on success, which ends the intent.
+   * The ids of the last failed tap on Give. A retry with the same inputs
+   * replays them, so a write that half-happened is a no-op instead of a second
+   * dose; changed inputs get new ones (`visitIds`). The screen closes on
+   * success, which ends the intent.
    */
-  const intent = useRef<{ main: string; extras: Record<string, string> } | null>(null);
+  const lastIds = useRef<VisitIds | null>(null);
+  /**
+   * Set in the same tick as the tap. `saving` is state, so two taps in one
+   * frame both read it as false, and both saved the typed child.
+   */
+  const busy = useRef(false);
 
   /** "Asha 2 Dose" searches, and is saved, as "Asha"; the "2" goes to the dose number. */
   const typed = stripDoseToken(childQuery);
@@ -77,6 +83,11 @@ export default function DoseScreen() {
     [vaccineId],
   );
   const { data: lots } = useQuery((d) => lotsInStock(d, vaccineId), [vaccineId]);
+  // Any batch at all, used up included: "none in stock" is not "none recorded".
+  const { data: anyLot } = useQuery(
+    (d) => d.first<{ n: number }>(`SELECT 1 AS n FROM v_lot_balance WHERE vaccine_id = ? LIMIT 1`, [vaccineId]),
+    [vaccineId],
+  );
   const { data: preferredLot } = useQuery((d) => lastUsedLot(d, vaccineId), [vaccineId]);
   const { data: recent } = useQuery((d) => recentPatients(d, today, 3), [today]);
   const { data: matches } = useQuery(
@@ -104,17 +115,25 @@ export default function DoseScreen() {
   // FEFO as a hint only. lotsInStock is ordered by expiry with undated last;
   // an expired batch is skipped, since Give would warn about it.
   const useFirstId = lots && lots.length > 1 ? lots.find((l) => l.expiry_date && !isExpired(l, today))?.lot_id : undefined;
+  const anotherBatch = !!lots && lots.length > 1;
+  // One batch, expired, is still a choice: it, or "Not sure" for a batch the
+  // app does not have. A plain line would leave every dose raising the confirm.
+  const batchChips = anotherBatch || (lots?.length === 1 && isExpired(lots[0], today));
 
   const typedIsSaved = !!matches?.some((m) => m.name.toLowerCase() === typed.name.toLowerCase());
-  const typedNew = childQuery.trim().length >= 2 && !typedIsSaved;
+  const typedName = childQuery.trim().length >= 2;
+  const typedNew = typedName && !typedIsSaved;
   /**
-   * The optional details show once a child is chosen or a new name typed. Not
-   * when the typed name IS a saved child: that child's chip, with the age, is
-   * right there. What is hidden is never written.
+   * Which dose and Also giving now belong to the dose, so they show for any
+   * name, chosen or typed: a typed "Asha 2 dose" still preselects 2nd. Date of
+   * birth and Boy or girl belong to the child, so not when the typed name IS a
+   * saved child: that child's chip, with the age, is right there. What is
+   * hidden is never written.
    */
+  const named = !!childId || typedName;
   const childDetails = !!childId || typedNew;
-  const effectiveDose = childDetails ? (doseNote !== undefined ? doseNote : typed.dose) : null;
-  const chosenExtras = childDetails ? (suggestions ?? []).filter((s) => extras.includes(s.vaccine_id)) : [];
+  const effectiveDose = named ? (doseNote !== undefined ? doseNote : typed.dose) : null;
+  const chosenExtras = named ? (suggestions ?? []).filter((s) => extras.includes(s.vaccine_id)) : [];
   // The one rule for saving a typed name as a child, used by the hint and by write().
   const savesTypedChild = !childId && typedNew && !!(newDob || newSex || effectiveDose);
 
@@ -146,20 +165,18 @@ export default function DoseScreen() {
    * half-typed name, and a button that says "no name" has to mean it.
    */
   const write = async (skipChild: boolean) => {
-    if (saving) return;
+    if (busy.current) return;
+    busy.current = true;
     setSaving(true);
     // A failed write must SAY so. Silently doing nothing here is the worst
     // outcome in the app: she would assume the dose was recorded, and stock
     // would start drifting from the fridge.
     const ok = await run('record this dose', async () => {
       const also = skipChild ? [] : chosenExtras;
-      if (!intent.current) intent.current = { main: newId(), extras: {} };
-      const ids = intent.current;
-      for (const x of also) ids.extras[x.vaccine_id] = ids.extras[x.vaccine_id] ?? newId();
-
+      // A failed nudge lookup is no reason to lose the dose (invariant 5).
       const similar = await findRecentSimilar(db, {
         vaccineId, movementType: 'ADMINISTRATION', deltaDoses: -doses,
-      });
+      }).catch(() => null);
 
       // The ledger keeps the name exactly as typed, dose number and all.
       const label = skipChild ? null : (childLabel ?? (childQuery.trim() || null));
@@ -189,49 +206,31 @@ export default function DoseScreen() {
         );
       }
 
-      const what = doses === 1 ? vaccine.name : `${doses} doses of ${vaccine.name}`;
-      const main = await recordAdministration(
-        db,
-        { deviceId },
-        {
-          clientActionId: ids.main,
-          vaccineId,
-          lotId: effectiveLot,
-          doses,
-          patientId,
-          patientLabel: label,
-          note: skipChild ? undefined : (effectiveDose ?? undefined),
-        },
-      );
-      const written = [{ id: main.movement.id, created: main.created, doses, name: vaccine.name, what }];
-      // A retry replays this Give's own row; that is not a second dose.
-      const doubleTap = !!similar && similar.id !== main.movement.id;
+      const visit: Visit = {
+        vaccineId,
+        doses,
+        lotId: effectiveLot,
+        patientId,
+        patientLabel: label,
+        note: skipChild ? null : effectiveDose,
+        extras: also.map((x) => ({ vaccineId: x.vaccine_id, lotId: x.lot?.lot_id ?? null })),
+      };
+      const ids = (lastIds.current = visitIds(lastIds.current, visit));
+      // The only write whose failure is this Give's failure. Past it, the dose
+      // is in the ledger, and nothing below may say otherwise.
+      const r = await recordVisit(db, { deviceId }, ids, visit);
 
-      // Each added vaccine is its own dose, after the main one. Its failure is
-      // not the main dose's failure: that one stays, and the toast names this.
-      const failed: string[] = [];
-      for (const x of also) {
-        try {
-          const r = await recordAdministration(
-            db,
-            { deviceId },
-            {
-              clientActionId: ids.extras[x.vaccine_id],
-              vaccineId: x.vaccine_id,
-              lotId: x.lot?.lot_id ?? null,
-              doses: 1,
-              patientId,
-              patientLabel: label,
-            },
-          );
-          written.push({ id: r.movement.id, created: r.created, doses: 1, name: x.name, what: x.name });
-        } catch {
-          failed.push(x.name);
-        }
-      }
-      // Only a real write moves the backup nag; a replayed intent is a no-op.
-      const newDoses = written.reduce((n, w) => n + (w.created ? w.doses : 0), 0);
-      if (newDoses) await bumpDosesSinceBackup(db, newDoses);
+      // Described from the rows the ledger holds, a replay included.
+      const nameOf = (id: string) => (id === vaccineId ? vaccine.name : (also.find((x) => x.vaccine_id === id)?.name ?? ''));
+      const written = [r.main, ...r.extras].map(({ movement: m, created }) => {
+        const n = -m.delta_doses;
+        const name = nameOf(m.vaccine_id);
+        return { id: m.id, created, doses: n, name, what: n === 1 ? name : `${n} doses of ${name}` };
+      });
+      const { what } = written[0];
+      const failed = r.failed.map(nameOf);
+      // A retry replays this Give's own row; that is not a second dose.
+      const doubleTap = !!similar && similar.id !== r.main.movement.id;
 
       // AFTER the dose, and its failure is not the dose's failure: invariant 5
       // says nothing about a birthday may stop a vaccination being recorded.
@@ -242,9 +241,11 @@ export default function DoseScreen() {
       if (sexToSave) sexSaved = await setPatientSex(db, childId!, sexToSave).then(() => true, () => false);
       bump();
 
-      const who = label ? stripDoseToken(label).name : null;
-      const age = skipChild ? null : formatAge(dobSaved ? (newDob ?? childDob) : childDob, today);
-      const doseNo = DOSE_CHIPS.find((c) => c.note === effectiveDose);
+      const m = r.main.movement;
+      const who = m.patient_label ? stripDoseToken(m.patient_label).name : null;
+      // An age only for a saved child: an unlinked dose has no date of birth behind it.
+      const age = m.patient_id ? formatAge(dobSaved ? (newDob ?? childDob) : childDob, today) : null;
+      const doseNo = DOSE_CHIPS.find((c) => c.note === m.note);
       const detailsLost = !(dobSaved && sexSaved);
       // Warnings first: the toast holds three lines and the end may be cut.
       const message = [
@@ -270,8 +271,8 @@ export default function DoseScreen() {
           let undoneDoses = 0;
           for (const w of written) {
             try {
-              const r = await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: w.id });
-              if (r.created) undoneDoses += w.doses;
+              const rev = await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: w.id });
+              if (rev.created) undoneDoses += w.doses;
             } catch (e) {
               // One vaccine keeps the plain error toast. Several: undo the
               // rest, then name what is left.
@@ -279,7 +280,8 @@ export default function DoseScreen() {
               notUndone.push(w.name);
             }
           }
-          if (undoneDoses) await bumpDosesSinceBackup(db, -undoneDoses);
+          // Bookkeeping: its failure is not the undo's failure.
+          if (undoneDoses) await bumpDosesSinceBackup(db, -undoneDoses).catch(() => undefined);
           bump();
           if (notUndone.length) {
             toast.showError(
@@ -291,8 +293,11 @@ export default function DoseScreen() {
     });
     setSaving(false);
     // Only leave the screen if it actually saved, so a failure leaves her
-    // where she can read the message and try again.
+    // where she can read the message and try again. After a save the guard
+    // stays up: a tap still queued (a second expired-batch dialog) must not
+    // write again or go back a second screen.
     if (ok) router.back();
+    else busy.current = false;
   };
 
   /**
@@ -315,12 +320,13 @@ export default function DoseScreen() {
         : []),
       ...staleExtras.map((x) => `${x.name}: ${x.lot!.lot_number} expired ${expiryToMonthLabel(x.lot!.expiry_date!)}.`),
     ];
+    const pickAnother = anotherBatch && !staleExtras.length;
     Alert.alert(
       lines.length > 1 ? 'These batches have expired' : 'This batch has expired',
       lines.join('\n') +
-        (staleExtras.length ? '\n\nRecord anyway, or go back?' : '\n\nRecord the dose anyway, or go back and pick another batch?'),
+        (pickAnother ? '\n\nRecord the dose anyway, or go back and pick another batch?' : '\n\nRecord anyway, or go back?'),
       [
-        { text: staleExtras.length ? 'Go back' : 'Pick another batch', style: 'cancel' },
+        { text: pickAnother ? 'Pick another batch' : 'Go back', style: 'cancel' },
         { text: 'Record anyway', style: 'destructive', onPress: () => void write(skipChild) },
       ],
     );
@@ -352,8 +358,8 @@ export default function DoseScreen() {
           ) : null}
         </View>
 
-        {/* A batch is a choice only when there are two; one is a line, none a sentence. */}
-        {lots && lots.length > 1 ? (
+        {/* A batch is a choice when there are two, or one has expired; one is a line, none a sentence. */}
+        {lots && batchChips ? (
           <Field dense label="Batch / lot">
             <View style={st.chipRow}>
               {lots.map((l) => (
@@ -374,12 +380,13 @@ export default function DoseScreen() {
             {lots[0].expiry_date ? ` · exp ${expiryToMonthLabel(lots[0].expiry_date)}` : ''}
           </T>
         ) : lots ? (
-          <T style={[st.batch, st.muted]}>No batch recorded for this vaccine.</T>
+          <T style={[st.batch, st.muted]}>{anyLot ? 'No batch in stock.' : 'No batch recorded for this vaccine.'}</T>
         ) : null}
         {expired ? (
           <T style={[st.danger, st.afterBatch]}>
-            This batch expired {expiryToMonthLabel(selected!.expiry_date!)}. Pick another batch if
-            you have one. You can still record the dose.
+            This batch expired {expiryToMonthLabel(selected!.expiry_date!)}.{' '}
+            {anotherBatch ? 'Pick another batch if you have one.' : 'If you are using another batch, pick Not sure.'}{' '}
+            You can still record the dose.
           </T>
         ) : null}
 
@@ -457,18 +464,22 @@ export default function DoseScreen() {
         ) : childDetails ? (
           // Keyed so a different child starts blank.
           <Field dense label="Date of birth">
-            <DateOfBirthWheel key={childId ?? 'typed'} today={today} initial={childDob} onChange={setNewDob} />
+            {/* A remount (the details hidden and shown again) keeps the date still held. */}
+            <DateOfBirthWheel key={childId ?? 'typed'} today={today} initial={newDob ?? childDob} onChange={setNewDob} />
           </Field>
         ) : null}
 
         {childDetails ? (
+          <Field dense label="Boy or girl">
+            <View style={st.chipRow}>
+              <Chip label="Boy" selected={(newSex ?? childSex) === 'M'} onPress={() => setNewSex('M')} />
+              <Chip label="Girl" selected={(newSex ?? childSex) === 'F'} onPress={() => setNewSex('F')} />
+            </View>
+          </Field>
+        ) : null}
+
+        {named ? (
           <>
-            <Field dense label="Boy or girl">
-              <View style={st.chipRow}>
-                <Chip label="Boy" selected={(newSex ?? childSex) === 'M'} onPress={() => setNewSex('M')} />
-                <Chip label="Girl" selected={(newSex ?? childSex) === 'F'} onPress={() => setNewSex('F')} />
-              </View>
-            </Field>
             <Field dense label="Which dose">
               <View style={st.chipRow}>
                 {DOSE_CHIPS.map((c) => (
@@ -490,7 +501,11 @@ export default function DoseScreen() {
                       key={s.vaccine_id}
                       label={s.name}
                       // OUT can still be chosen: a dose is never blocked (invariant 5).
-                      sublabel={s.on_hand_doses === 0 ? 'OUT' : dosesText(s.on_hand_doses)}
+                      // The tile's word (OUT, CHECK, LOW) over a bare "-3 doses".
+                      sublabel={
+                        describeStock(s.on_hand_doses, s.unit_mode, s.doses_per_vial, s.min_balance_doses).badge ??
+                        dosesText(s.on_hand_doses)
+                      }
                       selected={extras.includes(s.vaccine_id)}
                       onPress={() =>
                         setExtras((xs) =>
@@ -523,7 +538,12 @@ export default function DoseScreen() {
           </Pressable>
         ) : null}
         <BigButton
-          label={chosenExtras.length ? `Give ${chosenExtras.length + 1} vaccines` : `Give ${dosesText(doses)}`}
+          // Doses first, the unit of the whole app: one dose of each added vaccine.
+          label={
+            chosenExtras.length
+              ? `Give ${dosesText(doses + chosenExtras.length)} (${chosenExtras.length + 1} vaccines)`
+              : `Give ${dosesText(doses)}`
+          }
           onPress={() => give(false)}
           disabled={saving}
         />
