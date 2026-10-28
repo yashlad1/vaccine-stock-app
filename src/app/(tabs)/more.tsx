@@ -95,7 +95,9 @@ export default function MoreScreen() {
             sync == null
               ? undefined
               : sync.lastOkAt === null
-                ? 'Not set up'
+                ? serverOn
+                  ? 'Nothing uploaded yet. Your records are safe on this phone.'
+                  : 'Not set up'
                 : sync.pending > 0
                   ? `${sync.pending} ${sync.pending === 1 ? 'entry' : 'entries'} waiting to upload`
                   : 'Everything uploaded'
