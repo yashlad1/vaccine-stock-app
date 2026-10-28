@@ -81,9 +81,11 @@ export default function BackupScreen() {
 
       Alert.alert(
         'Restore from backup?',
-        `This backup: ${preview.doses} doses, ${preview.vaccines} vaccines` +
+        `This backup: ${preview.doses} ${preview.doses === 1 ? 'dose' : 'doses'}, ` +
+          `${preview.vaccines} ${preview.vaccines === 1 ? 'vaccine' : 'vaccines'}` +
           (preview.latestEntryAt ? `, latest entry ${formatDate(preview.latestEntryAt)}` : '') +
-          `\n\nYour phone now: ${meta.current.doses} doses, ${meta.current.vaccines} vaccines` +
+          `\n\nYour phone now: ${meta.current.doses} ${meta.current.doses === 1 ? 'dose' : 'doses'}, ` +
+          `${meta.current.vaccines} ${meta.current.vaccines === 1 ? 'vaccine' : 'vaccines'}` +
           (meta.current.latestEntryAt ? `, latest entry ${formatDate(meta.current.latestEntryAt)}` : '') +
           `\n\nRestoring replaces everything on this phone. A copy of your current data will be saved first.`,
         [
