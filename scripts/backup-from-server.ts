@@ -1,4 +1,4 @@
-import { registerHooks } from 'node:module';
+import './resolve.ts';
 import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -31,27 +31,7 @@ import { fileURLToPath } from 'node:url';
  * names and dates of birth.
  */
 
-// src/ imports without file extensions, which Metro resolves and Node does
-// not. Teach Node the same three guesses, so this reuses the app's tested
-// restore and CSV code instead of a copy of it.
-registerHooks({
-  resolve(specifier, context, next) {
-    try {
-      return next(specifier, context);
-    } catch (e) {
-      if (!specifier.startsWith('.')) throw e;
-      for (const ext of ['.ts', '.tsx', '/index.ts']) {
-        try {
-          return next(specifier + ext, context);
-        } catch {
-          // try the next guess
-        }
-      }
-      throw e;
-    }
-  },
-});
-
+// Reuses the app's tested restore and CSV code through scripts/resolve.ts.
 const { openNodeDb } = await import('../src/db/driver.node.ts');
 const { migrate, currentVersion } = await import('../src/db/migrate.ts');
 const { supabaseBackend } = await import('../src/sync/backend.supabase.ts');
