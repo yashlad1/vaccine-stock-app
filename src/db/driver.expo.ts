@@ -80,7 +80,7 @@ async function openInBrowser(name: string): Promise<SQLite.SQLiteDatabase> {
     return await SQLite.openDatabaseAsync(name);
   } catch (e) {
     if (!/createSyncAccessHandle/.test(String(e))) throw e;
-    throw new Error('Clinic Stock is open in another tab of this browser. Close the other tab, then reload this one.');
+    throw new Error('Vialbook is open in another tab of this browser. Close the other tab, then reload this one.');
   }
 }
 

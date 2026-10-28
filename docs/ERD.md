@@ -1,5 +1,5 @@
 # Entity Relationship Diagram
-## Clinic Vaccine Stock Logger — schema v1
+## Vialbook (Clinic Vaccine Stock Logger) — schema v1
 
 Rendered by GitHub natively. The authoritative definition is
 [`src/db/migrations/m001_initial.ts`](../src/db/migrations/m001_initial.ts); a flat snapshot lives in

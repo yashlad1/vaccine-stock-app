@@ -1,5 +1,5 @@
 # Test Plan
-## Clinic Vaccine Stock Logger
+## Vialbook (Clinic Vaccine Stock Logger)
 
 Three layers, cheapest first. **Layers A and B need no phone. Layer C is the only one that proves
 anything.**

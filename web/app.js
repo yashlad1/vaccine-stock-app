@@ -1,5 +1,5 @@
 /**
- * Clinic Stock — read-only dashboard.
+ * Vialbook — read-only dashboard.
  *
  * Opened from the home screen on a phone that is not in the clinic, to answer
  * two questions: is there stock, and did today actually get entered.

@@ -1,5 +1,5 @@
 # Software Requirements Specification
-## Clinic Vaccine Stock Logger ("Clinic Stock")
+## Clinic Vaccine Stock Logger ("Vialbook", formerly "Clinic Stock")
 
 | | |
 | --- | --- |
@@ -14,7 +14,7 @@
 
 ### 1.1 Purpose
 
-This document specifies the requirements for **Clinic Stock**, an offline Android application that
+This document specifies the requirements for **Vialbook**, an offline Android application that
 replaces the paper vaccine-stock notebook used by a private pediatric clinic in India.
 
 It is written for the developer implementing the system and for the clinician who will use it.

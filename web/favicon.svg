@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Clinic Stock">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Vialbook">
   <!-- Teal is the stock accent from src/ui/tokens.ts, so the tab matches the
        product. A medical cross rather than a vial or syringe: at 16px, which is
        the only size a favicon is ever actually seen at, anything with a neck
