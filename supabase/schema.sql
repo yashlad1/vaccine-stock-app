@@ -185,9 +185,14 @@ DROP POLICY IF EXISTS stock_movements_insert ON public.stock_movements;
 CREATE POLICY stock_movements_insert ON public.stock_movements
   FOR INSERT TO authenticated WITH CHECK (owner = auth.uid());
 
--- No UPDATE or DELETE policy, deliberately. The ledger is append-only on
--- the server for the same reason it is on the phone, and with RLS enabled a
--- missing policy is a denial. This is the server's half of invariant 1.
+-- UPDATE of the annotations only (a child's name filled in later):
+-- trg_stock_movements_annotations_only below refuses any other column.
+-- No DELETE policy, deliberately. The ledger is append-only on the server
+-- for the same reason it is on the phone, and with RLS enabled a missing
+-- policy is a denial. This is the server's half of invariant 1.
+DROP POLICY IF EXISTS stock_movements_update ON public.stock_movements;
+CREATE POLICY stock_movements_update ON public.stock_movements
+  FOR UPDATE TO authenticated USING (owner = auth.uid()) WITH CHECK (owner = auth.uid());
 
 -- --------------------------------------------------------------------------
 -- Uniqueness
@@ -234,6 +239,22 @@ BEGIN
   RETURN NEW;
 END; $$;
 
+CREATE OR REPLACE FUNCTION public.movement_annotations_only()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF to_jsonb(NEW) - ARRAY['patient_id', 'patient_label', 'needs_detail', 'note', 'updated_at', 'synced_at']
+     IS DISTINCT FROM
+     to_jsonb(OLD) - ARRAY['patient_id', 'patient_label', 'needs_detail', 'note', 'updated_at', 'synced_at'] THEN
+    RAISE EXCEPTION 'stock_movements is append-only: only the child name, needs_detail and note can change';
+  END IF;
+  RETURN NEW;
+END; $$;
+
+-- BEFORE triggers fire in name order, so this check runs before the guard.
+DROP TRIGGER IF EXISTS trg_stock_movements_annotations_only ON public.stock_movements;
+CREATE TRIGGER trg_stock_movements_annotations_only BEFORE UPDATE ON public.stock_movements
+  FOR EACH ROW EXECUTE FUNCTION public.movement_annotations_only();
+
 DROP TRIGGER IF EXISTS trg_vaccines_stale ON public.vaccines;
 CREATE TRIGGER trg_vaccines_stale BEFORE UPDATE ON public.vaccines
   FOR EACH ROW EXECUTE FUNCTION public.reject_stale_update();
@@ -250,8 +271,9 @@ DROP TRIGGER IF EXISTS trg_lots_stale ON public.lots;
 CREATE TRIGGER trg_lots_stale BEFORE UPDATE ON public.lots
   FOR EACH ROW EXECUTE FUNCTION public.reject_stale_update();
 
--- stock_movements is skipped: it has no UPDATE policy at all, so an
--- update cannot reach a trigger in the first place.
+DROP TRIGGER IF EXISTS trg_stock_movements_stale ON public.stock_movements;
+CREATE TRIGGER trg_stock_movements_stale BEFORE UPDATE ON public.stock_movements
+  FOR EACH ROW EXECUTE FUNCTION public.reject_stale_update();
 
 -- Pull reads by the SERVER clock, so this index is what makes it cheap.
 CREATE INDEX IF NOT EXISTS ix_vaccines_synced ON public.vaccines (owner, synced_at);

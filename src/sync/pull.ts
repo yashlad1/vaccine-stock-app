@@ -1,6 +1,6 @@
 import type { Db } from '../db/driver';
 import { PUSH_ORDER, type SyncTable } from '../db/migrations/m002_sync';
-import type { Row, SyncBackend } from './backend';
+import { MOVEMENT_ANNOTATIONS, type Row, type SyncBackend } from './backend';
 
 /**
  * Pull - the half that makes a second writing device possible.
@@ -77,15 +77,32 @@ async function applyRow(
   const row = localise(incoming, allowed);
 
   if (table === 'stock_movements') {
-    // Append-only: the first writer wins and nothing is ever overwritten.
-    // A second REVERSAL of the same movement is REJECTED by UNIQUE(reverses_id),
-    // and that rejection is correct - it is exactly what stops stock being
-    // credited twice when two offline devices both corrected one dose.
-    const existing = await db.first<{ id: string }>(
-      `SELECT id FROM stock_movements WHERE id = ?`,
+    // Append-only: the first writer wins and the arithmetic is never
+    // overwritten. A second REVERSAL of the same movement is REJECTED by
+    // UNIQUE(reverses_id), and that rejection is correct - it is exactly what
+    // stops stock being credited twice when two offline devices both
+    // corrected one dose.
+    const existing = await db.first<{ updated_at: number }>(
+      `SELECT updated_at FROM stock_movements WHERE id = ?`,
       [id],
     );
-    if (existing) return { changed: false };
+    if (existing) {
+      // The one later edit a movement has: its annotations, such as a child's
+      // name filled in on the other device. Newer edit wins, as for the
+      // mutable tables below, and only those columns are written.
+      if (Number(row.updated_at ?? 0) <= Number(existing.updated_at)) return { changed: false };
+      const keys = MOVEMENT_ANNOTATIONS.filter((k) => k in row);
+      const sets = keys.map((k) => `${k} = ?`).join(', ');
+      try {
+        await db.run(`UPDATE stock_movements SET ${sets} WHERE id = ?`, [...keys.map((k) => row[k]), id]);
+      } catch (e) {
+        const detail = (e instanceof Error ? e.message : String(e)).slice(0, 200);
+        return { changed: false, conflict: { table, id, reason: 'rejected', detail } };
+      }
+      // It came from the server, so it must not be pushed straight back.
+      await db.run(`UPDATE stock_movements SET dirty = 0 WHERE id = ?`, [id]);
+      return { changed: true };
+    }
 
     if (row.reverses_id) {
       const already = await db.first<{ id: string }>(

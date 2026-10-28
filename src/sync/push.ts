@@ -1,7 +1,8 @@
 import type { Db } from '../db/driver';
 import { PUSH_ORDER, SYNC_TABLES, type SyncTable } from '../db/migrations/m002_sync';
-import type { Row, SyncBackend } from './backend';
+import { MOVEMENT_ANNOTATIONS, type Row, type SyncBackend } from './backend';
 import { newId } from '../domain/ids';
+import { getSetting, setSetting } from '../db/repo/settings';
 
 /**
  * Push-only replication.
@@ -20,6 +21,14 @@ import { newId } from '../domain/ids';
  *     succeeds and then loses the response is retried and lands on the row id
  *     again, which is a no-op. The failure mode is therefore "uploaded twice",
  *     never "believed uploaded but wasn't".
+ *
+ * Movements upload with ignore-duplicates, so an edit made after the first
+ * upload (a child's name filled in at day end) cannot ride on the insert. A
+ * movement the server has acknowledged (`last_synced_at` set) that is dirty
+ * again is "on the server, name waiting": it goes up through
+ * `backend.annotate`, and it is NOT pending - the dose itself is safe there.
+ * A server without supabase/movement-annotations.sql takes no annotations;
+ * then those rows simply wait, uncounted, and every dose still uploads.
  */
 
 export { PUSH_ORDER };
@@ -36,10 +45,14 @@ export interface PushOutcome {
   error?: string;
 }
 
+/** Rows not on the server yet. A movement waiting only for its name is on it. */
+const unsent = (table: SyncTable) =>
+  table === 'stock_movements' ? 'dirty = 1 AND last_synced_at IS NULL' : 'dirty = 1';
+
 export async function countDirty(db: Db): Promise<number> {
   let n = 0;
   for (const table of PUSH_ORDER) {
-    const row = await db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table} WHERE dirty = 1`);
+    const row = await db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table} WHERE ${unsent(table)}`);
     n += row?.n ?? 0;
   }
   return n;
@@ -47,7 +60,7 @@ export async function countDirty(db: Db): Promise<number> {
 
 async function dirtyRows(db: Db, table: SyncTable, limit: number): Promise<Row[]> {
   return db.all<Row>(
-    `SELECT * FROM ${table} WHERE dirty = 1 ORDER BY updated_at ASC LIMIT ?`,
+    `SELECT * FROM ${table} WHERE ${unsent(table)} ORDER BY updated_at ASC LIMIT ?`,
     [limit],
   );
 }
@@ -69,18 +82,53 @@ function forUpload(row: Row): Row {
  * the server never saw it (a date of birth entered four seconds after the
  * child was added, exactly when the debounced push fires).
  */
-async function markSynced(db: Db, table: SyncTable, rows: Row[], at: number): Promise<void> {
+async function markSynced(db: Db, table: SyncTable, rows: Row[], at: number, dirty = '0'): Promise<void> {
   if (!rows.length) return;
   // Deliberately does NOT touch updated_at: the re-dirty trigger fires on
   // updated_at changing, so bumping it here would re-queue what we just sent.
   await db.tx(async (tx) => {
     for (const r of rows) {
       await tx.run(
-        `UPDATE ${table} SET dirty = 0, last_synced_at = ? WHERE id = ? AND updated_at IS ?`,
+        `UPDATE ${table} SET dirty = ${dirty}, last_synced_at = ? WHERE id = ? AND updated_at IS ?`,
         [at, r.id, r.updated_at],
       );
     }
   });
+}
+
+/**
+ * Annotations for movements the server already holds. Stops at the first row
+ * the server does not take: asking again in this pass would only be refused
+ * again, and the rows wait for the next one.
+ */
+async function pushAnnotations(db: Db, backend: SyncBackend): Promise<number> {
+  let sent = 0;
+  for (;;) {
+    const rows = await db.all<Row>(
+      `SELECT id, ${MOVEMENT_ANNOTATIONS.join(', ')} FROM stock_movements
+        WHERE dirty = 1 AND last_synced_at IS NOT NULL ORDER BY updated_at ASC LIMIT ?`,
+      [BATCH],
+    );
+    if (!rows.length) return sent;
+    const taken = await backend.annotate(rows);
+    await markSynced(db, 'stock_movements', rows.filter((r) => taken.has(String(r.id))), Date.now());
+    sent += taken.size;
+    if (taken.size < rows.length || rows.length < BATCH) return sent;
+  }
+}
+
+/**
+ * Once: before annotations were sent, a name filled in after upload was
+ * marked sent although the server ignored it. Queue those names again.
+ */
+const REQUEUED = 'annotations_requeued';
+async function requeueLostNames(db: Db): Promise<void> {
+  if (await getSetting(db, REQUEUED)) return;
+  await db.run(
+    `UPDATE stock_movements SET dirty = 1
+      WHERE dirty = 0 AND updated_at <> created_at AND last_synced_at IS NOT NULL`,
+  );
+  await setSetting(db, REQUEUED, '1');
 }
 
 /** One full attempt. Safe to call repeatedly; safe to interrupt. */
@@ -98,6 +146,7 @@ export async function pushOnce(
 
   let pushed = 0;
   try {
+    await requeueLostNames(db);
     for (const table of PUSH_ORDER) {
       // Loop rather than one query: a phone that has been offline for a week
       // may have thousands of rows, and one giant request is the request most
@@ -106,11 +155,15 @@ export async function pushOnce(
         const rows = await dirtyRows(db, table, BATCH);
         if (!rows.length) break;
         await backend.push({ table, rows: rows.map(forUpload) });
-        await markSynced(db, table, rows, Date.now());
+        // An edited movement stays queued for pushAnnotations: if the server
+        // already had it, the insert was ignored and carried none of the edit.
+        const stay = table === 'stock_movements' ? '(updated_at <> created_at)' : '0';
+        await markSynced(db, table, rows, Date.now(), stay);
         pushed += rows.length;
         if (rows.length < BATCH) break;
       }
     }
+    pushed += await pushAnnotations(db, backend);
     await db.run(
       `UPDATE sync_log SET finished_at = ?, pushed_rows = ?, ok = 1 WHERE id = ?`,
       [Date.now(), pushed, logId],

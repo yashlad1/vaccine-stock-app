@@ -7,6 +7,7 @@ import { m001 } from '../src/db/migrations/m001_initial.ts';
 import { m002, PUSH_ORDER, SYNC_TABLES } from '../src/db/migrations/m002_sync.ts';
 import { m004 } from '../src/db/migrations/m004_patient_sex.ts';
 import { m005 } from '../src/db/migrations/m005_prices.ts';
+import { MOVEMENT_ANNOTATIONS } from '../src/sync/backend.ts';
 
 /**
  * Generate the Supabase (Postgres) schema FROM the live SQLite schema.
@@ -107,9 +108,14 @@ const main = async () => {
     out.push('');
 
     if (table === 'stock_movements') {
-      out.push('-- No UPDATE or DELETE policy, deliberately. The ledger is append-only on');
-      out.push('-- the server for the same reason it is on the phone, and with RLS enabled a');
-      out.push("-- missing policy is a denial. This is the server's half of invariant 1.");
+      out.push('-- UPDATE of the annotations only (a child\'s name filled in later):');
+      out.push('-- trg_stock_movements_annotations_only below refuses any other column.');
+      out.push('-- No DELETE policy, deliberately. The ledger is append-only on the server');
+      out.push('-- for the same reason it is on the phone, and with RLS enabled a missing');
+      out.push("-- policy is a denial. This is the server's half of invariant 1.");
+      out.push(`DROP POLICY IF EXISTS ${table}_update ON public.${table};`);
+      out.push(`CREATE POLICY ${table}_update ON public.${table}`);
+      out.push(`  FOR UPDATE TO authenticated USING (owner = auth.uid()) WITH CHECK (owner = auth.uid());`);
       out.push('');
     } else {
       out.push(`-- Mutable tables: the phone re-pushes an edited row, so allow the overwrite.`);
@@ -180,13 +186,27 @@ const main = async () => {
   out.push('  RETURN NEW;');
   out.push('END; $$;');
   out.push('');
+  // The ledger's arithmetic is immutable here as on the phone
+  // (trg_movements_immutable_arithmetic). Whole rows are compared, so a
+  // column added later is refused too until it is listed as an annotation.
+  const keep = [...MOVEMENT_ANNOTATIONS, 'synced_at'].map((c) => `'${c}'`).join(', ');
+  out.push('CREATE OR REPLACE FUNCTION public.movement_annotations_only()');
+  out.push('RETURNS trigger LANGUAGE plpgsql AS $$');
+  out.push('BEGIN');
+  out.push(`  IF to_jsonb(NEW) - ARRAY[${keep}]`);
+  out.push('     IS DISTINCT FROM');
+  out.push(`     to_jsonb(OLD) - ARRAY[${keep}] THEN`);
+  out.push("    RAISE EXCEPTION 'stock_movements is append-only: only the child name, needs_detail and note can change';");
+  out.push('  END IF;');
+  out.push('  RETURN NEW;');
+  out.push('END; $$;');
+  out.push('');
+  out.push('-- BEFORE triggers fire in name order, so this check runs before the guard.');
+  out.push('DROP TRIGGER IF EXISTS trg_stock_movements_annotations_only ON public.stock_movements;');
+  out.push('CREATE TRIGGER trg_stock_movements_annotations_only BEFORE UPDATE ON public.stock_movements');
+  out.push('  FOR EACH ROW EXECUTE FUNCTION public.movement_annotations_only();');
+  out.push('');
   for (const table of PUSH_ORDER) {
-    if (table === 'stock_movements') {
-      out.push('-- stock_movements is skipped: it has no UPDATE policy at all, so an');
-      out.push('-- update cannot reach a trigger in the first place.');
-      out.push('');
-      continue;
-    }
     out.push(`DROP TRIGGER IF EXISTS trg_${table}_stale ON public.${table};`);
     out.push(`CREATE TRIGGER trg_${table}_stale BEFORE UPDATE ON public.${table}`);
     out.push('  FOR EACH ROW EXECUTE FUNCTION public.reject_stale_update();');

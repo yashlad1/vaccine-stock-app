@@ -156,6 +156,31 @@ export function supabaseBackend(cfg: SupabaseConfig): SyncBackend & { signOut: (
       }
     },
 
+    async annotate(rows: Row[]) {
+      // One PATCH per row: the values differ per row, and an upsert would need
+      // the UPDATE policy for its insert half too, failing whole batches of
+      // doses on a server without it. That server matches no row here
+      // (no UPDATE policy), so it answers [] and nothing else changes.
+      const taken = new Set<string>();
+      try {
+        for (const { id, ...annotations } of rows) {
+          const res = await request(
+            `/rest/v1/stock_movements?id=eq.${encodeURIComponent(String(id))}&select=id`,
+            {
+              method: 'PATCH',
+              headers: await headers({ Prefer: 'return=representation' }),
+              body: JSON.stringify(annotations),
+            },
+          );
+          if (!res.ok || !((await res.json()) as Row[]).length) break;
+          taken.add(String(id));
+        }
+      } catch {
+        // Offline or signed out: the rows stay queued for the next pass.
+      }
+      return taken;
+    },
+
     async pullSince(table: SyncTable, since: string | null, limit: number, afterId?: string) {
       // Ordered and filtered by the SERVER's clock, so a device with a wrong
       // clock cannot make its own rows invisible to everyone else. The id
