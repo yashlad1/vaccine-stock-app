@@ -156,12 +156,23 @@ export function supabaseBackend(cfg: SupabaseConfig): SyncBackend & { signOut: (
       }
     },
 
-    async pullSince(table: SyncTable, since: string | null, limit: number) {
+    async pullSince(table: SyncTable, since: string | null, limit: number, afterId?: string) {
       // Ordered and filtered by the SERVER's clock, so a device with a wrong
-      // clock cannot make its own rows invisible to everyone else.
-      const filter = since ? `&synced_at=gt.${encodeURIComponent(since)}` : '';
+      // clock cannot make its own rows invisible to everyone else. The id
+      // breaks ties, because one upload stamps all of its rows alike.
+      // Quoted, because a timestamp holds `.` and `:`, which PostgREST's
+      // or=(...) syntax reserves.
+      const q = (v: string) => `"${v}"`;
+      const filter =
+        !since
+          ? ''
+          : afterId === undefined
+          ? `&synced_at=gt.${encodeURIComponent(since)}`
+          : `&or=${encodeURIComponent(
+              `(synced_at.gt.${q(since)},and(synced_at.eq.${q(since)},id.gt.${q(afterId)}))`,
+            )}`;
       const res = await request(
-        `/rest/v1/${table}?select=*${filter}&order=synced_at.asc&limit=${limit}`,
+        `/rest/v1/${table}?select=*${filter}&order=synced_at.asc,id.asc&limit=${limit}`,
         { method: 'GET', headers: await headers() },
       );
       if (res.status === 401 || res.status === 403) {

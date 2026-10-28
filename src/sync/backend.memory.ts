@@ -17,6 +17,11 @@ export function memoryBackend(opts: { failEvery?: number } = {}) {
         throw new Error('simulated network failure');
       }
       const t = store.get(batch.table) ?? new Map<string, Row>();
+      // A monotonic stand-in for Postgres's `now()` default, ONE per upload:
+      // now() is fixed for the whole transaction, so every row of a batch
+      // shares it. One stamp per row hid a pull bug that skipped rows.
+      seq += 1;
+      const stamp = String(seq).padStart(12, '0');
       for (const r of batch.rows) {
         const id = String(r.id);
         // stock_movements is append-only on the server too: first write wins.
@@ -26,21 +31,26 @@ export function memoryBackend(opts: { failEvery?: number } = {}) {
         // permissive than Postgres and would hide the bug it exists to catch.
         const prev = t.get(id);
         if (prev && Number(r.updated_at ?? 0) < Number(prev.updated_at ?? 0)) continue;
-        // A monotonic stand-in for Postgres's `now()` default, so pullSince
-        // behaves like the real thing.
-        seq += 1;
-        t.set(id, { ...r, synced_at: String(seq).padStart(12, '0') });
+        t.set(id, { ...r, synced_at: stamp });
       }
       store.set(batch.table, t);
     },
     async pullAll(table: SyncTable) {
       return [...(store.get(table)?.values() ?? [])];
     },
-    async pullSince(table: SyncTable, since: string | null, limit: number) {
-      const rows = [...(store.get(table)?.values() ?? [])].sort((a, b) =>
-        String(a.synced_at ?? '').localeCompare(String(b.synced_at ?? '')),
-      );
-      const after = since ? rows.filter((r) => String(r.synced_at ?? '') > since) : rows;
+    async pullSince(table: SyncTable, since: string | null, limit: number, afterId?: string) {
+      const key = (r: Row): [string, string] => [String(r.synced_at), String(r.id)];
+      const rows = [...(store.get(table)?.values() ?? [])].sort((a, b) => {
+        const [x, y] = [key(a), key(b)];
+        return x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : x[1] < y[1] ? -1 : x[1] > y[1] ? 1 : 0;
+      });
+      const after =
+        !since
+          ? rows
+          : rows.filter(({ synced_at, id }) => {
+              const s = String(synced_at);
+              return s > since || (afterId !== undefined && s === since && String(id) > afterId);
+            });
       return after.slice(0, limit);
     },
     async ping() {},

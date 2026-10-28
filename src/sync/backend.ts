@@ -26,14 +26,21 @@ export interface SyncBackend {
   /** Everything the server holds, for rebuilding a lost phone. */
   pullAll(table: SyncTable): Promise<Row[]>;
   /**
-   * Rows the server has stamped since `since`, oldest first.
+   * Rows the server has stamped after `since`, ordered by (synced_at, id).
+   * With `afterId`, rows after the PAIR (since, afterId) instead, which is how
+   * a page resumes part-way through rows that share one synced_at.
    *
    * `since` is the SERVER's clock (`synced_at`), never a device's. A device
    * with a skewed clock writes a skewed `updated_at`, and a watermark built on
    * that silently skips its rows forever - a sync that loses data while
    * reporting success.
+   *
+   * Many rows share one synced_at: Postgres's now() is fixed for a whole
+   * transaction, so every row of one upload (or one server-side UPDATE) gets
+   * the same stamp. Paging on synced_at alone skipped the rest of such a group
+   * whenever a page ended inside it.
    */
-  pullSince(table: SyncTable, since: string | null, limit: number): Promise<Row[]>;
+  pullSince(table: SyncTable, since: string | null, limit: number, afterId?: string): Promise<Row[]>;
   /** Cheap reachability + credential check for the Settings screen. */
   ping(): Promise<void>;
 }
