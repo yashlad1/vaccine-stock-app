@@ -649,6 +649,35 @@ is a fingerprint source too. Before publishing any update, check
 Both stay. A zip the clinician holds herself is the only copy that does not depend on an account
 still working, a card not expiring, or a free tier not changing. The backup nag is unchanged.
 
+### Copies of the server, with nobody at the clinic doing anything (added 27 Oct 2026)
+
+The user's rule: **no backup step may be left to the staff, and no paid Supabase plan.** So the server
+is copied by machines, not people:
+
+| Copy | When | Where |
+| --- | --- | --- |
+| The phone (and any second device, which pulls everything) | live | the clinic |
+| Supabase | about 4s after each entry, when online | Mumbai, free tier |
+| **GitHub Actions job** | **08:00, 13:00, 18:00, 23:00 IST** | private repo `yashlad1/clinic-stock-backups`, one `YYYY/MM/clinic-…zip.age` per run |
+| Mac nightly (launchd) | 23:59 IST, when the Mac is on | `backups/` here (gitignored) |
+
+The job runs this repo's `scripts/backup-from-server.ts` from `main` (read-only, with the app's own
+restore check), encrypts the zip with `age` to the public key in that repo's `recipients.txt`, and
+commits it. The private key is `~/clinic-stock-keystore/backup-age-key.txt` on the owner's Mac;
+without it the files cannot be opened, so keep a copy in a password manager. It also **fails, and
+GitHub emails the owner, when no new entry has reached the server in 3 days**: a phone that has
+quietly stopped syncing is the failure no person would notice. Its runs keep the free Supabase
+project active, too. Secrets `SYNC_URL/KEY/EMAIL/PASSWORD` mirror the EAS `EXPO_PUBLIC_SYNC_*`
+values; rotate them together. Restore: `age -d -i <key> file.zip.age > backup.zip`, which the app's
+Restore screen accepts.
+
+Because the job runs `main`'s copy of the script, **a new migration must be on GitHub's `main`
+before the next run**, or the backup restores server rows into an older schema and silently drops
+the new columns.
+
+What no copy can hold: entries a phone made offline and never uploaded. The sync banner warns
+after 30 minutes behind.
+
 ---
 
 ## 11. Testing
@@ -753,8 +782,12 @@ already earns its place.
 
 Pinned here because everything else is secondary.
 
-1. **Phone lost or broken with no recent backup** → the count- and time-triggered nag, one-tap zip
-   export, daily on-device snapshots, and the permanent "Last backup: …" line.
+1. **Phone lost or broken with no recent backup** → since 7 Sep the server holds every uploaded
+   entry, and a reinstalled or replacement phone pulls it all back by itself (pinned by
+   `multidevice.db.test.ts`, "a phone reinstalled after an uninstall"). The server itself is copied
+   4 times a day by a GitHub Actions job and nightly to the Mac (section 10a), with no step left to
+   the staff. The nag, zip export, snapshots and "Last backup: …" line remain. A durable copy of the
+   current APK lives in `backups/apk/`, because EAS deletes build files after about 30 days.
 2. **Reinstall with a different signing key** → never rotate the EAS keystore, never change
    `android.package`, always `adb install -r`, prefer OTA updates so the APK rarely needs replacing,
    and always take a backup before any update.
