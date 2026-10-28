@@ -120,6 +120,7 @@ describe('push', () => {
       push: async (b: any) => void order.push(b.table),
       pullAll: async () => [],
       pullSince: async () => [],
+      annotate: async () => new Set<string>(),
       ping: async () => {},
     };
     await pushOnce(db, spy, ctx.deviceId);

@@ -7,7 +7,8 @@ import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { SETTING, getNumber, getSetting, markBackedUp } from '../../db/repo/settings';
 import { exportBackup, listLocalBackups } from '../../db/backup/export';
-import { commitRestore, describeCurrent, pickBackup, previewBackup } from '../../db/backup/import';
+import { commitRestore, pickBackup, previewBackup } from '../../db/backup/import';
+import { ledgerSummary } from '../../db/backup/validate';
 import { lastBackupLabel } from '../../domain/backup-nag';
 import { formatDate, formatTime12h } from '../../domain/time';
 
@@ -42,7 +43,7 @@ export default function BackupScreen() {
   const { data: meta, error, reload } = useQuery(async (d) => ({
     lastBackupAt: Number(await getSetting(d, SETTING.lastBackupAt)) || null,
     dosesSinceBackup: await getNumber(d, SETTING.dosesSinceBackup, 0),
-    current: await describeCurrent(d),
+    current: await ledgerSummary(d),
   }));
   const { data: local, reload: reloadLocal } = useQuery(async () => listLocalBackups());
 
@@ -80,9 +81,11 @@ export default function BackupScreen() {
 
       Alert.alert(
         'Restore from backup?',
-        `This backup: ${preview.doses} doses, ${preview.vaccines} vaccines` +
+        `This backup: ${preview.doses} ${preview.doses === 1 ? 'dose' : 'doses'}, ` +
+          `${preview.vaccines} ${preview.vaccines === 1 ? 'vaccine' : 'vaccines'}` +
           (preview.latestEntryAt ? `, latest entry ${formatDate(preview.latestEntryAt)}` : '') +
-          `\n\nYour phone now: ${meta.current.doses} doses, ${meta.current.vaccines} vaccines` +
+          `\n\nYour phone now: ${meta.current.doses} ${meta.current.doses === 1 ? 'dose' : 'doses'}, ` +
+          `${meta.current.vaccines} ${meta.current.vaccines === 1 ? 'vaccine' : 'vaccines'}` +
           (meta.current.latestEntryAt ? `, latest entry ${formatDate(meta.current.latestEntryAt)}` : '') +
           `\n\nRestoring replaces everything on this phone. A copy of your current data will be saved first.`,
         [
