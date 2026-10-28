@@ -187,9 +187,8 @@ export default function GiveDoseScreen() {
                   label="Start a new list on this phone"
                   onPress={() =>
                     void run('start the vaccine list', async () => {
-                      const n = await startNewClinicHere(db, deviceId);
+                      await startNewClinicHere(db, deviceId);
                       bump();
-                      if (n === 0) return;
                     })
                   }
                 />
