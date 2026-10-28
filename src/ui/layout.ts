@@ -29,18 +29,18 @@ export const centred = { width: '100%', maxWidth: CONTENT_MAX, alignSelf: 'cente
 /**
  * How many vaccine tiles fit across.
  *
- * Two on a phone, as designed. On a tablet the extra room goes into more tiles
- * rather than bigger ones - a tile twice the size is not twice as easy to hit,
- * it just pushes the rest of the grid off the screen, and the grid being
- * scannable at a glance is the whole point of the home screen.
+ * Two on a phone, as designed. The grid sits in the same centred CONTENT_MAX
+ * column as every other tab (owner, 27 Oct 2026): tiles running edge to edge
+ * of a tablet invite a miss at the screen's edge. A tile twice the size is not
+ * twice as easy to hit either; it just pushes the rest of the grid off the
+ * screen, so the column's extra room goes into a third tile, not wider ones.
  */
 export function useColumns(): number {
   const { width } = useWindowDimensions();
-  // ~190dp per tile keeps the trade name readable at font scale 1.6x, and
-  // holds the tile close to its phone size at every screen width instead of
-  // letting it inflate. The grid itself is NOT width-capped: capping it made
-  // tiles SHRINK as the screen grew, which is worse than doing nothing.
-  return Math.min(6, Math.max(2, Math.floor(width / 190)));
+  // Counted from the CAPPED width. An earlier cap counted from the window, so
+  // tiles shrank as the screen grew (123dp on a 10-inch tablet). Three across
+  // 560dp is ~168dp a tile, inside a phone's 158-184.
+  return Math.min(width, CONTENT_MAX) >= 540 ? 3 : 2;
 }
 
 /** True on a tablet-sized screen. For the rare case where layout must differ. */

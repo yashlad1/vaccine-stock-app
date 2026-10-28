@@ -9,7 +9,7 @@ import { describeStockRow } from '../../domain/stock';
 import { daysAgoLocal, formatDayLabel, todayLocal } from '../../domain/time';
 import { BackupBanner } from '../../ui/backup-banner';
 import { SyncBanner } from '../../ui/sync-banner';
-import { useColumns } from '../../ui/layout';
+import { centred, useColumns } from '../../ui/layout';
 import { searchRank } from '../../domain/search';
 import { isAwaitingCatalog, startNewClinicHere } from '../../sync/adopt';
 import { useAction } from '../../ui/use-action';
@@ -88,7 +88,7 @@ export default function GiveDoseScreen() {
 
   return (
     <View style={st.screen}>
-      <View style={st.header}>
+      <View style={[st.header, centred]}>
         <View style={st.statusLeft}>
           <T style={st.status}>{formatDayLabel()} ·</T>
           <Pressable
@@ -116,7 +116,7 @@ export default function GiveDoseScreen() {
         ) : null}
       </View>
 
-      <View style={st.pad}>
+      <View style={[st.pad, centred]}>
         <BackupBanner />
         <SyncBanner />
         {/* Not autofocused: the keyboard must not cover the grid on arrival. */}
@@ -139,7 +139,7 @@ export default function GiveDoseScreen() {
         key={`cols-${columns}`}
         numColumns={columns}
         columnWrapperStyle={{ gap: space.md }}
-        contentContainerStyle={[st.grid, { paddingBottom: space.xxl + bottomInset }]}
+        contentContainerStyle={[st.grid, centred, { paddingBottom: space.xxl + bottomInset }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         ListFooterComponent={

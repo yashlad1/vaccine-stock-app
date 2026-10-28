@@ -362,16 +362,16 @@ These are requirements, not preferences.
 
 - **56×56dp minimum** touch targets (Android's guideline is 48 — go bigger). Primary CTAs 64dp tall,
   full width, in the bottom third. Portrait locked.
-- **Tablets: bound the text, not the grid.** The type scale was chosen for a ~400dp phone; nothing
+- **Tablets: one centred column on every tab.** The type scale was chosen for a ~400dp phone; nothing
   about it is wrong on a tablet, but the *container* is — an 18pt line across 800dp is a long measure,
-  and a full-width input for a six-character batch number looks broken. So text, forms, lists and the
-  `Footer` are capped at `CONTENT_MAX` (560) and centred (`centred` in `src/ui/layout.ts`).
-  **The vaccine grid is deliberately NOT capped.** Capping it made tiles *shrink* as the screen grew
-  (123dp on a 10-inch tablet, against 184dp on a phone). Instead `useColumns()` adds columns —
-  2 on a phone, 3–4 on a tablet, 6 in landscape — holding the tile at 158–198dp everywhere. A tile
-  twice the size is not twice as easy to hit; it just pushes the rest of the grid off screen, and the
-  grid being scannable at a glance is the whole point of the home screen.
-  `FlatList` must be re-keyed on the column count or a rotation keeps the old layout.
+  and a full-width input for a six-character batch number looks broken. So text, forms, lists, the
+  `Footer` **and the Give dose grid** are capped at `CONTENT_MAX` (560) and centred (`centred` in
+  `src/ui/layout.ts`). The grid was uncapped until 27 Oct 2026, when the owner asked for it to match
+  the other tabs: tiles running to the edge of a tablet invite a miss there. `useColumns()` counts
+  columns from the **capped** width — 2 on a phone, 3 in the 560dp column (~168dp a tile, inside a
+  phone's 158–184) — because an earlier cap counted from the window and tiles *shrank* as the screen
+  grew (123dp on a 10-inch tablet). A tile twice the size is not twice as easy to hit; it just pushes
+  the rest of the grid off screen. `FlatList` must be re-keyed on the column count.
 - **Never position anything at `bottom: 0` directly.** Android's three-button navigation bar overlays
   it, and because every primary CTA lives in the bottom third by the rule above, the button is not
   merely clipped — it is *untappable*. Use `Footer` from `src/ui/components.tsx`, which adds
