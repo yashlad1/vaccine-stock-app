@@ -64,9 +64,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   const hide = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
-    Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(() =>
-      setToast(null),
-    );
+    Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }).start(({ finished }) => {
+      // A show() during the fade stops this animation (finished = false); it
+      // must not clear the toast that replaced this one.
+      if (finished) setToast(null);
+    });
   }, [opacity]);
 
   const show = useCallback(
