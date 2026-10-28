@@ -8,7 +8,6 @@ import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { asOfLabel, dosesGiven, dosesGivenTotals, missingChildEntries, movementStrip } from '../../domain/reports';
 import { fillMissingChild } from '../../domain/ledger';
-import { plural } from '../../domain/stock';
 import { formatAge, formatDayLabel, formatLocalDate, formatTime12h, todayLocal } from '../../domain/time';
 import { MovementStrip } from '../../ui/movement-strip';
 
@@ -46,7 +45,7 @@ export default function TodayScreen() {
             {formatDayLabel()} · {asOfLabel()}
           </T>
           <T style={st.total}>
-            {plural(total, 'dose', 'doses')} given
+            {total} {total === 1 ? 'dose' : 'doses'} given
           </T>
         </>
       )}

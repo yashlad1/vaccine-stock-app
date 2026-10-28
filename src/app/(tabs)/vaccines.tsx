@@ -67,7 +67,7 @@ export default function VaccinesScreen() {
         ListHeaderComponent={
           <View style={st.headerWrap}>
             <T style={st.total}>
-              {plural((active ?? []).length, 'vaccine', 'vaccines')}
+              {(active ?? []).length} {(active ?? []).length === 1 ? 'vaccine' : 'vaccines'}
             </T>
 
             <View style={{ marginTop: space.md, gap: space.sm }}>

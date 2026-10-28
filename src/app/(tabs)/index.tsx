@@ -5,7 +5,7 @@ import { Badge, Chip, ErrorState, Input, Loading, Screen, SecondaryButton, Secti
 import { color, radius, space, type, weight } from '../../ui/tokens';
 import { useDb, useQuery } from '../../db/provider';
 import { dosesGivenTotals, vaccinesByUsage } from '../../domain/reports';
-import { describeStockRow, plural } from '../../domain/stock';
+import { describeStockRow } from '../../domain/stock';
 import { daysAgoLocal, formatDayLabel, todayLocal } from '../../domain/time';
 import { BackupBanner } from '../../ui/backup-banner';
 import { SyncBanner } from '../../ui/sync-banner';
@@ -97,7 +97,7 @@ export default function GiveDoseScreen() {
             hitSlop={{ top: 18, bottom: 18, left: 4, right: 8 }}
           >
             <T style={[st.status, st.statusCount]}>
-              {plural(dosesToday, 'dose', 'doses')} today
+              {dosesToday} {dosesToday === 1 ? 'dose' : 'doses'} today
             </T>
           </Pressable>
         </View>
