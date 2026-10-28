@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Badge, BigButton, Card, Row, SectionTitle, T, useBottomInset } from '../../ui/components';
+import { Badge, BigButton, Card, Row, SectionTitle, T, s as base, useBottomInset } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
@@ -69,7 +69,7 @@ export default function MoreScreen() {
 
   return (
     <ScrollView
-      style={st.screen}
+      style={base.screen}
       contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}
       showsVerticalScrollIndicator={false}
     >
@@ -84,7 +84,7 @@ export default function MoreScreen() {
       <T style={st.eyebrow}>Your data</T>
       <T style={st.headline}>{lastBackupLabel(lastBackupAt ?? null)}</T>
 
-      <Card tone="soft" style={{ marginTop: space.md }}>
+      <Card style={{ marginTop: space.md }}>
         <Row title="Back up / restore" onPress={() => router.push('/backup')} />
         {/* The pending count is the honest answer to "is my data safe?" - a
             server backup that is quietly 40 entries behind is worse than none,
@@ -174,7 +174,6 @@ export default function MoreScreen() {
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   eyebrow: { fontSize: type.min, color: color.textMuted, fontWeight: weight.semibold },
   headline: {
     fontSize: type.big,

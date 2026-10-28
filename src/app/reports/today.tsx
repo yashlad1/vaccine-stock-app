@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { BigButton, Empty, ErrorState, Input, Loading, Row, SecondaryButton, T, useBottomInset } from '../../ui/components';
+import { BigButton, Empty, ErrorState, Input, Loading, Row, SecondaryButton, T, s as base, useBottomInset } from '../../ui/components';
 import { useAction } from '../../ui/use-action';
 import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
@@ -34,7 +34,7 @@ export default function TodayScreen() {
   const total = (totals ?? []).reduce((n, t) => n + t.doses, 0);
 
   return (
-    <ScrollView style={st.screen} contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}>
+    <ScrollView style={base.screen} contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}>
       <Stack.Screen options={{ title: missingMode ? 'Missing child names' : 'Given today' }} />
       {missingMode ? (
         <T style={st.total}>Doses with no name</T>
@@ -137,7 +137,6 @@ export default function TodayScreen() {
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   day: { fontSize: type.label, color: color.textMuted, fontWeight: weight.semibold },
   total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
   section: { fontSize: type.label, fontWeight: weight.bold, color: color.text, marginTop: space.xl, marginBottom: space.sm },

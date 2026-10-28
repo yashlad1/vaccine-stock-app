@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ErrorState, Input, Loading, T, useBottomInset } from '../../ui/components';
+import { ErrorState, Input, Loading, Screen, T, useBottomInset } from '../../ui/components';
 import { color, radius, space, touch, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useQuery } from '../../db/provider';
@@ -24,7 +24,7 @@ export default function ReceivePickScreen() {
   if (loading && !rows) return <Loading />;
 
   return (
-    <View style={st.screen}>
+    <Screen>
       <View style={{ padding: space.lg }}>
         <T style={st.hint}>Which vaccine arrived?</T>
         <Input placeholder="Search vaccine" value={q} onChangeText={setQ} autoCorrect={false} autoCapitalize="none" />
@@ -52,12 +52,11 @@ export default function ReceivePickScreen() {
           );
         }}
       />
-    </View>
+    </Screen>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   hint: { fontSize: type.title, fontWeight: weight.semibold, color: color.text, marginBottom: space.md },
   row: {
     minHeight: touch.min + 8,

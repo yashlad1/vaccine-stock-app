@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Badge, BigButton, Chip, ErrorState, Footer, Input, Loading, Row, T, useBottomInset } from '../../ui/components';
+import { Badge, BigButton, Chip, ErrorState, Footer, Input, Loading, Row, Screen, T, useBottomInset } from '../../ui/components';
 import { color, radius, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { searchRank } from '../../domain/search';
@@ -56,7 +56,7 @@ export default function VaccinesScreen() {
   if (loading && !active) return <Loading label="Loading vaccines" />;
 
   return (
-    <View style={st.screen}>
+    <Screen>
       <FlatList
         data={rows}
         keyExtractor={(v) => v.id}
@@ -174,12 +174,11 @@ export default function VaccinesScreen() {
           />
         )}
       </Footer>
-    </View>
+    </Screen>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   headerWrap: { paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.sm },
   total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },

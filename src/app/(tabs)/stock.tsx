@@ -11,6 +11,7 @@ import {
   Input,
   Loading,
   Row,
+  Screen,
   SectionTitle,
   SecondaryButton,
   T,
@@ -111,7 +112,7 @@ export default function AddStockScreen() {
   );
 
   return (
-    <View style={st.screen}>
+    <Screen>
       <FlatList
         data={shown}
         keyExtractor={(x) => x.row.vaccine_id}
@@ -271,12 +272,11 @@ export default function AddStockScreen() {
           onPress={() => router.push("/receive")}
         />
       </Footer>
-    </View>
+    </Screen>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   headerWrap: {
     paddingHorizontal: space.lg,
     paddingTop: space.lg,

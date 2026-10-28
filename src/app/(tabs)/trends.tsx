@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Chip, ErrorState, Loading, Row, SecondaryButton, SectionTitle, T, useBottomInset } from '../../ui/components';
+import { Card, Chip, ErrorState, Loading, Row, SecondaryButton, SectionTitle, T, s as base, useBottomInset } from '../../ui/components';
 import { BarRow, ColumnChart } from '../../ui/charts';
 import { MovementStrip } from '../../ui/movement-strip';
 import { accentSoft, color, space, touch, type, weight } from '../../ui/tokens';
@@ -110,7 +110,7 @@ export default function TrendsScreen() {
 
   return (
     <ScrollView
-      style={st.screen}
+      style={base.screen}
       contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}
       showsVerticalScrollIndicator={false}
     >
@@ -368,7 +368,6 @@ function Shares({ tallies, total }: { tallies: Tally[]; total: number }) {
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   eyebrow: { fontSize: type.min, color: color.textMuted, fontWeight: weight.semibold },
   total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text, marginTop: 2 },
   totalTail: { fontSize: type.title, fontWeight: weight.semibold },

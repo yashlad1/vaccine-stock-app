@@ -1,5 +1,5 @@
 import { FlatList, StyleSheet, View } from 'react-native';
-import { Badge, Empty, ErrorState, Loading, SecondaryButton, T, useBottomInset } from '../../ui/components';
+import { Badge, Empty, ErrorState, Loading, SecondaryButton, T, s as base, useBottomInset } from '../../ui/components';
 import { useAction } from '../../ui/use-action';
 import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
@@ -72,7 +72,7 @@ export default function LedgerScreen() {
 
   return (
     <FlatList
-      style={st.screen}
+      style={base.screen}
       data={data}
       keyExtractor={(m) => m.id}
       contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}
@@ -129,7 +129,6 @@ export default function LedgerScreen() {
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   row: {
     flexDirection: 'row',
     gap: space.md,

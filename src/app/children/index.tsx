@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
-import { Empty, ErrorState, Input, Loading, Row, T, useBottomInset } from '../../ui/components';
+import { Empty, ErrorState, Input, Loading, Row, Screen, T, useBottomInset } from '../../ui/components';
 import { color, space, type } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useQuery } from '../../db/provider';
@@ -22,7 +22,7 @@ export default function ChildrenScreen() {
   if (loading && !data) return <Loading />;
 
   return (
-    <View style={st.screen}>
+    <Screen>
       <View style={{ padding: space.lg }}>
         <Input
           placeholder="Search by name or phone"
@@ -58,11 +58,10 @@ export default function ChildrenScreen() {
           ? 'Names are saved on this phone and the clinic server. Keep a screen lock on the phone.'
           : 'Names are only on this phone. Back them up regularly, and keep a screen lock on the phone.'}
       </T>
-    </View>
+    </Screen>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   note: { fontSize: type.min, color: color.textMuted, padding: space.lg },
 });
