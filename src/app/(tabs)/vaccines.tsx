@@ -69,10 +69,6 @@ export default function VaccinesScreen() {
               {(active ?? []).length} {(active ?? []).length === 1 ? 'vaccine' : 'vaccines'}
             </T>
 
-            <T style={st.note}>
-              Check doses per vial against the pack. A wrong number skews every count.
-            </T>
-
             <View style={{ marginTop: space.md, gap: space.sm }}>
               <Input
                 placeholder="Search vaccine"
@@ -186,7 +182,6 @@ const st = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bg },
   headerWrap: { paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.sm },
   total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
-  note: { fontSize: type.min, color: color.textMuted, lineHeight: 20, marginTop: space.xs },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   emptyText: { fontSize: type.body, color: color.textMuted, textAlign: 'center', lineHeight: 26 },
 
