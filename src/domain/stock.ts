@@ -1,4 +1,4 @@
-import type { StockRow, UnitMode } from './types';
+import type { StockRow } from './types';
 
 /**
  * THE CLINICIAN NEVER MULTIPLIES.
@@ -15,8 +15,6 @@ export interface StockDisplay {
   doses: number;
   /** Always dose-denominated: "18 doses". The number that can be acted on. */
   primary: string;
-  /** For vial-mode only: "2 vials + 4 doses" - what she'll physically see. */
-  secondary?: string;
   level: StockLevel;
   /** Colour is never the only signal; this word always accompanies it. */
   badge?: string;
@@ -24,13 +22,6 @@ export interface StockDisplay {
 
 export function dosesFromVials(dosesPerVial: number, vials: number): number {
   return dosesPerVial * vials;
-}
-
-export function splitVials(dosesPerVial: number, doses: number) {
-  if (dosesPerVial <= 1) return { sealed: doses, remainder: 0 };
-  const sign = doses < 0 ? -1 : 1;
-  const abs = Math.abs(doses);
-  return { sealed: sign * Math.floor(abs / dosesPerVial), remainder: sign * (abs % dosesPerVial) };
 }
 
 /**
@@ -44,38 +35,15 @@ export function stockLevel(onHandDoses: number, minBalanceDoses: number): StockL
   return 'OK';
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${Math.abs(n) === 1 ? one : many}`;
+/** "1 dose", "12 doses". `Math.abs` so a negative balance of -1 still reads singular. */
+export const plural = (n: number, one: string, many: string) => `${n} ${Math.abs(n) === 1 ? one : many}`;
 
-export function describeStock(
-  doses: number,
-  unitMode: UnitMode,
-  dosesPerVial: number,
-  minBalanceDoses: number,
-): StockDisplay {
+export function describeStock(doses: number, minBalanceDoses: number): StockDisplay {
   const level = stockLevel(doses, minBalanceDoses);
-  const primary = plural(doses, 'dose', 'doses');
-
-  let secondary: string | undefined;
-  if (unitMode === 'VIAL' && dosesPerVial > 1 && doses !== 0) {
-    const { sealed, remainder } = splitVials(dosesPerVial, doses);
-    secondary =
-      remainder === 0
-        ? plural(sealed, 'vial', 'vials')
-        : `${plural(sealed, 'vial', 'vials')} + ${plural(remainder, 'dose', 'doses')}`;
-  }
-
-  const badge =
-    level === 'NEGATIVE'
-      ? 'CHECK'
-      : level === 'OUT'
-        ? 'OUT'
-        : level === 'LOW'
-          ? 'LOW'
-          : undefined;
-
-  return { doses, primary, secondary, level, badge };
+  const badge = level === 'NEGATIVE' ? 'CHECK' : level === 'OK' ? undefined : level;
+  return { doses, primary: plural(doses, 'dose', 'doses'), level, badge };
 }
 
 export function describeStockRow(row: StockRow): StockDisplay {
-  return describeStock(row.on_hand_doses, row.unit_mode, row.doses_per_vial, row.min_balance_doses);
+  return describeStock(row.on_hand_doses, row.min_balance_doses);
 }
