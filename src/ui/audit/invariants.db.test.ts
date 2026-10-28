@@ -113,8 +113,8 @@ describe('UI rule — nothing sits under the Android navigation bar', () => {
     const offenders: string[] = [];
     for (const f of screens) {
       const src = read(f);
-      const scrolls = /<ScrollView|<FlatList|<Scroll\b/.test(src);
-      const handled = /<Footer|useBottomInset|<Scroll\b/.test(src);
+      const scrolls = /<ScrollView|<FlatList/.test(src);
+      const handled = /<Footer|useBottomInset/.test(src);
       if (scrolls && !handled) offenders.push(rel(f));
     }
     expect(offenders).toEqual([]);

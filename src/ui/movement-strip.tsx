@@ -36,7 +36,7 @@ export function MovementStrip({
   nowLabel?: string;
 }) {
   return (
-    <Card tone="soft" style={{ marginTop: space.md }}>
+    <Card style={{ marginTop: space.md }}>
       <T style={st.label}>{label}</T>
       <View style={st.row}>
         <Term label={openingLabel} value={strip.opening} />
