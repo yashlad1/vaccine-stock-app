@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Badge, Chip, ErrorState, Input, Loading, SecondaryButton, SectionTitle, T, useBottomInset } from '../../ui/components';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, Stepper, T } from '../../ui/components';

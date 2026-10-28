@@ -1,4 +1,3 @@
-import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card, T } from './components';
 import { color, space, type, weight } from './tokens';
