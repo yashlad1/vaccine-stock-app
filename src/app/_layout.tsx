@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { Observe, ObserveInteractiveMarker, ObserveRoot } from 'expo-observe';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DbProvider } from '../db/provider';
@@ -8,6 +9,26 @@ import { ToastProvider } from '../ui/snackbar';
 import { AutoSync } from '../sync/auto';
 import { Empty, Loading, Screen, T } from '../ui/components';
 import { color, space, touch, type, weight } from '../ui/tokens';
+
+/**
+ * EAS Observe. Module scope, before anything renders.
+ *
+ * Route params are filtered. The exported route NAME stays (`/dose/[vaccineId]`,
+ * which is the useful part), but the resolved URL is dropped, so no row id from
+ * this clinic's database leaves the phone in a metric. Section 13: nothing
+ * clinic-identifying, and a metrics pipeline is not an exception to that.
+ *
+ * `dispatchInDebug` is deliberately not set - debug builds stay silent, so the
+ * Expo Go and web smoke loops never post metrics.
+ *
+ * Removed on 20 Oct to keep the old fingerprint for an OTA; back with build 5,
+ * which ships a new APK anyway (owner, 27 Oct).
+ */
+Observe.configure({
+  integrations: {
+    'expo-router': { filteredParams: ['vaccineId', 'id'] },
+  },
+});
 
 /** A worded back control for the modals: icon-only controls are not allowed (CLAUDE.md section 8). */
 function Cancel({ tint }: { tint: string }) {
@@ -39,7 +60,7 @@ const cancel = (c: string) => ({ ...tint(c), headerLeft: () => <Cancel tint={c} 
  * because a screen that reads a half-migrated database shows numbers that are
  * quietly wrong.
  */
-export default function RootLayout() {
+function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
@@ -57,6 +78,12 @@ export default function RootLayout() {
       >
         <ToastProvider>
           <AutoSync />
+          {/* Time-to-interactive is marked HERE, not on mount of this layout.
+              DbProvider holds its children until migrations finish, so this
+              subtree renders at the moment the app is genuinely usable. Marking
+              it any earlier would report the app as interactive while she is
+              still looking at "Opening clinic records". */}
+          <ObserveInteractiveMarker />
           <Stack
             screenOptions={{
               headerStyle: { backgroundColor: color.surface },
@@ -90,3 +117,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default ObserveRoot.wrap(RootLayout);

@@ -15,6 +15,7 @@
     "expo-haptics": "~57.0.2",
     "expo-image": "~57.0.4",
     "expo-linking": "~57.0.9",
+    "expo-observe": "~57.0.26",
     "expo-router": "~57.0.19",
     "expo-sharing": "~57.0.18",
     "expo-splash-screen": "~57.0.8",
