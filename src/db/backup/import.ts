@@ -2,7 +2,6 @@ import * as SQLite from 'expo-sqlite';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { unzipSync, strFromU8 } from 'fflate';
-import type { Db } from '../driver';
 import { wrapExpoDb } from '../driver.expo';
 import { migrate } from '../migrate';
 import { snapshotDb } from './export';
@@ -77,20 +76,6 @@ export async function previewBackup(
     await candidate.closeAsync().catch(() => undefined);
     throw e;
   }
-}
-
-/** What is on the phone right now, so the confirmation can compare the two. */
-export async function describeCurrent(db: Db): Promise<{ doses: number; vaccines: number; latestEntryAt: number | null }> {
-  const doses = await db.first<{ n: number }>(
-    `SELECT COUNT(*) AS n FROM v_movement_effective WHERE movement_type='ADMINISTRATION'`,
-  );
-  const vaccines = await db.first<{ n: number }>(
-    `SELECT COUNT(*) AS n FROM vaccines WHERE deleted_at IS NULL`,
-  );
-  const latest = await db.first<{ n: number | null }>(
-    `SELECT MAX(occurred_at) AS n FROM stock_movements`,
-  );
-  return { doses: doses?.n ?? 0, vaccines: vaccines?.n ?? 0, latestEntryAt: latest?.n ?? null };
 }
 
 /**

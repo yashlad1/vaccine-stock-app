@@ -1,7 +1,6 @@
 import type { Db } from '../driver';
 import { objectsToCsv, type CsvValue } from './csv';
 import { formatAge, formatTime12h } from '../../domain/time';
-import { REQUIRED_TABLES } from './validate';
 
 /**
  * The CSVs that go in the backup zip.
@@ -73,15 +72,6 @@ export async function patientsCsv(db: Db): Promise<string> {
       ORDER BY name COLLATE NOCASE`,
   );
   return objectsToCsv(['name', 'dob', 'guardian_phone'], rows as never);
-}
-
-export async function tableCounts(db: Db): Promise<Record<string, number>> {
-  const counts: Record<string, number> = {};
-  for (const t of REQUIRED_TABLES) {
-    const row = await db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM ${t}`);
-    counts[t] = row?.n ?? 0;
-  }
-  return counts;
 }
 
 export async function collectCsvs(db: Db): Promise<Record<string, string>> {

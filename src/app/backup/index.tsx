@@ -7,7 +7,8 @@ import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { SETTING, getNumber, getSetting, markBackedUp } from '../../db/repo/settings';
 import { exportBackup, listLocalBackups } from '../../db/backup/export';
-import { commitRestore, describeCurrent, pickBackup, previewBackup } from '../../db/backup/import';
+import { commitRestore, pickBackup, previewBackup } from '../../db/backup/import';
+import { ledgerSummary } from '../../db/backup/validate';
 import { lastBackupLabel } from '../../domain/backup-nag';
 import { formatDate, formatTime12h } from '../../domain/time';
 
@@ -42,7 +43,7 @@ export default function BackupScreen() {
   const { data: meta, error, reload } = useQuery(async (d) => ({
     lastBackupAt: Number(await getSetting(d, SETTING.lastBackupAt)) || null,
     dosesSinceBackup: await getNumber(d, SETTING.dosesSinceBackup, 0),
-    current: await describeCurrent(d),
+    current: await ledgerSummary(d),
   }));
   const { data: local, reload: reloadLocal } = useQuery(async () => listLocalBackups());
 

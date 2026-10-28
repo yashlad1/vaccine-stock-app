@@ -56,8 +56,8 @@ const { openNodeDb } = await import('../src/db/driver.node.ts');
 const { migrate, currentVersion } = await import('../src/db/migrate.ts');
 const { supabaseBackend } = await import('../src/sync/backend.supabase.ts');
 const { restoreFromServer } = await import('../src/sync/restore.ts');
-const { collectCsvs, tableCounts } = await import('../src/db/backup/collect.ts');
-const { BACKUP_FORMAT, DB_ENTRY, MANIFEST_ENTRY, inspectBackup, parseManifest } = await import(
+const { collectCsvs } = await import('../src/db/backup/collect.ts');
+const { BACKUP_FORMAT, DB_ENTRY, MANIFEST_ENTRY, inspectBackup, parseManifest, tableCounts } = await import(
   '../src/db/backup/validate.ts'
 );
 const { strFromU8, strToU8, unzipSync, zipSync } = await import('fflate');
