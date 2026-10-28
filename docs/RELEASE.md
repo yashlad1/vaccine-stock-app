@@ -68,6 +68,8 @@ Check any future APK against it before sending it to the clinic:
 
 ```sh
 $ANDROID_HOME/build-tools/36.0.0/apksigner verify --print-certs app.apk | grep 'SHA-256'
+# this Mac has no build-tools; this reads the same certificate from the APK itself:
+NODE_OPTIONS="--disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON" node scripts/apk-cert.ts app.apk
 ```
 
 A different value means that APK **cannot** upgrade her installed app in place.
@@ -85,7 +87,9 @@ Related, same reason: **never change `android.package`** (`in.clinicstock.app`).
 | Date | versionCode | Version | Size | Notes |
 | --- | --- | --- | --- | --- |
 | 7 Sep 2026 | 3 | 0.1.0 | 109 MB | First successful build. Universal APK — all four ABIs. **Orphaned from OTA** (see below) |
-| 7 Sep 2026 | **4** | 0.1.0 | **62 MB** | **Current.** ARM-only. Same signing key as build 3, so it upgrades in place. `runtimeVersion fa84bf12…` matches the tree, so OTA reaches it |
+| 7 Sep 2026 | 4 | 0.1.0 | 62 MB | ARM-only. Same signing key as build 3, so it upgrades in place. `runtimeVersion fa84bf12…`. Last OTA it can receive: group `ee46a7f0` (27 Oct) |
+| 7 Sep 2026 | 5 | 0.1.0 | — | Built, never installed at the clinic (it carried EAS Observe, fingerprint `e2d1f065`) |
+| 27 Oct 2026 | **6** | 0.1.0 | **62 MB** | **Current.** Build `c350c6c3`, from `cf2addd`. `runtimeVersion b17f432d…` (in the APK's `assets/fingerprint`). Signing cert SHA-256 `f83efd0e…` checked against the APK, so it upgrades build 4 in place. Brings back EAS Observe, `npm run ota` with `--environment production`, and the production profile's explicit `environment`. **Every device (phone AND tablet) must install it, or that device stops receiving updates** |
 
 ### Why later builds are ~half the size
 
