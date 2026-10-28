@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Chip, ErrorState, Loading, Row, SecondaryButton, SectionTitle, T, useBottomInset } from '../../ui/components';
 import { BarRow, ColumnChart } from '../../ui/charts';
@@ -356,7 +356,6 @@ function Shares({ tallies, total }: { tallies: Tally[]; total: number }) {
     return (
       <BarRow
         key={t.key}
-        accent="trends"
         label={t.label}
         value={withPercent ? `${doses(t.doses)} · ${pct}%` : doses(t.doses)}
         fraction={total ? t.doses / total : 0}
