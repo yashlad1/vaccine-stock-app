@@ -59,7 +59,7 @@
     "eas:setup": "npx --yes eas-cli@23.2.0 init && npx --yes eas-cli@23.2.0 update:configure",
     "build:apk": "npx --yes eas-cli@23.2.0 build --platform android --profile production",
     "build:preview": "npx --yes eas-cli@23.2.0 build --platform android --profile preview",
-    "ota": "npx --yes eas-cli@23.2.0 update --branch production --message",
+    "ota": "npx --yes eas-cli@23.2.0 update --branch production --environment production --message",
     "keystore": "npx --yes eas-cli@23.2.0 credentials"
   },
   "private": true
