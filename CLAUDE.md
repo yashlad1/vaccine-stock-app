@@ -389,7 +389,7 @@ These are requirements, not preferences.
   pairings measure **4.7:1** (`ok` and `low` on the ground); change a soft tint only with the test
   open.
 - **Dimensions do not change** (owner, 17 Oct 2026: "what we were using before was working
-  perfectly fine for doc"). Sizes, radii (`10/14/20/28`), font weights (700 included), letter
+  perfectly fine for doc"). Sizes, radii (`10/14/20`), font weights (700 included), letter
   spacing, padding, margins, border boxes, row widths and the 0.985 press scale are the ones the
   doctor has used since launch. A restyle may change colour and wording only. Where a new outline
   was added, it sits inside the old box and the padding gives its pixel back, so nothing moves.
@@ -612,7 +612,7 @@ recomputed rather than transferred, so any device that has the ledger computes t
 | Re-dirtying is a **DB trigger**, not a call-site edit | Same reasoning as the immutability triggers. It fires on `updated_at` changing, so it cannot fight sync's own mark-uploaded write — a recursion that would mean the queue never drains |
 | `settings` is **not** replicated | It holds `device_id` and the server credentials. Replicating it would overwrite one phone's identity with another's |
 | `dirty`/`last_synced_at` are stripped before upload | They are this phone's bookkeeping, not clinic data |
-| `stock_movements` has **no UPDATE or DELETE policy** server-side | With RLS on, a missing policy is a denial. This is the server's half of invariant 1 |
+| `stock_movements` has **no DELETE policy** server-side, and its UPDATE policy reaches only the annotations (`patient_id`, `patient_label`, `needs_detail`, `note`): a trigger refuses any other change | With RLS on, a missing policy is a denial. This is the server's half of invariant 1. The annotation UPDATE (27 Oct 2026, `supabase/movement-annotations.sql`) lets a child's name filled in after upload reach the server, the backups and the other device; until that SQL runs, the names wait on the phone and doses upload as before |
 
 ### Restore
 
