@@ -58,9 +58,9 @@ clinic-backup-*.zip
 
 # Local editor / tooling
 .idea/
-.vscode/*
-!.vscode/extensions.json
-.DS_Store
+.vscode/
+# Local Claude Code settings and agent worktrees.
+.claude/
 
 # Secrets
 .env
