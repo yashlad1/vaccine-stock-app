@@ -356,6 +356,27 @@ export function Stepper({
   accent?: Accent;
 }) {
   const step = (delta: number) => onChange(Math.min(max, Math.max(min, value + delta)));
+  // Long-press repeats +/-1 every 120ms until released or the limit is hit.
+  // A ref holds the live value because the interval outlives each render.
+  const live = useRef(value);
+  useEffect(() => {
+    live.current = value;
+  }, [value]);
+  const hold = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopHold = () => {
+    if (hold.current) clearInterval(hold.current);
+    hold.current = null;
+  };
+  useEffect(() => stopHold, []);
+  const startHold = (delta: number) => {
+    stopHold();
+    hold.current = setInterval(() => {
+      const next = Math.min(max, Math.max(min, live.current + delta));
+      if (next === live.current) return stopHold();
+      live.current = next;
+      onChange(next);
+    }, 120);
+  };
   return (
     <View>
       <View style={s.stepperRow}>
@@ -363,7 +384,8 @@ export function Stepper({
           accessibilityRole="button"
           accessibilityLabel="Decrease"
           onPress={() => step(-1)}
-          onLongPress={() => step(-5)}
+          onLongPress={() => startHold(-1)}
+          onPressOut={stopHold}
           disabled={value <= min}
           style={({ pressed }) => [s.stepperBtn, value <= min && s.stepperBtnDisabled, pressed && s.stepperBtnPressed]}
         >
@@ -376,7 +398,8 @@ export function Stepper({
           accessibilityRole="button"
           accessibilityLabel="Increase"
           onPress={() => step(1)}
-          onLongPress={() => step(5)}
+          onLongPress={() => startHold(1)}
+          onPressOut={stopHold}
           disabled={value >= max}
           style={({ pressed }) => [s.stepperBtn, value >= max && s.stepperBtnDisabled, pressed && s.stepperBtnPressed]}
         >
