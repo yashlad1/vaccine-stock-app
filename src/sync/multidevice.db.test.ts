@@ -9,6 +9,7 @@ import { insertVaccine, seedCatalog } from '../db/repo/catalog';
 import { findOrCreateLot } from '../db/repo/lots';
 import { recordAdministration, recordReceipt, reverseMovement } from '../domain/ledger';
 import { ensureDeviceId } from '../db/repo/settings';
+import { createPatient } from '../db/repo/patients';
 import type { Db } from '../db/driver';
 import type { SyncBackend } from './backend';
 
@@ -355,5 +356,40 @@ describe('the escape hatch for an unreachable server', () => {
     expect(await startNewClinicHere(B.db, B.deviceId)).toBe(0);
     const after = await B.db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM vaccines`);
     expect(after!.n).toBe(before!.n);
+  });
+});
+
+describe('a phone reinstalled after an uninstall', () => {
+  // Uninstalling deletes the app's database. What brings the clinic back is
+  // the server: a fresh install joins the clinic like any new device, with the
+  // same built-in login. This pins that everything synced comes back exactly.
+  it('gets back every synced dose, child, batch, undo and stock number', async () => {
+    const server = memoryBackend();
+    const phone = await device(server, 'phone');
+    const ctx = { deviceId: phone.deviceId };
+    const vId = await insertVaccine(phone.db, BCG, phone.deviceId);
+    const lot = await findOrCreateLot(phone.db, { vaccineId: vId, lotNumber: 'AB1' }, phone.deviceId);
+    await recordReceipt(phone.db, ctx, { clientActionId: 'r1', vaccineId: vId, lotId: lot, doses: 30 });
+    const child = await createPatient(phone.db, { name: 'Test Child', dob: '2026-01-01', sex: 'F' }, phone.deviceId);
+    await recordAdministration(phone.db, ctx, {
+      clientActionId: 'g1', vaccineId: vId, lotId: lot, patientId: child, patientLabel: 'Test Child', note: 'Dose 2',
+    });
+    const undone = await recordAdministration(phone.db, ctx, { clientActionId: 'g2', vaccineId: vId, lotId: lot });
+    await reverseMovement(phone.db, ctx, { clientActionId: 'u1', movementId: undone.movement.id });
+    await phone.sync();
+    expect(await countDirty(phone.db)).toBe(0); // the precondition: nothing waiting to upload
+
+    const fresh = await device(server, 'phone, reinstalled');
+    expect((await adoptOrSeed(fresh.db, fresh.deviceId, server.backend))?.kind).toBe('adopted');
+
+    expect(await onHand(fresh.db, vId)).toBe(29); // 30 received, 1 given, 1 given and undone
+    const count = (db: Db, t: string) => db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM ${t}`).then((r) => r!.n);
+    for (const t of ['vaccines', 'lots', 'patients', 'stock_movements']) {
+      expect(await count(fresh.db, t)).toBe(await count(phone.db, t));
+    }
+    expect(await fresh.db.first(`SELECT dob, sex FROM patients WHERE id = ?`, [child]))
+      .toEqual({ dob: '2026-01-01', sex: 'F' });
+    expect(await fresh.db.first(`SELECT note FROM stock_movements WHERE idempotency_key LIKE '%g1'`))
+      .toEqual({ note: 'Dose 2' });
   });
 });
