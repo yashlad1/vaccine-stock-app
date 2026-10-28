@@ -1,10 +1,12 @@
-# CLAUDE.md — Clinic Vaccine Stock Logger
+# CLAUDE.md — Vialbook (Clinic Vaccine Stock Logger)
 
 Authoritative spec for this repository. Read this before changing anything.
 
 ---
 
 ## 1. What this is
+
+**Name: Vialbook** (owner, 27 Oct 2026; it was "Clinic Stock"). The launcher label is native, so the name ships with build 7. The package id `in.clinicstock.app`, the slug `clinic-stock` and the scheme keep the old name for good: changing any of them cuts installed phones off from updates (section 16). Backup files stay `clinic-backup-*.zip`, so older backups still restore.
 
 An offline Android app that replaces a pediatric clinic's paper vaccine-stock notebook. Two jobs
 happen all day:

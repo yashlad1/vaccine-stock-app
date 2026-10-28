@@ -1,4 +1,4 @@
--- Reference DDL for Clinic Stock, schema v5.
+-- Reference DDL for Vialbook, schema v5.
 --
 -- GENERATED from src/db/migrations by scripts/dump-schema.ts.
 -- Do not edit by hand; run `npm run schema:dump` instead.
