@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput,
+  ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput,
   type TextInputProps, View, type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +27,39 @@ export function T(props: React.ComponentProps<typeof Text>) {
 
 export function Screen({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   return <View style={[s.screen, style]}>{children}</View>;
+}
+
+/**
+ * A form screen whose fields and footer stay above the keyboard.
+ *
+ * Android draws this app edge to edge (SDK 57), and edge to edge ignores the
+ * window's "resize for the keyboard" mode on most phones, so the keyboard
+ * covered the lower fields and the footer's Give button. KeyboardAvoidingView
+ * measures from below the header, so on a stack screen it under-pads by the
+ * header's height. Instead: when the keyboard opens, measure where this screen
+ * ends in the window and pad by the part the keyboard covers. Zero if this
+ * phone did resize the window; the keyboard's height if it did not. Right
+ * either way, and nothing to tune per device.
+ */
+export function KeyboardSafe({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  const box = useRef<View>(null);
+  const [covered, setCovered] = useState(0);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      box.current?.measureInWindow((_x, y, _w, h) => setCovered(Math.max(0, y + h - e.endCoordinates.screenY)));
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => setCovered(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return (
+    <View ref={box} style={[s.screen, style, covered ? { paddingBottom: covered } : null]}>
+      {children}
+    </View>
+  );
 }
 
 export function Scroll({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BigButton, Chip, ErrorState, Field, Footer, Input, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
+import { BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
@@ -115,7 +115,7 @@ export default function EditVaccineScreen() {
   });
 
   return (
-    <View style={st.screen}>
+    <KeyboardSafe>
       <ScrollView contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl }]}>
         <Field label="Trade name" hint="Exactly as printed on the vial.">
           <Input value={name} onChangeText={setName} autoCapitalize="words" autoCorrect={false} />
@@ -162,12 +162,11 @@ export default function EditVaccineScreen() {
       <Footer>
         <BigButton accent="catalog" label="Save changes" onPress={save} disabled={!name.trim() || parsedPrice === undefined} />
       </Footer>
-    </View>
+    </KeyboardSafe>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   error: { fontSize: type.label, color: color.danger, fontWeight: weight.semibold, lineHeight: 22 },
   removeBlock: { marginTop: space.xxl, gap: space.sm },

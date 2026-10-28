@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { BigButton, Badge, Chip, ErrorState, Field, Footer, Input, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
+import { Badge, BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
 import { color, radius, space, touch, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
@@ -340,7 +340,7 @@ export default function DoseScreen() {
   };
 
   return (
-    <View style={st.screen}>
+    <KeyboardSafe>
       <Stack.Screen options={{ title: `Give ${vaccine.name}` }} />
       <ScrollView contentContainerStyle={[st.content, centred]} keyboardShouldPersistTaps="handled">
         {/* The vaccine name IS the confirmation, and it costs no tap. */}
@@ -548,12 +548,11 @@ export default function DoseScreen() {
           disabled={saving}
         />
       </Footer>
-    </View>
+    </KeyboardSafe>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   content: { padding: space.lg, paddingBottom: space.xxl },
   head: { marginBottom: space.md },
   headRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.md, rowGap: space.xs },

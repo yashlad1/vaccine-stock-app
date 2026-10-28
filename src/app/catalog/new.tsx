@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BigButton, Chip, Field, Footer, Input, Stepper, T } from '../../ui/components';
+import { BigButton, Chip, Field, Footer, Input, KeyboardSafe, Stepper, T } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb } from '../../db/provider';
@@ -64,7 +64,7 @@ export default function NewVaccineScreen() {
   };
 
   return (
-    <View style={st.screen}>
+    <KeyboardSafe>
       <ScrollView
         contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl }]}
         keyboardShouldPersistTaps="handled"
@@ -148,12 +148,11 @@ export default function NewVaccineScreen() {
           sublabel={name.trim() ? undefined : 'Enter the trade name first'}
         />
       </Footer>
-    </View>
+    </KeyboardSafe>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   error: { fontSize: type.label, color: color.danger, fontWeight: weight.semibold, lineHeight: 22 },
 });

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BigButton, Chip, ErrorState, Field, Footer, Input, Loading, Stepper, T } from '../../ui/components';
+import { BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, Stepper, T } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
@@ -94,7 +94,7 @@ export default function ReceiveScreen() {
   };
 
   return (
-    <View style={st.screen}>
+    <KeyboardSafe>
       <ScrollView contentContainerStyle={[st.content, centred]} keyboardShouldPersistTaps="handled">
         <T style={st.name}>{vaccine.name}</T>
         <T style={st.sub}>
@@ -153,12 +153,11 @@ export default function ReceiveScreen() {
           disabled={saving || !lotNumber.trim()}
         />
       </Footer>
-    </View>
+    </KeyboardSafe>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   content: { padding: space.lg, paddingBottom: space.xxl },
   name: { fontSize: type.big, fontWeight: weight.bold, color: color.text },
   sub: { fontSize: type.label, color: color.textMuted, marginTop: space.xs, marginBottom: space.xl },
