@@ -8,6 +8,7 @@ import { useDb, useQuery } from '../../db/provider';
 import { SETTING, getSetting } from '../../db/repo/settings';
 import { lastBackupLabel } from '../../domain/backup-nag';
 import { missingChildEntries } from '../../domain/reports';
+import { plural } from '../../domain/stock';
 import { pushOnce, syncStatus } from '../../sync/push';
 import { pullOnce } from '../../sync/pull';
 import { backendFor, loadSyncConfig } from '../../sync/config';
@@ -52,7 +53,7 @@ export default function MoreScreen() {
         }
         toast.show(
           out.pushedRows
-            ? `Uploaded ${out.pushedRows} ${out.pushedRows === 1 ? 'entry' : 'entries'}.`
+            ? `Uploaded ${plural(out.pushedRows, 'entry', 'entries')}.`
             : 'Already up to date.',
         );
       } finally {
@@ -99,7 +100,7 @@ export default function MoreScreen() {
                   ? 'Nothing uploaded yet. Your records are safe on this phone.'
                   : 'Not set up'
                 : sync.pending > 0
-                  ? `${sync.pending} ${sync.pending === 1 ? 'entry' : 'entries'} waiting to upload`
+                  ? `${plural(sync.pending, 'entry', 'entries')} waiting to upload`
                   : 'Everything uploaded'
           }
           right={
@@ -115,7 +116,7 @@ export default function MoreScreen() {
             label={busy ? 'Uploading…' : 'Upload now'}
             sublabel={
               sync && sync.pending > 0
-                ? `${sync.pending} ${sync.pending === 1 ? 'entry' : 'entries'} not on the server yet`
+                ? `${plural(sync.pending, 'entry', 'entries')} not on the server yet`
                 : 'Send today\u2019s entries to the server'
             }
             onPress={uploadNow}

@@ -10,12 +10,13 @@ import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 import { isPrimaryDevice } from '../../sync/adopt';
 import { formatRupees } from '../../domain/money';
+import { plural } from '../../domain/stock';
 import { listRemovedVaccines, listVaccines, restoreVaccine } from '../../db/repo/catalog';
 
 /** "Vials of 10 · Safety limit 20 doses" - the two numbers that drive the arithmetic. */
 function describeUnit(v: { unit_mode: string; doses_per_vial: number; min_balance_doses: number; price_rupees?: number | null }) {
   const unit = v.unit_mode === 'VIAL' ? `Vials of ${v.doses_per_vial}` : 'Single doses';
-  const base = `${unit} · Safety limit ${v.min_balance_doses} ${v.min_balance_doses === 1 ? 'dose' : 'doses'}`;
+  const base = `${unit} · Safety limit ${plural(v.min_balance_doses, 'dose', 'doses')}`;
   return v.price_rupees == null ? base : `${base} · ${formatRupees(v.price_rupees)} a dose`;
 }
 
@@ -66,7 +67,7 @@ export default function VaccinesScreen() {
         ListHeaderComponent={
           <View style={st.headerWrap}>
             <T style={st.total}>
-              {(active ?? []).length} {(active ?? []).length === 1 ? 'vaccine' : 'vaccines'}
+              {plural((active ?? []).length, 'vaccine', 'vaccines')}
             </T>
 
             <View style={{ marginTop: space.md, gap: space.sm }}>

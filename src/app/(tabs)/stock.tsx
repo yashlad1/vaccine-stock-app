@@ -24,7 +24,7 @@ import { centred } from "../../ui/layout";
 import { searchRank } from "../../domain/search";
 import { useQuery } from "../../db/provider";
 import { asOfLabel, movementStrip, stockOnHand } from "../../domain/reports";
-import { describeStockRow } from "../../domain/stock";
+import { describeStockRow, plural } from "../../domain/stock";
 import { formatLocalDate, todayLocal } from "../../domain/time";
 import {
   expiringLots,
@@ -34,7 +34,6 @@ import {
 } from "../../domain/supply";
 
 const CAP = 3;
-const dosesText = (n: number) => `${n} ${Math.abs(n) === 1 ? "dose" : "doses"}`;
 /** "31 Mar", plus the year when it is not this one: "31 Mar 2028". */
 const expiryLabel = (date: string, today: string) =>
   date.slice(0, 4) === today.slice(0, 4)
@@ -122,7 +121,7 @@ export default function AddStockScreen() {
         ListHeaderComponent={
           <View style={st.headerWrap}>
             <T style={st.eyebrow}>{asOfLabel()}</T>
-            <T style={st.total}>{dosesText(totalDoses)} in stock</T>
+            <T style={st.total}>{plural(totalDoses, 'dose', 'doses')} in stock</T>
 
             {strip ? <MovementStrip strip={strip} /> : null}
 
@@ -158,7 +157,7 @@ export default function AddStockScreen() {
                           o.belowZero ? (
                             <Badge text="CHECK" tone="danger" />
                           ) : (
-                            <T style={st.orderQty}>Order {dosesText(o.order)}</T>
+                            <T style={st.orderQty}>Order {plural(o.order, 'dose', 'doses')}</T>
                           )
                         }
                         onPress={() => router.push(`/receive/${o.vaccine_id}`)}
@@ -187,8 +186,8 @@ export default function AddStockScreen() {
                           title={`${l.name}, batch ${l.lot_number}: use by ${expiryLabel(l.expiry_date, today)}`}
                           subtitle={
                             l.expired
-                              ? `${dosesText(l.onHand)} left. Do not use.`
-                              : `About ${dosesText(l.onHand)} left.${l.mayWaste ? ` About ${dosesText(l.mayWaste)} may not be used in time.` : ""}`
+                              ? `${plural(l.onHand, 'dose', 'doses')} left. Do not use.`
+                              : `About ${plural(l.onHand, 'dose', 'doses')} left.${l.mayWaste ? ` About ${plural(l.mayWaste, 'dose', 'doses')} may not be used in time.` : ""}`
                           }
                           right={
                             l.expired ? (

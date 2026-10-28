@@ -10,6 +10,7 @@ import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 import { removeVaccine, restoreVaccine, setVaccinePrice, vaccineUsage } from '../../db/repo/catalog';
 import { parseRupees } from '../../domain/money';
+import { plural } from '../../domain/stock';
 import type { UnitMode, Vaccine } from '../../domain/types';
 
 /**
@@ -88,7 +89,7 @@ export default function EditVaccineScreen() {
     }
     if (usage.movements > 0) {
       lines.push(
-        `\n${usage.dosesGiven} ${usage.dosesGiven === 1 ? 'dose' : 'doses'} given and ${usage.movements} ${usage.movements === 1 ? 'entry stays' : 'entries stay'} in your records. Nothing is erased. You can add it back at any time.`,
+        `\n${plural(usage.dosesGiven, 'dose', 'doses')} given and ${usage.movements} ${usage.movements === 1 ? 'entry stays' : 'entries stay'} in your records. Nothing is erased. You can add it back at any time.`,
       );
     } else {
       lines.push('\nIt has never been used, so nothing is lost.');
