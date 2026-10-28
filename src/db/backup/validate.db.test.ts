@@ -2,9 +2,10 @@ import { openNodeDb } from '../driver.node';
 import { migrate, LATEST_VERSION } from '../migrate';
 import { makeTestDb, T0 } from '../testing';
 import { findOrCreateLot } from '../repo/lots';
-import { recordAdministration, recordReceipt } from '../../domain/ledger';
+import { recordAdministration, recordReceipt, reverseMovement } from '../../domain/ledger';
+import { insertVaccine, removeVaccine } from '../repo/catalog';
 import {
-  inspectBackup, parseManifest, BackupInvalidError, BACKUP_FORMAT, REQUIRED_TABLES,
+  inspectBackup, ledgerSummary, parseManifest, BackupInvalidError, BACKUP_FORMAT, REQUIRED_TABLES,
 } from './validate';
 
 const BCG = { name: 'BCG', unit_mode: 'VIAL' as const, doses_per_vial: 10, min_balance_doses: 20 };
@@ -27,6 +28,22 @@ describe('backup preview shows the doctor real numbers', () => {
     expect(preview.vaccines).toBe(1);
     expect(preview.latestEntryAt).toBe(T0);
     expect(preview.counts.stock_movements).toBe(3);
+  });
+
+  it('counts the backup the way it counts the phone: no undone dose, no removed vaccine', async () => {
+    const db = await goodBackup();
+    const { movement } = await recordAdministration(db, { deviceId: 'd' }, {
+      clientActionId: 'undone', vaccineId: (await db.first<{ id: string }>(`SELECT id FROM vaccines`))!.id,
+    });
+    await reverseMovement(db, { deviceId: 'd' }, { clientActionId: 'undo', movementId: movement.id });
+    await removeVaccine(db, await insertVaccine(db, { ...BCG, name: 'Old' }, 'd'));
+
+    const preview = await inspectBackup(db);
+    expect({ doses: preview.doses, vaccines: preview.vaccines }).toEqual({ doses: 2, vaccines: 1 });
+    const phone = await ledgerSummary(db);
+    expect(phone).toEqual({ doses: preview.doses, vaccines: preview.vaccines, latestEntryAt: preview.latestEntryAt });
+    // The manifest check still compares raw rows: all 5 movements, both vaccines.
+    expect(preview.counts).toMatchObject({ stock_movements: 5, vaccines: 2 });
   });
 
   it('accepts a manifest whose counts agree with the file', async () => {

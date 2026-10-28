@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pressable } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Observe, ObserveInteractiveMarker, ObserveRoot } from 'expo-observe';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useRouter } from 'expo-router';
 import { Banner } from './components';
 import { useDb, useQuery } from '../db/provider';

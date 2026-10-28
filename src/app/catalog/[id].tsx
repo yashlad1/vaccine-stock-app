@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
-import { color, space, type, weight } from '../../ui/tokens';
+import { BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, SecondaryButton, T } from '../../ui/components';
+import { CountingFields } from '../../ui/vaccine-fields';
+import { color, space, type } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 import { removeVaccine, restoreVaccine, setVaccinePrice, vaccineUsage } from '../../db/repo/catalog';
 import { parseRupees } from '../../domain/money';
+import { plural } from '../../domain/stock';
 import type { UnitMode, Vaccine } from '../../domain/types';
 
 /**
@@ -87,7 +89,7 @@ export default function EditVaccineScreen() {
     }
     if (usage.movements > 0) {
       lines.push(
-        `\n${usage.dosesGiven} ${usage.dosesGiven === 1 ? 'dose' : 'doses'} given and ${usage.movements} ${usage.movements === 1 ? 'entry stays' : 'entries stay'} in your records. Nothing is erased. You can add it back at any time.`,
+        `\n${plural(usage.dosesGiven, 'dose', 'doses')} given and ${usage.movements} ${usage.movements === 1 ? 'entry stays' : 'entries stay'} in your records. Nothing is erased. You can add it back at any time.`,
       );
     } else {
       lines.push('\nIt has never been used, so nothing is lost.');
@@ -121,27 +123,18 @@ export default function EditVaccineScreen() {
           <Input value={name} onChangeText={setName} autoCapitalize="words" autoCorrect={false} />
         </Field>
 
-        <Field label="How is it counted?">
-          <View style={st.chipRow}>
-            <Chip accent="catalog" label="Single doses" selected={unitMode === 'DOSE'} onPress={() => setUnitMode('DOSE')} />
-            <Chip accent="catalog" label="Multi-dose vials" selected={unitMode === 'VIAL'} onPress={() => setUnitMode('VIAL')} />
-          </View>
-        </Field>
-
-        {unitMode === 'VIAL' ? (
-          <Field label="Doses per vial" hint="Check the box. This multiplies every count.">
-            <Stepper accent="catalog" value={dosesPerVial} onChange={setDosesPerVial} min={1} max={50} quickValues={[1, 5, 10, 20]} />
-          </Field>
-        ) : null}
-
-        <Field label="Safety limit (doses)" hint="Warn me when stock falls to this level or below.">
-          <Stepper accent="catalog" value={minBalance} onChange={setMinBalance} min={0} max={200} quickValues={[0, 5, 10, 20]} />
-        </Field>
-
-        <Field label="Price per dose (₹)" hint="Optional. Used for the sales value on Trends.">
-          <Input value={price} onChangeText={setPrice} keyboardType="number-pad" />
-          {parsedPrice === undefined ? <T style={st.error}>Enter the price in whole rupees, like 1250.</T> : null}
-        </Field>
+        <CountingFields
+          unitMode={unitMode}
+          onUnitMode={setUnitMode}
+          dosesPerVial={dosesPerVial}
+          onDosesPerVial={setDosesPerVial}
+          vialQuickValues={[1, 5, 10, 20]}
+          minBalance={minBalance}
+          onMinBalance={setMinBalance}
+          price={price}
+          onPrice={setPrice}
+          priceInvalid={parsedPrice === undefined}
+        />
 
         <Field label="Show in the list?" hint="Hiding keeps all history; it never deletes anything.">
           <View style={st.chipRow}>
@@ -168,7 +161,6 @@ export default function EditVaccineScreen() {
 
 const st = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  error: { fontSize: type.label, color: color.danger, fontWeight: weight.semibold, lineHeight: 22 },
   removeBlock: { marginTop: space.xxl, gap: space.sm },
   removeHint: { fontSize: type.min, color: color.textMuted, lineHeight: 21 },
 });

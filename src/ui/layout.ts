@@ -42,8 +42,3 @@ export function useColumns(): number {
   // 560dp is ~168dp a tile, inside a phone's 158-184.
   return Math.min(width, CONTENT_MAX) >= 540 ? 3 : 2;
 }
-
-/** True on a tablet-sized screen. For the rare case where layout must differ. */
-export function useIsWide(): boolean {
-  return useWindowDimensions().width >= 600;
-}

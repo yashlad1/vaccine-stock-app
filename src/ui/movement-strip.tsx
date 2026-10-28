@@ -1,4 +1,3 @@
-import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card, T } from './components';
 import { color, space, type, weight } from './tokens';
@@ -37,7 +36,7 @@ export function MovementStrip({
   nowLabel?: string;
 }) {
   return (
-    <Card tone="soft" style={{ marginTop: space.md }}>
+    <Card style={{ marginTop: space.md }}>
       <T style={st.label}>{label}</T>
       <View style={st.row}>
         <Term label={openingLabel} value={strip.opening} />

@@ -1,4 +1,4 @@
--- Reference DDL for Clinic Stock, schema v1.
+-- Reference DDL for Clinic Stock, schema v5.
 --
 -- GENERATED from src/db/migrations by scripts/dump-schema.ts.
 -- Do not edit by hand; run `npm run schema:dump` instead.
@@ -6,7 +6,7 @@
 -- The migrations are the source of truth. This file exists so reviewers and
 -- the ERD have a single flat view of what they produce.
 
-PRAGMA user_version = 1;
+PRAGMA user_version = 5;
 
 CREATE TABLE lots (
   id                TEXT    PRIMARY KEY NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE lots (
   updated_at        INTEGER NOT NULL,
   deleted_at        INTEGER,
   device_id         TEXT    NOT NULL
-);
+, dirty INTEGER NOT NULL DEFAULT 1, last_synced_at INTEGER);
 
 CREATE TABLE patients (
   id             TEXT    PRIMARY KEY NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE patients (
   updated_at     INTEGER NOT NULL,
   deleted_at     INTEGER,
   device_id      TEXT    NOT NULL
-);
+, dirty INTEGER NOT NULL DEFAULT 1, last_synced_at INTEGER, sex TEXT CHECK (sex IN ('M','F')));
 
 CREATE TABLE settings (
   key        TEXT PRIMARY KEY NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE staff (
   updated_at INTEGER NOT NULL,
   deleted_at INTEGER,
   device_id  TEXT    NOT NULL
-);
+, dirty INTEGER NOT NULL DEFAULT 1, last_synced_at INTEGER);
 
 CREATE TABLE stock_movements (
   id                TEXT    PRIMARY KEY NOT NULL,
@@ -87,7 +87,7 @@ CREATE TABLE stock_movements (
   needs_detail      INTEGER NOT NULL DEFAULT 0 CHECK (needs_detail IN (0,1)),
   created_at        INTEGER NOT NULL,
   updated_at        INTEGER NOT NULL,
-  device_id         TEXT    NOT NULL,
+  device_id         TEXT    NOT NULL, dirty INTEGER NOT NULL DEFAULT 1, last_synced_at INTEGER, price_rupees INTEGER CHECK (price_rupees IS NULL OR price_rupees >= 0),
 
   -- Sign invariants: the type and the sign of delta_doses must agree.
   CHECK (movement_type NOT IN ('OPENING_BALANCE','RECEIPT') OR delta_doses > 0),
@@ -96,6 +96,23 @@ CREATE TABLE stock_movements (
   CHECK (movement_type <> 'REVERSAL' OR reverses_id IS NOT NULL),
   CHECK (reverses_id IS NULL OR movement_type = 'REVERSAL'),
   CHECK (wastage_reason IS NULL OR movement_type = 'WASTAGE')
+);
+
+CREATE TABLE sync_cursor (
+  table_name        TEXT PRIMARY KEY NOT NULL,
+  server_synced_at  TEXT,
+  updated_at        INTEGER NOT NULL
+);
+
+CREATE TABLE sync_log (
+  id            TEXT    PRIMARY KEY NOT NULL,
+  started_at    INTEGER NOT NULL,
+  finished_at   INTEGER,
+  pushed_rows   INTEGER NOT NULL DEFAULT 0,
+  ok            INTEGER NOT NULL DEFAULT 0 CHECK (ok IN (0,1)),
+  -- Kept so a failing phone can be diagnosed over WhatsApp without a debugger.
+  error         TEXT,
+  device_id     TEXT    NOT NULL
 );
 
 CREATE TABLE vaccines (
@@ -111,12 +128,16 @@ CREATE TABLE vaccines (
   created_at        INTEGER NOT NULL,
   updated_at        INTEGER NOT NULL,
   deleted_at        INTEGER,
-  device_id         TEXT    NOT NULL,
+  device_id         TEXT    NOT NULL, dirty INTEGER NOT NULL DEFAULT 1, last_synced_at INTEGER, price_rupees INTEGER CHECK (price_rupees IS NULL OR price_rupees >= 0),
   -- A single-dose presentation cannot claim more than one dose per vial.
   CHECK (unit_mode <> 'DOSE' OR doses_per_vial = 1)
 );
 
+CREATE INDEX ix_lots_dirty ON lots (updated_at) WHERE dirty = 1;
+
 CREATE INDEX ix_lots_expiry  ON lots(expiry_date) WHERE deleted_at IS NULL;
+
+CREATE INDEX ix_lots_identity ON lots(vaccine_id, lot_number, funding_source);
 
 CREATE INDEX ix_lots_vaccine ON lots(vaccine_id) WHERE deleted_at IS NULL;
 
@@ -133,14 +154,21 @@ CREATE INDEX ix_movements_patient    ON stock_movements(patient_id);
 
 CREATE INDEX ix_movements_vaccine    ON stock_movements(vaccine_id);
 
+CREATE INDEX ix_patients_dirty ON patients (updated_at) WHERE dirty = 1;
+
 CREATE INDEX ix_patients_name  ON patients(name) WHERE deleted_at IS NULL;
 
 CREATE INDEX ix_patients_phone ON patients(guardian_phone) WHERE deleted_at IS NULL;
 
+CREATE INDEX ix_staff_dirty ON staff (updated_at) WHERE dirty = 1;
+
+CREATE INDEX ix_stock_movements_dirty ON stock_movements (updated_at) WHERE dirty = 1;
+
+CREATE INDEX ix_sync_log_started ON sync_log (started_at DESC);
+
 CREATE INDEX ix_vaccines_active ON vaccines(is_active) WHERE deleted_at IS NULL;
 
-CREATE UNIQUE INDEX ux_lots_identity
-  ON lots(vaccine_id, lot_number, funding_source) WHERE deleted_at IS NULL;
+CREATE INDEX ix_vaccines_dirty ON vaccines (updated_at) WHERE dirty = 1;
 
 CREATE UNIQUE INDEX ux_movements_reverses
   ON stock_movements(reverses_id) WHERE reverses_id IS NOT NULL;
@@ -184,12 +212,26 @@ LEFT JOIN stock_movements m
 WHERE v.deleted_at IS NULL
 GROUP BY v.id;
 
+CREATE TRIGGER trg_lots_dirty
+AFTER UPDATE ON lots
+WHEN NEW.updated_at <> OLD.updated_at
+BEGIN
+  UPDATE lots SET dirty = 1 WHERE id = NEW.id;
+END;
+
 CREATE TRIGGER trg_movements_immutable_arithmetic
 BEFORE UPDATE OF
   id, idempotency_key, vaccine_id, lot_id, delta_doses, movement_type,
   wastage_reason, stock_source, occurred_at, local_date, local_time,
   tz_offset_minutes, reverses_id, device_id
 ON stock_movements
+BEGIN
+  SELECT RAISE(ABORT,
+    'stock_movements is append-only: append a REVERSAL instead of editing a movement');
+END;
+
+CREATE TRIGGER trg_movements_immutable_price
+BEFORE UPDATE OF price_rupees ON stock_movements
 BEGIN
   SELECT RAISE(ABORT,
     'stock_movements is append-only: append a REVERSAL instead of editing a movement');
@@ -209,5 +251,33 @@ WHEN NEW.reverses_id IS NOT NULL
 BEGIN
   SELECT RAISE(ABORT,
     'cannot reverse a REVERSAL: append a new forward movement instead');
+END;
+
+CREATE TRIGGER trg_patients_dirty
+AFTER UPDATE ON patients
+WHEN NEW.updated_at <> OLD.updated_at
+BEGIN
+  UPDATE patients SET dirty = 1 WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER trg_staff_dirty
+AFTER UPDATE ON staff
+WHEN NEW.updated_at <> OLD.updated_at
+BEGIN
+  UPDATE staff SET dirty = 1 WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER trg_stock_movements_dirty
+AFTER UPDATE ON stock_movements
+WHEN NEW.updated_at <> OLD.updated_at
+BEGIN
+  UPDATE stock_movements SET dirty = 1 WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER trg_vaccines_dirty
+AFTER UPDATE ON vaccines
+WHEN NEW.updated_at <> OLD.updated_at
+BEGIN
+  UPDATE vaccines SET dirty = 1 WHERE id = NEW.id;
 END;
 

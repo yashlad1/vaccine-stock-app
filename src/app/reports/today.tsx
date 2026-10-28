@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { BigButton, Empty, ErrorState, Input, Loading, Row, SecondaryButton, T, useBottomInset } from '../../ui/components';
+import { BigButton, Empty, ErrorState, Input, Loading, Row, SecondaryButton, T, s as base, useBottomInset } from '../../ui/components';
 import { useAction } from '../../ui/use-action';
 import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { asOfLabel, dosesGiven, dosesGivenTotals, missingChildEntries, movementStrip } from '../../domain/reports';
 import { fillMissingChild } from '../../domain/ledger';
-import { formatAge, formatDate, formatDayLabel, formatTime12h, todayLocal } from '../../domain/time';
+import { formatAge, formatDayLabel, formatLocalDate, formatTime12h, todayLocal } from '../../domain/time';
 import { MovementStrip } from '../../ui/movement-strip';
 
 /** "Vaccines given today, time, count" - the notebook page, arithmetic included. */
@@ -34,7 +34,7 @@ export default function TodayScreen() {
   const total = (totals ?? []).reduce((n, t) => n + t.doses, 0);
 
   return (
-    <ScrollView style={st.screen} contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}>
+    <ScrollView style={base.screen} contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}>
       <Stack.Screen options={{ title: missingMode ? 'Missing child names' : 'Given today' }} />
       {missingMode ? (
         <T style={st.total}>Doses with no name</T>
@@ -68,7 +68,7 @@ export default function TodayScreen() {
             {/* Missing-names rows carry a date too; stacked above the row it cannot squeeze it at 1.6x. */}
             {missingMode ? (
               <T style={st.time}>
-                {`${formatDate(new Date(`${l.local_date}T00:00:00`).getTime())}, ${formatTime12h(l.local_time)}`}
+                {`${formatLocalDate(l.local_date)}, ${formatTime12h(l.local_time)}`}
               </T>
             ) : (
               <T style={st.time}>{formatTime12h(l.local_time)}</T>
@@ -137,7 +137,6 @@ export default function TodayScreen() {
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   day: { fontSize: type.label, color: color.textMuted, fontWeight: weight.semibold },
   total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
   section: { fontSize: type.label, fontWeight: weight.bold, color: color.text, marginTop: space.xl, marginBottom: space.sm },

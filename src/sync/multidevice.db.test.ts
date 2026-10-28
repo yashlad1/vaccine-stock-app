@@ -1,13 +1,13 @@
 import { openNodeDb } from '../db/driver.node';
 import { migrate } from '../db/migrate';
 import { memoryBackend } from './backend.memory';
-import { pushOnce, countDirty } from './push';
+import { pushOnce, countDirty, syncStatus } from './push';
 import { pullOnce } from './pull';
 import { adoptOrSeed, isAwaitingCatalog, isPrimaryDevice, startNewClinicHere } from './adopt';
 import { saveSyncConfig } from './config';
 import { insertVaccine, seedCatalog } from '../db/repo/catalog';
 import { findOrCreateLot } from '../db/repo/lots';
-import { recordAdministration, recordReceipt, reverseMovement } from '../domain/ledger';
+import { fillMissingChild, recordAdministration, recordReceipt, reverseMovement } from '../domain/ledger';
 import { ensureDeviceId } from '../db/repo/settings';
 import { createPatient } from '../db/repo/patients';
 import type { Db } from '../db/driver';
@@ -223,6 +223,7 @@ describe('a new device joining an existing clinic', () => {
       push: async () => { throw new Error('offline'); },
       pullAll: async () => { throw new Error('offline'); },
       pullSince: async () => { throw new Error('offline'); },
+      annotate: async () => new Set(),
       ping: async () => { throw new Error('offline'); },
     };
     const db = openNodeDb(':memory:');
@@ -391,5 +392,183 @@ describe('a phone reinstalled after an uninstall', () => {
       .toEqual({ dob: '2026-01-01', sex: 'F' });
     expect(await fresh.db.first(`SELECT note FROM stock_movements WHERE idempotency_key LIKE '%g1'`))
       .toEqual({ note: 'Dose 2' });
+  });
+});
+
+describe('pull paging', () => {
+  // The memory server stamps every row of one upload with ONE synced_at, as
+  // Postgres's now() does. PAGE is 500 and a push batch is 200, so a page
+  // ends inside the third batch.
+  const movements = (db: Db) =>
+    db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM stock_movements`).then((r) => r!.n);
+
+  async function clinicWithDoses(server: ReturnType<typeof memoryBackend>, doses: number) {
+    const A = await device(server, 'A');
+    const vId = await insertVaccine(A.db, BCG, A.deviceId);
+    const lot = await findOrCreateLot(A.db, { vaccineId: vId, lotNumber: 'L1' }, A.deviceId);
+    await recordReceipt(A.db, { deviceId: A.deviceId }, { clientActionId: 'r', vaccineId: vId, lotId: lot, doses: 5000 });
+    for (let i = 0; i < doses; i++) {
+      await recordAdministration(A.db, { deviceId: A.deviceId }, { clientActionId: `d${i}`, vaccineId: vId, lotId: lot });
+    }
+    return { A, vId };
+  }
+
+  it('does not skip the rest of an upload when a page ends inside it', async () => {
+    const server = memoryBackend();
+    const { A, vId } = await clinicWithDoses(server, 600);
+    await A.sync();
+
+    const B = await device(server, 'B');
+    expect((await pullOnce(B.db, server.backend)).ok).toBe(true);
+    expect(await movements(B.db)).toBe(601);
+    expect(await onHand(B.db, vId)).toBe(await onHand(A.db, vId));
+  });
+
+  it('resumes an interrupted pull without skipping', async () => {
+    const server = memoryBackend();
+    const { A } = await clinicWithDoses(server, 600);
+    await A.sync();
+
+    // The second page of movements never arrives (signal lost mid-pull).
+    let pages = 0;
+    const flaky: SyncBackend = {
+      ...server.backend,
+      async pullSince(table, since, limit, afterId) {
+        if (table === 'stock_movements' && ++pages === 2) throw new Error('offline');
+        return server.backend.pullSince(table, since, limit, afterId);
+      },
+    };
+    const B = await device(server, 'B');
+    expect((await pullOnce(B.db, flaky)).ok).toBe(false);
+    expect(await movements(B.db)).toBe(500);
+
+    expect((await pullOnce(B.db, server.backend)).ok).toBe(true);
+    expect(await movements(B.db)).toBe(601);
+  });
+
+  it('applies an undo after its dose when both came in one upload', async () => {
+    // One upload shares one synced_at, so the id breaks the tie - and a clock
+    // that stepped back gives the undo the smaller id. Its foreign key still
+    // needs the dose first.
+    const server = memoryBackend();
+    const { A, vId } = await clinicWithDoses(server, 0);
+    const t = Date.now();
+    const { movement } = await recordAdministration(A.db, { deviceId: A.deviceId, now: t + 60_000 }, {
+      clientActionId: 'late', vaccineId: vId,
+    });
+    await reverseMovement(A.db, { deviceId: A.deviceId, now: t }, { clientActionId: 'undo', movementId: movement.id });
+    await A.sync();
+
+    const B = await device(server, 'B');
+    expect((await pullOnce(B.db, server.backend)).ok).toBe(true);
+    expect(await movements(B.db)).toBe(3);
+    expect(await onHand(B.db, vId)).toBe(5000);
+  });
+
+  it('gets every row when more than a page share one synced_at', async () => {
+    // A server-side UPDATE over many rows stamps them all with one now(), so
+    // a group can be bigger than a page. Paging on synced_at alone, with gt
+    // or gte, either skips it or never gets past it.
+    const server = memoryBackend();
+    const { A } = await clinicWithDoses(server, 0);
+    await A.sync();
+    const vId = (await A.db.first<{ id: string }>(`SELECT id FROM vaccines`))!.id;
+    for (let i = 0; i < 700; i++) {
+      await recordAdministration(A.db, { deviceId: A.deviceId }, { clientActionId: `g${i}`, vaccineId: vId });
+    }
+    const rows = await A.db.all<Record<string, unknown>>(`SELECT * FROM stock_movements WHERE dirty = 1`);
+    await server.backend.push({
+      table: 'stock_movements',
+      rows: rows.map(({ dirty: _d, last_synced_at: _l, ...r }) => r),
+    });
+
+    const B = await device(server, 'B');
+    expect((await pullOnce(B.db, server.backend)).ok).toBe(true);
+    expect(await movements(B.db)).toBe(701);
+    expect((await pullOnce(B.db, server.backend)).appliedRows).toBe(0);
+  });
+});
+
+describe('a child name filled in after the dose was uploaded', () => {
+  // Movements upload with ignore-duplicates, so the name cannot ride on the
+  // insert; it goes up as an annotation. Names are typed later than the dose,
+  // so the edit is a second after it here.
+  async function uploadedDose(server: ReturnType<typeof memoryBackend>) {
+    const A = await device(server, 'A');
+    const vId = await insertVaccine(A.db, BCG, A.deviceId);
+    const lotId = await findOrCreateLot(A.db, { vaccineId: vId, lotNumber: 'L1' }, A.deviceId);
+    await recordReceipt(A.db, { deviceId: A.deviceId }, { clientActionId: 'r', vaccineId: vId, lotId, doses: 10 });
+    const { movement } = await recordAdministration(A.db, { deviceId: A.deviceId }, { clientActionId: 'd', vaccineId: vId });
+    await A.sync();
+    const name = () => fillMissingChild(A.db, { movementId: movement.id, patientLabel: 'Test Child' }, Date.now() + 1000);
+    const onServer = () => server.rows('stock_movements').find((r) => r.id === movement.id)!;
+    return { A, vId, id: movement.id, name, onServer };
+  }
+  const local = (db: Db, id: string) =>
+    db.first(`SELECT patient_label, needs_detail, dirty FROM stock_movements WHERE id = ?`, [id]);
+
+  it('reaches the server and the other device, and changes nothing else', async () => {
+    const server = memoryBackend();
+    const { A, vId, id, name, onServer } = await uploadedDose(server);
+    const B = await device(server, 'B');
+    await B.sync();
+
+    await name();
+    expect(await countDirty(A.db)).toBe(0); // the dose is on the server already
+    await A.sync();
+    await B.sync();
+
+    expect(onServer()).toMatchObject({ patient_label: 'Test Child', needs_detail: 0, delta_doses: -1 });
+    expect(await local(A.db, id)).toEqual({ patient_label: 'Test Child', needs_detail: 0, dirty: 0 });
+    expect(await local(B.db, id)).toEqual({ patient_label: 'Test Child', needs_detail: 0, dirty: 0 });
+    expect(await onHand(B.db, vId)).toBe(9);
+  });
+
+  it('waits quietly on a server without the update, while new doses keep uploading', async () => {
+    const opts = { annotations: false };
+    const server = memoryBackend(opts);
+    const { A, vId, name, onServer } = await uploadedDose(server);
+
+    await name();
+    await recordAdministration(A.db, { deviceId: A.deviceId }, { clientActionId: 'd2', vaccineId: vId });
+    const out = await pushOnce(A.db, server.backend, A.deviceId);
+
+    expect(out.ok).toBe(true);
+    expect(server.count('stock_movements')).toBe(3); // the new dose went up
+    expect(onServer().patient_label).toBeNull(); // the name did not
+    expect(await countDirty(A.db)).toBe(0); // and nothing reads as not sent
+    expect((await syncStatus(A.db)).lastError).toBeNull();
+
+    opts.annotations = true; // the owner runs supabase/movement-annotations.sql
+    await pushOnce(A.db, server.backend, A.deviceId);
+    expect(onServer().patient_label).toBe('Test Child');
+  });
+
+  it('sends a name an older version marked sent without uploading it', async () => {
+    const server = memoryBackend();
+    const { A, id, name, onServer } = await uploadedDose(server);
+    await name();
+    // What the old push did: the server ignored the duplicate insert, and
+    // the phone cleared dirty anyway.
+    await A.db.run(`UPDATE stock_movements SET dirty = 0 WHERE id = ?`, [id]);
+    await A.db.run(`DELETE FROM settings WHERE key = 'annotations_requeued'`);
+
+    await A.sync();
+    expect(onServer().patient_label).toBe('Test Child');
+    expect(await local(A.db, id)).toMatchObject({ dirty: 0 });
+  });
+
+  it('the server takes annotations only, and stamps them for pull', async () => {
+    const server = memoryBackend();
+    const { id, onServer } = await uploadedDose(server);
+    const before = String(onServer().synced_at);
+
+    expect(await server.backend.annotate([{ id, delta_doses: -5 }])).toEqual(new Set());
+    expect(onServer().delta_doses).toBe(-1);
+
+    const taken = await server.backend.annotate([{ id, patient_label: 'Test Child', updated_at: Date.now() + 1000 }]);
+    expect([...taken]).toEqual([id]);
+    expect(onServer().patient_label).toBe('Test Child');
+    expect(String(onServer().synced_at) > before).toBe(true);
   });
 });

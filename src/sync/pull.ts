@@ -1,6 +1,6 @@
 import type { Db } from '../db/driver';
 import { PUSH_ORDER, type SyncTable } from '../db/migrations/m002_sync';
-import type { Row, SyncBackend } from './backend';
+import { MOVEMENT_ANNOTATIONS, type Row, type SyncBackend } from './backend';
 
 /**
  * Pull - the half that makes a second writing device possible.
@@ -77,15 +77,32 @@ async function applyRow(
   const row = localise(incoming, allowed);
 
   if (table === 'stock_movements') {
-    // Append-only: the first writer wins and nothing is ever overwritten.
-    // A second REVERSAL of the same movement is REJECTED by UNIQUE(reverses_id),
-    // and that rejection is correct - it is exactly what stops stock being
-    // credited twice when two offline devices both corrected one dose.
-    const existing = await db.first<{ id: string }>(
-      `SELECT id FROM stock_movements WHERE id = ?`,
+    // Append-only: the first writer wins and the arithmetic is never
+    // overwritten. A second REVERSAL of the same movement is REJECTED by
+    // UNIQUE(reverses_id), and that rejection is correct - it is exactly what
+    // stops stock being credited twice when two offline devices both
+    // corrected one dose.
+    const existing = await db.first<{ updated_at: number }>(
+      `SELECT updated_at FROM stock_movements WHERE id = ?`,
       [id],
     );
-    if (existing) return { changed: false };
+    if (existing) {
+      // The one later edit a movement has: its annotations, such as a child's
+      // name filled in on the other device. Newer edit wins, as for the
+      // mutable tables below, and only those columns are written.
+      if (Number(row.updated_at ?? 0) <= Number(existing.updated_at)) return { changed: false };
+      const keys = MOVEMENT_ANNOTATIONS.filter((k) => k in row);
+      const sets = keys.map((k) => `${k} = ?`).join(', ');
+      try {
+        await db.run(`UPDATE stock_movements SET ${sets} WHERE id = ?`, [...keys.map((k) => row[k]), id]);
+      } catch (e) {
+        const detail = (e instanceof Error ? e.message : String(e)).slice(0, 200);
+        return { changed: false, conflict: { table, id, reason: 'rejected', detail } };
+      }
+      // It came from the server, so it must not be pushed straight back.
+      await db.run(`UPDATE stock_movements SET dirty = 0 WHERE id = ?`, [id]);
+      return { changed: true };
+    }
 
     if (row.reverses_id) {
       const already = await db.first<{ id: string }>(
@@ -178,6 +195,12 @@ async function applyRow(
 /**
  * One full pull. Safe to interrupt: the cursor advances only after a page has
  * been committed, so an interrupted run resumes rather than skips.
+ *
+ * Pages resume after the last row by (synced_at, id), not by synced_at alone:
+ * the server stamps a whole upload with one synced_at, so a page that ended
+ * part-way through one skipped the rest of it, for good. The saved cursor
+ * keeps its old meaning - "every row up to this synced_at is applied" - so it
+ * only moves to a synced_at whose rows are all in.
  */
 export async function pullOnce(
   db: Db,
@@ -192,27 +215,44 @@ export async function pullOnce(
     // has not arrived yet would fail the foreign key.
     for (const table of PUSH_ORDER) {
       const allowed = await columnsOf(db, table);
+      let saved = await cursorFor(db, table);
+      // The last row applied in this pass.
+      let after: { syncedAt: string; id: string } | null = null;
       for (;;) {
-        const since = await cursorFor(db, table);
-        const rows = await backend.pullSince(table, since, PAGE);
-        if (!rows.length) break;
+        const rows = await backend.pullSince(table, after?.syncedAt ?? saved, PAGE, after?.id);
 
-        let last = since;
-        await db.tx(async (tx) => {
-          for (const r of rows) {
-            const res = await applyRow(tx, table, r, allowed, now);
-            if (res.changed) applied += 1;
-            if (res.conflict) conflicts.push(res.conflict);
-            if (r.synced_at) last = String(r.synced_at);
-          }
-        });
+        if (rows.length) {
+          // A REVERSAL can share its synced_at with the movement it reverses
+          // (one upload), and its foreign key needs that movement in first.
+          // sort() is stable, so the rest keep the server's order.
+          const isReversal = (r: Row) => Number(r.movement_type === 'REVERSAL');
+          const ordered = [...rows].sort((a, b) => isReversal(a) - isReversal(b));
+          await db.tx(async (tx) => {
+            for (const r of ordered) {
+              const res = await applyRow(tx, table, r, allowed, now);
+              if (res.changed) applied += 1;
+              if (res.conflict) conflicts.push(res.conflict);
+            }
+          });
+          const last = rows[rows.length - 1];
+          const next = { syncedAt: String(last.synced_at), id: String(last.id) };
+          // Defensive: a backend that ignored the filter would hand back the
+          // same page forever.
+          if (after && next.syncedAt === after.syncedAt && next.id === after.id) break;
+          after = next;
+        }
 
-        if (last && last !== since) await setCursor(db, table, last, now);
-        // A short page means the server had nothing more to give.
-        if (rows.length < PAGE) break;
-        // Defensive: if the watermark did not move, stop rather than loop
-        // forever on rows the server keeps returning.
-        if (last === since) break;
+        // A short page means the server had nothing more to give, so the
+        // last synced_at is complete. A full page may have stopped inside the
+        // last one, so only the synced_ats before it are.
+        const done = rows.length < PAGE;
+        let mark = done ? after?.syncedAt : undefined;
+        if (!done) for (const r of rows) if (String(r.synced_at) !== after!.syncedAt) mark = String(r.synced_at);
+        if (mark && mark !== saved) {
+          await setCursor(db, table, mark, now);
+          saved = mark;
+        }
+        if (done) break;
       }
     }
     return { appliedRows: applied, conflicts, ok: true };

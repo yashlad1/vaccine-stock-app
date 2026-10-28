@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, Stepper, T } from '../../ui/components';
@@ -10,13 +10,11 @@ import { useAction } from '../../ui/use-action';
 import { newId } from '../../domain/ids';
 import { recordReceipt, reverseMovement } from '../../domain/ledger';
 import { findOrCreateLot } from '../../db/repo/lots';
-import { describeStock, dosesFromVials } from '../../domain/stock';
+import { describeStock, describeStockRow, dosesFromVials, plural } from '../../domain/stock';
 import { lastsLabel, loadLedger, usageRate } from '../../domain/supply';
 import { MonthYearWheel } from '../../ui/wheel';
 import { expiryFromMonth, todayLocal } from '../../domain/time';
 import type { FundingSource, StockRow } from '../../domain/types';
-
-const dosesText = (n: number) => `${n} ${n === 1 ? 'dose' : 'doses'}`;
 
 /**
  * Log a delivery. This is where the expensive keystrokes live - once per box,
@@ -53,12 +51,7 @@ export default function ReceiveScreen() {
   const byVial = vaccine.unit_mode === 'VIAL' && vaccine.doses_per_vial > 1;
   // The app multiplies. She never does.
   const doses = byVial ? dosesFromVials(vaccine.doses_per_vial, qty) : qty;
-  const after = describeStock(
-    vaccine.on_hand_doses + doses,
-    vaccine.unit_mode,
-    vaccine.doses_per_vial,
-    vaccine.min_balance_doses,
-  );
+  const after = describeStock(vaccine.on_hand_doses + doses, vaccine.min_balance_doses);
 
   const save = async () => {
     if (saving || !lotNumber.trim()) return;
@@ -82,7 +75,7 @@ export default function ReceiveScreen() {
         doses,
       });
       bump();
-      toast.show(`Added ${doses} ${doses === 1 ? 'dose' : 'doses'} of ${vaccine.name}.`, async () => {
+      toast.show(`Added ${plural(doses, 'dose', 'doses')} of ${vaccine.name}.`, async () => {
         await run('undo that delivery', async () => {
           await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: movement.id });
           bump();
@@ -138,8 +131,8 @@ export default function ReceiveScreen() {
           <Stepper accent="stock" value={qty} onChange={setQty} min={1} max={500} quickValues={[1, 5, 10, 20, 50]} />
         </Field>
 
-        <T style={st.fact}>In stock now: {describeStock(vaccine.on_hand_doses, vaccine.unit_mode, vaccine.doses_per_vial, vaccine.min_balance_doses).primary}</T>
-        <T style={st.fact}>Safety limit: {dosesText(vaccine.min_balance_doses)}</T>
+        <T style={st.fact}>In stock now: {describeStockRow(vaccine).primary}</T>
+        <T style={st.fact}>Safety limit: {plural(vaccine.min_balance_doses, 'dose', 'doses')}</T>
         {lasts ? <T style={st.fact}>{lasts}</T> : null}
         <T style={st.after}>After adding: {after.primary}</T>
       </ScrollView>
