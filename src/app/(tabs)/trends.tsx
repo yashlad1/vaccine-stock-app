@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Chip, ErrorState, Loading, Row, SecondaryButton, SectionTitle, T, useBottomInset } from '../../ui/components';
+import { Card, Chip, ErrorState, Loading, Row, SecondaryButton, SectionTitle, T, s as base, useBottomInset } from '../../ui/components';
 import { BarRow, ColumnChart } from '../../ui/charts';
 import { MovementStrip } from '../../ui/movement-strip';
 import { accentSoft, color, space, touch, type, weight } from '../../ui/tokens';
@@ -9,6 +9,7 @@ import { useQuery } from '../../db/provider';
 import { asOfLabel, periodStrip, type MovementStrip as Strip } from '../../domain/reports';
 import { type Ledger, loadLedger, stockOuts } from '../../domain/supply';
 import { formatRupees } from '../../domain/money';
+import { plural } from '../../domain/stock';
 import { todayLocal } from '../../domain/time';
 import {
   NOT_RECORDED_KEY, PERCENT_FROM, PERIODS, type Grain, type Tally, compareWithPrevious,
@@ -27,7 +28,6 @@ const heading = (period: string, grain: Grain) =>
 /** The same, mid-sentence: "the week of 13 Oct" or "Oct 2026". */
 const inPeriod = (period: string, grain: Grain) =>
   grain === 'week' ? `the week of ${periodLabel(period, grain)}` : periodLabel(period, grain);
-const doses = (n: number) => `${n} ${n === 1 ? 'dose' : 'doses'}`;
 const these = (n: number) => (n === 1 ? 'this dose' : `these ${n} doses`);
 
 /** The top CAP, plus the selected one when it sits below the cut. */
@@ -110,7 +110,7 @@ export default function TrendsScreen() {
 
   return (
     <ScrollView
-      style={st.screen}
+      style={base.screen}
       contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}
       showsVerticalScrollIndicator={false}
     >
@@ -121,7 +121,7 @@ export default function TrendsScreen() {
         {heading(period, grain)} · {asOfLabel()}
       </T>
       <T style={st.total}>
-        {doses(all.total)} <T style={st.totalTail}>{open ? 'so far' : 'given'}</T>
+        {plural(all.total, 'dose', 'doses')} <T style={st.totalTail}>{open ? 'so far' : 'given'}</T>
       </T>
       {/* Neutral ink, no arrow, for doses and rupees alike: more is neither
           good nor bad, and red already means OUT in this app. */}
@@ -145,7 +145,7 @@ export default function TrendsScreen() {
           data={series(rows, grain, periods)}
           selected={period}
           onSelect={(p) => goTo(grain, p)}
-          describe={(t) => `${heading(t.key, grain)}, ${doses(t.doses)}`}
+          describe={(t) => `${heading(t.key, grain)}, ${plural(t.doses, 'dose', 'doses')}`}
         />
       </Card>
       {notice ? <T style={st.notice}>{notice}</T> : null}
@@ -264,14 +264,14 @@ function VaccinesView({
             key={v.key}
             accessibilityRole="button"
             accessibilityState={{ selected: on }}
-            accessibilityLabel={`${i + 1}, ${v.label}, ${doses(v.doses)}${r === undefined ? '' : `, ${formatRupees(r)}`}`}
+            accessibilityLabel={`${i + 1}, ${v.label}, ${plural(v.doses, 'dose', 'doses')}${r === undefined ? '' : `, ${formatRupees(r)}`}`}
             onPress={() => onPick(v.key)}
             style={({ pressed }) => [st.rank, on ? { backgroundColor: accentSoft.trends } : pressed ? { backgroundColor: color.pressed } : null]}
           >
             <T style={st.rankNo}>{i + 1}</T>
             <T style={[st.rankName, on && { fontWeight: weight.bold }]}>{v.label}</T>
             <View style={st.rankEnd}>
-              <T style={st.rankDoses}>{doses(v.doses)}</T>
+              <T style={st.rankDoses}>{plural(v.doses, 'dose', 'doses')}</T>
               {r !== undefined ? <T style={st.rankMoney}>{formatRupees(r)}</T> : null}
             </View>
           </Pressable>
@@ -279,7 +279,7 @@ function VaccinesView({
       })}
       {list.length > CAP && !all ? <SecondaryButton accent="trends" label={`Show all ${list.length}`} onPress={showAll} /> : null}
       {priced && summary.unpriced ? (
-        <BarRow label="Price not set" value={doses(summary.unpriced)} fraction={0} muted />
+        <BarRow label="Price not set" value={plural(summary.unpriced, 'dose', 'doses')} fraction={0} muted />
       ) : null}
     </>
   );
@@ -321,7 +321,7 @@ function StockView({
       {/* Stock counts the vaccines on her list; doses given count every dose,
           removed vaccines included. Say so when they differ, or the page
           shows two "given" numbers for one period. */}
-      {left > 0 ? <T style={st.note}>Given leaves out {doses(left)} of vaccines you have since removed or hidden.</T> : null}
+      {left > 0 ? <T style={st.note}>Given leaves out {plural(left, 'dose', 'doses')} of vaccines you have since removed or hidden.</T> : null}
 
       {end >= firstEntry ? (
         <>
@@ -356,20 +356,18 @@ function Shares({ tallies, total }: { tallies: Tally[]; total: number }) {
     return (
       <BarRow
         key={t.key}
-        accent="trends"
         label={t.label}
-        value={withPercent ? `${doses(t.doses)} · ${pct}%` : doses(t.doses)}
+        value={withPercent ? `${plural(t.doses, 'dose', 'doses')} · ${pct}%` : plural(t.doses, 'dose', 'doses')}
         fraction={total ? t.doses / total : 0}
         // Missing data, not a group: grey, so it reads as a gap to fill.
         muted={t.key === NOT_RECORDED_KEY}
-        accessibilityLabel={`${t.label}, ${doses(t.doses)}${withPercent ? `, ${pct} percent` : ''}`}
+        accessibilityLabel={`${t.label}, ${plural(t.doses, 'dose', 'doses')}${withPercent ? `, ${pct} percent` : ''}`}
       />
     );
   });
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   eyebrow: { fontSize: type.min, color: color.textMuted, fontWeight: weight.semibold },
   total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text, marginTop: 2 },
   totalTail: { fontSize: type.title, fontWeight: weight.semibold },

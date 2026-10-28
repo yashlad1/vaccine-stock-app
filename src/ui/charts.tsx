@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { T } from './components';
 import { type Accent, accentSoft, color, space, touch, type, weight } from './tokens';
@@ -39,14 +39,11 @@ export function ColumnChart({
   onSelect,
   describe,
   accent = 'dose',
-  ink = color.more,
 }: {
   data: ChartDatum[];
   selected: string;
   onSelect: (key: string) => void;
   accent?: Accent;
-  /** The bars. Neutral, so a data mark never borrows a status hue (pink reads as OUT red). */
-  ink?: string;
   /** Spoken label for a column, e.g. "Week of 13 Oct, 42 doses". */
   describe: (d: ChartDatum) => string;
 }) {
@@ -85,7 +82,7 @@ export function ColumnChart({
             <View style={st.plot}>
               <T style={[st.count, on && st.bold]}>{d.doses}</T>
               <View
-                style={[st.bar, { height: h, backgroundColor: on ? ink : color.borderControl }]}
+                style={[st.bar, { height: h, backgroundColor: on ? color.more : color.borderControl }]}
               />
             </View>
             <View style={st.axis}>
@@ -102,36 +99,27 @@ export function ColumnChart({
 /**
  * A labelled horizontal bar: name and figure on one line, a thin bar under it.
  * `fraction` is the bar's length from 0 to 1; the caller picks what it is a
- * share of. Pressable when `onPress` is given, and only then 56dp tall: a row
- * she only reads sits at its text height, so a list of them stays one glance.
+ * share of. Read-only: it sits at its text height, so a list of them stays one
+ * glance.
  */
 export function BarRow({
   label,
   value,
   fraction,
   muted,
-  selected,
-  onPress,
   accessibilityLabel,
-  accent = 'dose',
-  ink = color.more,
 }: {
   label: string;
   value: string;
   fraction: number;
   /** A grey bar: unselected, or "Not recorded" rather than a real group. */
   muted?: boolean;
-  selected?: boolean;
-  onPress?: () => void;
   accessibilityLabel?: string;
-  accent?: Accent;
-  /** The bar's colour: neutral ink, the accent only tints the selected row. */
-  ink?: string;
 }) {
-  const body = (
-    <>
+  return (
+    <View accessible accessibilityLabel={accessibilityLabel ?? `${label}, ${value}`} style={st.row}>
       <View style={st.rowTop}>
-        <T style={[st.rowLabel, selected && st.bold]}>{label}</T>
+        <T style={st.rowLabel}>{label}</T>
         <T style={st.rowValue}>{value}</T>
       </View>
       <View style={st.track}>
@@ -142,32 +130,13 @@ export function BarRow({
               {
                 width: `${Math.max(1, Math.round(fraction * 100))}%`,
                 minWidth: MIN_BAR,
-                backgroundColor: muted ? color.borderControl : ink,
+                backgroundColor: muted ? color.borderControl : color.more,
               },
             ]}
           />
         ) : null}
       </View>
-    </>
-  );
-  const a11y = accessibilityLabel ?? `${label}, ${value}`;
-  if (!onPress) {
-    return (
-      <View accessible accessibilityLabel={a11y} style={st.row}>
-        {body}
-      </View>
-    );
-  }
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: !!selected }}
-      accessibilityLabel={a11y}
-      onPress={onPress}
-      style={({ pressed }) => [st.row, st.rowTap, selected ? { backgroundColor: accentSoft[accent] } : pressed ? st.pressed : null]}
-    >
-      {body}
-    </Pressable>
+    </View>
   );
 }
 
@@ -204,7 +173,6 @@ const st = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: color.border,
   },
-  rowTap: { minHeight: touch.min, paddingVertical: space.sm },
   rowTop: { flexDirection: 'row', alignItems: 'baseline', gap: space.md },
   rowLabel: { flex: 1, fontSize: type.body, fontWeight: weight.semibold, color: color.text },
   rowValue: { fontSize: type.body, fontWeight: weight.bold, color: color.text },

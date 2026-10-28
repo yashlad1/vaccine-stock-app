@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Badge, BigButton, Chip, ErrorState, Footer, Input, Loading, Row, T, useBottomInset } from '../../ui/components';
+import { Badge, BigButton, Chip, ErrorState, Footer, Input, Loading, Row, Screen, T, useBottomInset } from '../../ui/components';
 import { color, radius, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { searchRank } from '../../domain/search';
@@ -10,12 +10,13 @@ import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 import { isPrimaryDevice } from '../../sync/adopt';
 import { formatRupees } from '../../domain/money';
+import { plural } from '../../domain/stock';
 import { listRemovedVaccines, listVaccines, restoreVaccine } from '../../db/repo/catalog';
 
 /** "Vials of 10 · Safety limit 20 doses" - the two numbers that drive the arithmetic. */
 function describeUnit(v: { unit_mode: string; doses_per_vial: number; min_balance_doses: number; price_rupees?: number | null }) {
   const unit = v.unit_mode === 'VIAL' ? `Vials of ${v.doses_per_vial}` : 'Single doses';
-  const base = `${unit} · Safety limit ${v.min_balance_doses} ${v.min_balance_doses === 1 ? 'dose' : 'doses'}`;
+  const base = `${unit} · Safety limit ${plural(v.min_balance_doses, 'dose', 'doses')}`;
   return v.price_rupees == null ? base : `${base} · ${formatRupees(v.price_rupees)} a dose`;
 }
 
@@ -56,7 +57,7 @@ export default function VaccinesScreen() {
   if (loading && !active) return <Loading label="Loading vaccines" />;
 
   return (
-    <View style={st.screen}>
+    <Screen>
       <FlatList
         data={rows}
         keyExtractor={(v) => v.id}
@@ -115,14 +116,14 @@ export default function VaccinesScreen() {
          * lives there too, so reaching it takes a deliberate navigation rather
          * than a mis-aimed tap between patients.
          */
-        renderItem={({ item }) =>
-          showRemoved ? (
-            <View style={st.rowWrap}>
-              <Row
-                dense
-                title={item.name}
-                subtitle={describeUnit(item)}
-                right={
+        renderItem={({ item }) => (
+          <View style={st.rowWrap}>
+            <Row
+              dense
+              title={item.name}
+              subtitle={describeUnit(item)}
+              right={
+                showRemoved ? (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Add ${item.name} back`}
@@ -135,21 +136,14 @@ export default function VaccinesScreen() {
                   >
                     <T style={[st.actionText, { color: color.catalog }]}>Add back</T>
                   </Pressable>
-                }
-              />
-            </View>
-          ) : (
-            <View style={st.rowWrap}>
-              <Row
-                dense
-                title={item.name}
-                subtitle={describeUnit(item)}
-                right={!item.is_active ? <Badge text="HIDDEN" tone="neutral" /> : undefined}
-                onPress={() => router.push(`/catalog/${item.id}`)}
-              />
-            </View>
-          )
-        }
+                ) : !item.is_active ? (
+                  <Badge text="HIDDEN" tone="neutral" />
+                ) : undefined
+              }
+              onPress={showRemoved ? undefined : () => router.push(`/catalog/${item.id}`)}
+            />
+          </View>
+        )}
       />
 
       <Footer floating>
@@ -174,12 +168,11 @@ export default function VaccinesScreen() {
           />
         )}
       </Footer>
-    </View>
+    </Screen>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   headerWrap: { paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.sm },
   total: { fontSize: type.hero, fontWeight: weight.bold, color: color.text },
   chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },

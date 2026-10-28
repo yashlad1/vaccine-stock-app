@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { BigButton, ErrorState, Field, Input, Row, T, useBottomInset } from '../../ui/components';
+import { BigButton, ErrorState, Field, Input, Row, T, s as base, useBottomInset } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
@@ -27,7 +27,7 @@ export default function SettingsScreen() {
   if (error) return <ErrorState error={error} onRetry={reload} what="load settings" />;
 
   return (
-    <ScrollView style={st.screen} contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}>
+    <ScrollView style={base.screen} contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}>
       <Field label="Clinic name" hint="Shown on exported reports.">
         <Input value={clinic} onChangeText={setClinic} autoCapitalize="words" />
       </Field>
@@ -57,7 +57,6 @@ export default function SettingsScreen() {
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   section: { fontSize: type.label, fontWeight: weight.bold, color: color.textMuted, marginTop: space.xl, marginBottom: space.sm },
   note: { fontSize: type.min, color: color.textMuted, lineHeight: 20 },
 });

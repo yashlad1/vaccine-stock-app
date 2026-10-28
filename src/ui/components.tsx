@@ -1,19 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput,
+  ActivityIndicator, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput,
   type TextInputProps, View, type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { friendlyError } from './errors';
 import { centred } from './layout';
 import {
-  MAX_FONT_SCALE, type Accent, accentColor, accentSoft, color, elevation, radius, space, touch,
-  type, weight,
+  MAX_FONT_SCALE, type Accent, accentColor, accentSoft, color, footerShadow, radius, space, touch, type,
+  weight,
 } from './tokens';
 
 /**
  * Every component here encodes a rule from CLAUDE.md section 8. The look is
- * clinic-queue's - white surfaces on a soft ground, hairline edges, 8px
+ * clinic-queue's - white surfaces on a soft ground, hairline edges, 14px
  * controls, sentence case - but none of the accessibility floors move: 56dp
  * targets, 18pt body, 14pt absolute minimum, and no state carried by colour
  * alone.
@@ -25,8 +25,8 @@ export function T(props: React.ComponentProps<typeof Text>) {
   return <Text {...scale} {...props} />;
 }
 
-export function Screen({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
-  return <View style={[s.screen, style]}>{children}</View>;
+export function Screen({ children }: { children: React.ReactNode }) {
+  return <View style={s.screen}>{children}</View>;
 }
 
 /**
@@ -41,7 +41,7 @@ export function Screen({ children, style }: { children: React.ReactNode; style?:
  * phone did resize the window; the keyboard's height if it did not. Right
  * either way, and nothing to tune per device.
  */
-export function KeyboardSafe({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+export function KeyboardSafe({ children }: { children: React.ReactNode }) {
   const box = useRef<View>(null);
   const [covered, setCovered] = useState(0);
   useEffect(() => {
@@ -56,27 +56,9 @@ export function KeyboardSafe({ children, style }: { children: React.ReactNode; s
     };
   }, []);
   return (
-    <View ref={box} style={[s.screen, style, covered ? { paddingBottom: covered } : null]}>
+    <View ref={box} style={[s.screen, covered ? { paddingBottom: covered } : null]}>
       {children}
     </View>
-  );
-}
-
-export function Scroll({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
-  const insets = useSafeAreaInsets();
-  return (
-    <ScrollView
-      style={[s.screen, style]}
-      contentContainerStyle={{
-        padding: space.lg,
-        // Clears Android's navigation bar; see Footer.
-        paddingBottom: space.xxl * 2 + insets.bottom,
-      }}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      {children}
-    </ScrollView>
   );
 }
 
@@ -105,12 +87,10 @@ export function Footer({
   children,
   floating,
   gap,
-  style,
 }: {
   children: React.ReactNode;
   floating?: boolean;
   gap?: number;
-  style?: ViewStyle;
 }) {
   const insets = useSafeAreaInsets();
   return (
@@ -118,9 +98,8 @@ export function Footer({
       style={[
         s.footer,
         floating ? s.footerFloating : null,
-        floating ? elevation(3) : null,
+        floating ? footerShadow : null,
         { paddingBottom: space.lg + insets.bottom },
-        style,
       ]}
     >
       {/* Bounded and centred: a 64dp CTA stretched across a 10-inch tablet is
@@ -143,45 +122,24 @@ export function Footer({
 export function ErrorState({
   error,
   onRetry,
-  what = 'load this screen',
+  what,
 }: {
   error: Error;
-  onRetry?: () => void;
-  what?: string;
+  onRetry: () => void;
+  what: string;
 }) {
   return (
     <View style={s.center}>
       <T style={s.errorTitle}>Could not {what}</T>
       <T style={s.errorBody}>{friendlyError(error, { what })}</T>
-      {onRetry ? <SecondaryButton label="Try again" onPress={onRetry} /> : null}
+      <SecondaryButton label="Try again" onPress={onRetry} />
     </View>
   );
 }
 
 /** A panel: white on the ground, one decorative edge, no shadow (clinic-queue). */
-export function Card({
-  children,
-  style,
-  tone,
-  onPress,
-}: {
-  children: React.ReactNode;
-  style?: ViewStyle;
-  tone?: Accent | 'soft';
-  onPress?: () => void;
-}) {
-  const bg = tone && tone !== 'soft' ? accentSoft[tone] : color.surface;
-  const body = (
-    <View style={[s.card, { backgroundColor: bg }, style]}>
-      {children}
-    </View>
-  );
-  if (!onPress) return body;
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => (pressed ? { opacity: 0.85 } : null)}>
-      {body}
-    </Pressable>
-  );
+export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  return <View style={[s.card, style]}>{children}</View>;
 }
 
 export function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -201,7 +159,6 @@ export function BigButton({
   variant = 'solid',
   disabled,
   sublabel,
-  danger,
 }: {
   label: string;
   onPress: () => void;
@@ -209,9 +166,8 @@ export function BigButton({
   variant?: 'solid' | 'outline';
   disabled?: boolean;
   sublabel?: string;
-  danger?: boolean;
 }) {
-  const base = danger ? color.danger : accentColor[accent];
+  const base = accentColor[accent];
   const solid = variant === 'solid';
   return (
     <Pressable
@@ -279,12 +235,11 @@ export function Badge({
   tone,
 }: {
   text: string;
-  tone: 'low' | 'danger' | 'ok' | 'neutral';
+  tone: 'low' | 'danger' | 'neutral';
 }) {
   const map = {
     low: { bg: color.lowSoft, fg: color.lowInk },
     danger: { bg: color.dangerSoft, fg: color.dangerInk },
-    ok: { bg: color.okSoft, fg: color.okInk },
     neutral: { bg: color.surfaceSunken, fg: color.more },
   }[tone];
   return (
@@ -343,15 +298,15 @@ export function Chip({
 export function Stepper({
   value,
   onChange,
-  min = 1,
-  max = 999,
+  min,
+  max,
   quickValues,
   accent = 'dose',
 }: {
   value: number;
   onChange: (n: number) => void;
-  min?: number;
-  max?: number;
+  min: number;
+  max: number;
   quickValues?: number[];
   accent?: Accent;
 }) {
@@ -445,7 +400,7 @@ export function Field({
   );
 }
 
-/** clinic-queue's input: white, a border-control edge (3:1 is the bar for a field's outline), 8px. */
+/** clinic-queue's input: white, a border-control edge (3:1 is the bar for a field's outline), 14px. */
 export function Input(props: TextInputProps) {
   return (
     <TextInput
@@ -515,8 +470,8 @@ export function Banner({
 }: {
   text: string;
   tone: 'low' | 'danger';
-  actionLabel?: string;
-  onAction?: () => void;
+  actionLabel: string;
+  onAction: () => void;
   onDismiss?: () => void;
 }) {
   const map =
@@ -527,11 +482,9 @@ export function Banner({
     <View style={[s.banner, { backgroundColor: map.bg }]}>
       <T style={[s.bannerText, { color: map.fg }]}>{text}</T>
       <View style={s.bannerActions}>
-        {actionLabel && onAction ? (
-          <Pressable accessibilityRole="button" onPress={onAction} hitSlop={{ top: 6, bottom: 6 }} style={s.bannerBtn}>
-            <T style={[s.bannerBtnText, { color: map.fg }]}>{actionLabel}</T>
-          </Pressable>
-        ) : null}
+        <Pressable accessibilityRole="button" onPress={onAction} hitSlop={{ top: 6, bottom: 6 }} style={s.bannerBtn}>
+          <T style={[s.bannerBtnText, { color: map.fg }]}>{actionLabel}</T>
+        </Pressable>
         {onDismiss ? (
           <Pressable accessibilityRole="button" onPress={onDismiss} hitSlop={{ top: 6, bottom: 6 }} style={s.bannerBtn}>
             <T style={[s.bannerBtnText, { color: map.fg }]}>Later</T>
@@ -594,8 +547,14 @@ export const s = StyleSheet.create({
   },
 
   // The edge sits inside the box; padding gives its pixel back so the content keeps its old size.
-  card: { borderRadius: radius.lg, padding: space.lg - 1, borderWidth: 1, borderColor: color.border },
-  // clinic-queue section title: sentence case, 600, never tracked-out capitals.
+  card: {
+    backgroundColor: color.surface,
+    borderRadius: radius.lg,
+    padding: space.lg - 1,
+    borderWidth: 1,
+    borderColor: color.border,
+  },
+  // clinic-queue section title: bold (700) with a little letter spacing.
   sectionTitle: {
     fontSize: type.min,
     fontWeight: weight.bold,

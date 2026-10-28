@@ -40,7 +40,7 @@ const ERROR_MS = 7000;
 interface Toast {
   message: string;
   onUndo?: () => void | Promise<void>;
-  tone?: 'default' | 'error';
+  tone?: 'error';
 }
 
 interface UndoApi {
@@ -71,28 +71,28 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     });
   }, [opacity]);
 
-  const show = useCallback(
-    (message: string, onUndo?: () => void | Promise<void>) => {
+  const open = useCallback(
+    (next: Toast, haptic: Haptics.NotificationFeedbackType, ms: number) => {
       if (timer.current) clearTimeout(timer.current);
-      setToast({ message, onUndo });
+      setToast(next);
       // Haptic confirmation matters because she is often not looking at the
       // screen when her thumb lands.
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+      Haptics.notificationAsync(haptic).catch(() => undefined);
       Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
-      timer.current = setTimeout(hide, UNDO_MS);
+      timer.current = setTimeout(hide, ms);
     },
     [hide, opacity],
   );
 
+  const show = useCallback(
+    (message: string, onUndo?: () => void | Promise<void>) =>
+      open({ message, onUndo }, Haptics.NotificationFeedbackType.Success, UNDO_MS),
+    [open],
+  );
+
   const showError = useCallback(
-    (message: string) => {
-      if (timer.current) clearTimeout(timer.current);
-      setToast({ message, tone: 'error' });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
-      Animated.timing(opacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
-      timer.current = setTimeout(hide, ERROR_MS);
-    },
-    [hide, opacity],
+    (message: string) => open({ message, tone: 'error' }, Haptics.NotificationFeedbackType.Warning, ERROR_MS),
+    [open],
   );
 
   useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);

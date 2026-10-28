@@ -324,8 +324,8 @@ or below `min_balance_doses`. Ordered by 30-day usage **up to yesterday**, so th
 all day, then alphabetical. The OUT/LOW flags count only vaccines in use: on 27 Oct, 12 of 16 OUT
 had not been given in 30 days, and a badge that is mostly noise gets ignored. CHECK always counts.
 
-**Doses are the only unit shown anywhere.** `describeStock` still returns a `secondary` vial
-breakdown (`2 vials + 7 doses`), but no screen renders it — the user asked for it removed, on the
+**Doses are the only unit shown anywhere.** `describeStock` no longer builds a vial
+breakdown (`2 vials + 7 doses`) — the user asked for it removed, on the
 grounds that it reads like the app is thinking out loud. Invariant 4 is unaffected: the app still does
 every vial→dose conversion internally and still reports the *result* in doses, which is what "the
 clinician never does arithmetic" actually requires. The intermediate `= 30 doses` line under the
