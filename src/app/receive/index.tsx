@@ -6,6 +6,7 @@ import { color, radius, space, touch, type, weight } from '../../ui/tokens';
 import { centred } from '../../ui/layout';
 import { useQuery } from '../../db/provider';
 import { stockOnHand } from '../../domain/reports';
+import { searchRank } from '../../domain/search';
 import { describeStockRow } from '../../domain/stock';
 
 /** Pick which vaccine arrived. Same grid idea as Give Dose, reused. */
@@ -16,10 +17,7 @@ export default function ReceivePickScreen() {
   const { data: rows, loading, error, reload } = useQuery((db) => stockOnHand(db, { activeOnly: true }), []);
 
   const filtered = useMemo(() => {
-    const all = rows ?? [];
-    if (!q.trim()) return all;
-    const n = q.trim().toLowerCase();
-    return all.filter((r) => r.name.toLowerCase().includes(n) || (r.generic_name ?? '').toLowerCase().includes(n));
+    return searchRank(rows ?? [], q);
   }, [rows, q]);
 
   if (error) return <ErrorState error={error} onRetry={reload} what="load your vaccines" />;
