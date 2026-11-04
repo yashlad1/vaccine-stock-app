@@ -9,6 +9,9 @@
  * doctor and logging a dose.
  */
 
+import { formatDate } from './time';
+import { syncNag } from './sync-nag';
+
 export type NagLevel = 'none' | 'due' | 'overdue';
 
 export const NAG = {
@@ -23,6 +26,17 @@ export interface NagInput {
   now: number;
   /** Suppresses the banner for 24h after "Later". */
   snoozedUntil?: number | null;
+  /**
+   * The server copy (section 10a). All three are optional, and leaving them
+   * out nags exactly as before: a call site that forgets them must fall back
+   * to WARNING, never to silence.
+   */
+  /** Server backup switched on and configured on this device. */
+  serverOn?: boolean;
+  /** Entries written here that the server has not acknowledged yet. */
+  pendingUploads?: number;
+  /** When an upload last finished successfully, or null if one never has. */
+  lastUploadAt?: number | null;
 }
 
 export interface Nag {
@@ -30,14 +44,46 @@ export interface Nag {
   message: string;
 }
 
-import { formatDate } from './time';
-
 const DAY = 86_400_000;
 
 const dateLabel = formatDate;
 
+/**
+ * Is every entry already somewhere other than this tablet?
+ *
+ * Since 27 Oct 2026 the server is copied by machines 8 times a day (section
+ * 10a), so a zip the clinician makes by hand is no longer the only second
+ * copy. When the server already holds everything, demanding one daily is
+ * false alarm: it spent six weeks red on the clinic's only tablet while every
+ * dose was in fact being copied, which is how a real warning gets ignored.
+ *
+ * This must stay conservative. It silences a data-safety warning, so it may
+ * only return true when the entries are genuinely somewhere else. It is NOT
+ * about whether sync is switched on; it is about whether sync has worked.
+ */
+export function coveredByServer(input: NagInput): boolean {
+  const { serverOn, pendingUploads = 0, lastUploadAt = null, now } = input;
+
+  // No server configured, or nothing has ever arrived there: the zip the
+  // clinician makes by hand is still the only second copy.
+  if (!serverOn || lastUploadAt === null) return false;
+
+  // Reuse the upload banner's own thresholds rather than inventing a second
+  // set. While THAT banner is content, uploading is working and the server
+  // holds the ledger. The moment it starts warning, the zip is the right
+  // fallback again and this nag returns alongside it - which is why the two
+  // are deliberately allowed to appear together rather than cancelling out.
+  // In particular `syncNag` is quiet whenever nothing is pending at all, so a
+  // few seconds of dirty rows after each dose cannot flicker this banner back.
+  return syncNag({ pending: pendingUploads, lastOkAt: lastUploadAt, now }).level === 'none';
+}
+
 export function backupNag(input: NagInput): Nag {
   const { lastBackupAt, dosesSinceBackup, now } = input;
+
+  // Covered elsewhere: say nothing. The Server backup screen still shows the
+  // real state, and `syncNag` still shouts when uploads actually fall behind.
+  if (coveredByServer(input)) return { level: 'none', message: '' };
 
   // Never backed up, but nothing to lose yet - stay quiet rather than nag on a
   // freshly installed app.

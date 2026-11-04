@@ -3,6 +3,8 @@ import { Banner } from './components';
 import { useDb, useQuery } from '../db/provider';
 import { SETTING, getNumber, getSetting, setSetting } from '../db/repo/settings';
 import { backupNag } from '../domain/backup-nag';
+import { syncStatus } from '../sync/push';
+import { loadSyncConfig } from '../sync/config';
 
 const SNOOZE_KEY = 'backup_snoozed_until';
 const DAY = 86_400_000;
@@ -12,11 +14,19 @@ export function BackupBanner() {
   const router = useRouter();
   const { db, bump } = useDb();
 
-  const { data } = useQuery(async (d) => ({
-    lastBackupAt: Number(await getSetting(d, SETTING.lastBackupAt)) || null,
-    dosesSinceBackup: await getNumber(d, SETTING.dosesSinceBackup, 0),
-    snoozedUntil: Number(await getSetting(d, SNOOZE_KEY)) || null,
-  }));
+  const { data } = useQuery(async (d) => {
+    // The server copy counts as the second copy, so this banner has to know
+    // whether uploading is actually working before it demands a zip.
+    const status = await syncStatus(d);
+    return {
+      lastBackupAt: Number(await getSetting(d, SETTING.lastBackupAt)) || null,
+      dosesSinceBackup: await getNumber(d, SETTING.dosesSinceBackup, 0),
+      snoozedUntil: Number(await getSetting(d, SNOOZE_KEY)) || null,
+      serverOn: (await loadSyncConfig(d)) !== null,
+      pendingUploads: status.pending,
+      lastUploadAt: status.lastOkAt,
+    };
+  });
 
   if (!data) return null;
   const nag = backupNag({ ...data, now: Date.now() });
