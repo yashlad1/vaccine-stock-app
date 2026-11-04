@@ -4,7 +4,7 @@ import {
   BigButton, Chip, ErrorState, Field, Input, Loading, Row, SecondaryButton, SectionTitle, T, useBottomInset,
 } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
@@ -24,6 +24,7 @@ import { formatDate } from '../../domain/time';
  * is also kept off it.
  */
 export default function SyncScreen() {
+  const centred = useCentred();
   const bottomInset = useBottomInset();
   const { db, deviceId, bump } = useDb();
   const toast = useToast();

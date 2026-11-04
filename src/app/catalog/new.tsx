@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { BigButton, Field, Footer, Input, KeyboardSafe, T } from '../../ui/components';
 import { CountingFields } from '../../ui/vaccine-fields';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { insertVaccine, setVaccinePrice } from '../../db/repo/catalog';
@@ -20,6 +20,7 @@ import type { UnitMode } from '../../domain/types';
  * app exists to eliminate.
  */
 export default function NewVaccineScreen() {
+  const centred = useCentred();
   const router = useRouter();
   const { db, deviceId, bump } = useDb();
   const toast = useToast();

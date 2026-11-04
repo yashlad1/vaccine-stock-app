@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { BigButton, ErrorState, Loading, Row, T, useBottomInset } from '../../ui/components';
 import { color, radius, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { SETTING, getNumber, getSetting, markBackedUp } from '../../db/repo/settings';
@@ -35,6 +35,7 @@ function backupTitle(name: string): string {
  * ledger unless a backup left the device.
  */
 export default function BackupScreen() {
+  const centred = useCentred();
   const bottomInset = useBottomInset();
   const { db, raw, deviceId, appVersion, bump } = useDb();
   const toast = useToast();

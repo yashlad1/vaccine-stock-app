@@ -9,7 +9,7 @@ import { describeStockRow } from '../../domain/stock';
 import { daysAgoLocal, formatDayLabel, todayLocal } from '../../domain/time';
 import { BackupBanner } from '../../ui/backup-banner';
 import { SyncBanner } from '../../ui/sync-banner';
-import { centred, useColumns } from '../../ui/layout';
+import { useWide, useColumns } from '../../ui/layout';
 import { searchRank } from '../../domain/search';
 import { isAwaitingCatalog, startNewClinicHere } from '../../sync/adopt';
 import { useAction } from '../../ui/use-action';
@@ -23,6 +23,7 @@ import { useAction } from '../../ui/use-action';
  * never navigates to read them.
  */
 export default function GiveDoseScreen() {
+  const centred = useWide();
   const router = useRouter();
   const bottomInset = useBottomInset();
   const columns = useColumns();

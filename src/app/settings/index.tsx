@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { BigButton, ErrorState, Field, Input, Row, T, s as base, useBottomInset } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
@@ -11,6 +11,7 @@ import { loadSyncConfig } from '../../sync/config';
 import { LATEST_VERSION } from '../../db/migrate';
 
 export default function SettingsScreen() {
+  const centred = useCentred();
   const bottomInset = useBottomInset();
   const { db, deviceId, appVersion, bump } = useDb();
   const toast = useToast();

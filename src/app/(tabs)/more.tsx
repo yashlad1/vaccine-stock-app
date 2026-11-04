@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Badge, BigButton, Card, Row, SectionTitle, T, s as base, useBottomInset } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useWide } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { SETTING, getSetting } from '../../db/repo/settings';
 import { lastBackupLabel } from '../../domain/backup-nag';
@@ -17,6 +17,7 @@ import { useAction } from '../../ui/use-action';
 
 /** Everything infrequent, as a flat list of large labelled rows. */
 export default function MoreScreen() {
+  const centred = useWide();
   const bottomInset = useBottomInset();
   const router = useRouter();
   const { db, deviceId, bump } = useDb();
