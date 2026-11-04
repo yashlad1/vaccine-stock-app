@@ -1,5 +1,5 @@
-import { registerHooks } from 'node:module';
-import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import './resolve.ts';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -31,33 +31,13 @@ import { fileURLToPath } from 'node:url';
  * names and dates of birth.
  */
 
-// src/ imports without file extensions, which Metro resolves and Node does
-// not. Teach Node the same three guesses, so this reuses the app's tested
-// restore and CSV code instead of a copy of it.
-registerHooks({
-  resolve(specifier, context, next) {
-    try {
-      return next(specifier, context);
-    } catch (e) {
-      if (!specifier.startsWith('.')) throw e;
-      for (const ext of ['.ts', '.tsx', '/index.ts']) {
-        try {
-          return next(specifier + ext, context);
-        } catch {
-          // try the next guess
-        }
-      }
-      throw e;
-    }
-  },
-});
-
+// Reuses the app's tested restore and CSV code through scripts/resolve.ts.
 const { openNodeDb } = await import('../src/db/driver.node.ts');
 const { migrate, currentVersion } = await import('../src/db/migrate.ts');
 const { supabaseBackend } = await import('../src/sync/backend.supabase.ts');
 const { restoreFromServer } = await import('../src/sync/restore.ts');
-const { collectCsvs, tableCounts } = await import('../src/db/backup/collect.ts');
-const { BACKUP_FORMAT, DB_ENTRY, MANIFEST_ENTRY, inspectBackup, parseManifest } = await import(
+const { collectCsvs } = await import('../src/db/backup/collect.ts');
+const { BACKUP_FORMAT, DB_ENTRY, MANIFEST_ENTRY, inspectBackup, parseManifest, tableCounts } = await import(
   '../src/db/backup/validate.ts'
 );
 const { strFromU8, strToU8, unzipSync, zipSync } = await import('fflate');
@@ -113,11 +93,18 @@ for (const [name, content] of Object.entries(csvs)) writeFileSync(join(out, name
 chmodSync(dbPath, 0o600);
 
 // The check the phone makes before it restores, run on the file just written.
+// The copy holds children's names, so it goes in an owner-only folder (0700)
+// as an owner-only file, and is removed even when the check throws.
 const back = unzipSync(readFileSync(zipPath));
-const scratch = join(tmpdir(), `${base}-check.db`);
-writeFileSync(scratch, back[DB_ENTRY]);
-const preview = await inspectBackup(openNodeDb(scratch), parseManifest(strFromU8(back[MANIFEST_ENTRY])));
-rmSync(scratch, { force: true });
+const scratchDir = mkdtempSync(join(tmpdir(), 'clinic-check-'));
+let preview;
+try {
+  const scratch = join(scratchDir, 'clinic.db');
+  writeFileSync(scratch, back[DB_ENTRY], { mode: 0o600 });
+  preview = await inspectBackup(openNodeDb(scratch), parseManifest(strFromU8(back[MANIFEST_ENTRY])));
+} finally {
+  rmSync(scratchDir, { recursive: true, force: true });
+}
 
 const latest = await db.first<{ d: string; t: string }>(
   `SELECT local_date AS d, local_time AS t FROM stock_movements ORDER BY occurred_at DESC LIMIT 1`,

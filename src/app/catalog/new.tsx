@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BigButton, Chip, Field, Footer, Input, Stepper, T } from '../../ui/components';
+import { BigButton, Field, Footer, Input, KeyboardSafe, T } from '../../ui/components';
+import { CountingFields } from '../../ui/vaccine-fields';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { insertVaccine, setVaccinePrice } from '../../db/repo/catalog';
@@ -19,6 +20,7 @@ import type { UnitMode } from '../../domain/types';
  * app exists to eliminate.
  */
 export default function NewVaccineScreen() {
+  const centred = useCentred();
   const router = useRouter();
   const { db, deviceId, bump } = useDb();
   const toast = useToast();
@@ -64,7 +66,7 @@ export default function NewVaccineScreen() {
   };
 
   return (
-    <View style={st.screen}>
+    <KeyboardSafe>
       <ScrollView
         contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl }]}
         keyboardShouldPersistTaps="handled"
@@ -90,51 +92,18 @@ export default function NewVaccineScreen() {
           />
         </Field>
 
-        <Field label="How is it counted?">
-          <View style={st.chipRow}>
-            <Chip
-              accent="catalog"
-              label="Single doses"
-              selected={unitMode === 'DOSE'}
-              onPress={() => setUnitMode('DOSE')}
-            />
-            <Chip
-              accent="catalog"
-              label="Multi-dose vials"
-              selected={unitMode === 'VIAL'}
-              onPress={() => setUnitMode('VIAL')}
-            />
-          </View>
-        </Field>
-
-        {unitMode === 'VIAL' ? (
-          <Field label="Doses per vial" hint="Check the box. This multiplies every count.">
-            <Stepper
-              accent="catalog"
-              value={dosesPerVial}
-              onChange={setDosesPerVial}
-              min={1}
-              max={50}
-              quickValues={[5, 10, 20]}
-            />
-          </Field>
-        ) : null}
-
-        <Field label="Safety limit (doses)" hint="Warn me when stock falls to this level or below.">
-          <Stepper
-            accent="catalog"
-            value={minBalance}
-            onChange={setMinBalance}
-            min={0}
-            max={200}
-            quickValues={[0, 5, 10, 20]}
-          />
-        </Field>
-
-        <Field label="Price per dose (₹)" hint="Optional. Used for the sales value on Trends.">
-          <Input value={price} onChangeText={setPrice} keyboardType="number-pad" />
-          {parsedPrice === undefined ? <T style={st.error}>Enter the price in whole rupees, like 1250.</T> : null}
-        </Field>
+        <CountingFields
+          unitMode={unitMode}
+          onUnitMode={setUnitMode}
+          dosesPerVial={dosesPerVial}
+          onDosesPerVial={setDosesPerVial}
+          vialQuickValues={[5, 10, 20]}
+          minBalance={minBalance}
+          onMinBalance={setMinBalance}
+          price={price}
+          onPrice={setPrice}
+          priceInvalid={parsedPrice === undefined}
+        />
 
         {error ? <T style={st.error}>{error}</T> : null}
       </ScrollView>
@@ -148,12 +117,10 @@ export default function NewVaccineScreen() {
           sublabel={name.trim() ? undefined : 'Enter the trade name first'}
         />
       </Footer>
-    </View>
+    </KeyboardSafe>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
-  chipRow: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
   error: { fontSize: type.label, color: color.danger, fontWeight: weight.semibold, lineHeight: 22 },
 });

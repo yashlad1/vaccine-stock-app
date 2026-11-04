@@ -23,27 +23,58 @@ import { useWindowDimensions } from 'react-native';
  */
 export const CONTENT_MAX = 560;
 
-/** Centres content on a wide screen and leaves a phone untouched. */
-export const centred = { width: '100%', maxWidth: CONTENT_MAX, alignSelf: 'center' } as const;
+/** Windows at or above this are a tablet held upright (portrait is locked). */
+export const TABLET_MIN = 600;
+/** Phone gutter, unchanged since launch (`space.lg`). */
+const PHONE_GUTTER = 16;
+const TABLET_GUTTER = 24;
+const TILE_TARGET = 180;
+const TILE_GAP = 12; // space.md, the gap between tiles
+
+/** Side gutter at a window width: 16 on a phone, 24 from 600dp. */
+export const gutterFor = (width: number) => (width < TABLET_MIN ? PHONE_GUTTER : TABLET_GUTTER);
+
+/** The one content width of the app: window minus a gutter each side. */
+export const contentWidthFor = (width: number) => width - 2 * gutterFor(width);
 
 /**
- * How many vaccine tiles fit across.
- *
- * Two on a phone, as designed. On a tablet the extra room goes into more tiles
- * rather than bigger ones - a tile twice the size is not twice as easy to hit,
- * it just pushes the rest of the grid off the screen, and the grid being
- * scannable at a glance is the whole point of the home screen.
+ * Tile columns aiming at ~180dp a tile: floor(content / 180) kept in 2..6.
+ * 2 on a phone, 3 at 600dp, 4 at 800dp, 5 at 1000dp (tiles 176-181dp).
  */
-export function useColumns(): number {
+export const columnsFor = (width: number) =>
+  Math.max(2, Math.min(6, Math.floor(contentWidthFor(width) / TILE_TARGET)));
+
+/** Tile width the grid ends up with, for the tests. */
+export const tileWidthFor = (width: number) => {
+  const n = columnsFor(width);
+  return (contentWidthFor(width) - (n - 1) * TILE_GAP) / n;
+};
+
+/**
+ * Column style for lists, cards and rows: the full content width, centred.
+ * Screens keep their own 16dp padding inside it, so on a tablet the column is
+ * 8dp narrower each side (16 + 8 = the 24dp gutter). Below 600dp it is the
+ * old full-width column, untouched.
+ */
+export function useWide() {
   const { width } = useWindowDimensions();
-  // ~190dp per tile keeps the trade name readable at font scale 1.6x, and
-  // holds the tile close to its phone size at every screen width instead of
-  // letting it inflate. The grid itself is NOT width-capped: capping it made
-  // tiles SHRINK as the screen grew, which is worse than doing nothing.
-  return Math.min(6, Math.max(2, Math.floor(width / 190)));
+  return width < TABLET_MIN
+    ? ({ width: '100%', alignSelf: 'center' } as const)
+    : ({ width: '100%', maxWidth: width - 2 * (TABLET_GUTTER - PHONE_GUTTER), alignSelf: 'center' } as const);
 }
 
-/** True on a tablet-sized screen. For the rare case where layout must differ. */
-export function useIsWide(): boolean {
-  return useWindowDimensions().width >= 600;
+/**
+ * Column style for text, forms and CTAs: as `useWide`, but never past
+ * CONTENT_MAX (a long 18pt measure and a stretched batch-number input read
+ * badly). On a phone this is exactly the old rule.
+ */
+export function useCentred() {
+  const { width } = useWindowDimensions();
+  const wide = width < TABLET_MIN ? CONTENT_MAX : Math.min(CONTENT_MAX, width - 2 * (TABLET_GUTTER - PHONE_GUTTER));
+  return { width: '100%', maxWidth: wide, alignSelf: 'center' } as const;
+}
+
+/** How many vaccine tiles fit across the content width. */
+export function useColumns(): number {
+  return columnsFor(useWindowDimensions().width);
 }

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pressable } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +7,15 @@ import { ToastProvider } from '../ui/snackbar';
 import { AutoSync } from '../sync/auto';
 import { Empty, Loading, Screen, T } from '../ui/components';
 import { color, space, touch, type, weight } from '../ui/tokens';
+
+/**
+ * EAS Observe is NOT wired up here, deliberately.
+ *
+ * This bundle targets runtime fa84bf12, the APK installed on the clinic's
+ * tablet, which carries no expo-observe native module. Importing it would
+ * fail to launch on the one device the clinic runs on. The import comes back
+ * with the next APK, which includes the module.
+ */
 
 /** A worded back control for the modals: icon-only controls are not allowed (CLAUDE.md section 8). */
 function Cancel({ tint }: { tint: string }) {
@@ -39,7 +47,7 @@ const cancel = (c: string) => ({ ...tint(c), headerLeft: () => <Cancel tint={c} 
  * because a screen that reads a half-migrated database shows numbers that are
  * quietly wrong.
  */
-export default function RootLayout() {
+function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
@@ -57,6 +65,11 @@ export default function RootLayout() {
       >
         <ToastProvider>
           <AutoSync />
+          {/* Time-to-interactive is marked HERE, not on mount of this layout.
+              DbProvider holds its children until migrations finish, so this
+              subtree renders at the moment the app is genuinely usable. Marking
+              it any earlier would report the app as interactive while she is
+              still looking at "Opening clinic records". */}
           <Stack
             screenOptions={{
               headerStyle: { backgroundColor: color.surface },
@@ -90,3 +103,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default RootLayout;

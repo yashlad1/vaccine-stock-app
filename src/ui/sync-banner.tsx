@@ -1,7 +1,6 @@
-import React from 'react';
 import { useRouter } from 'expo-router';
 import { Banner } from './components';
-import { useDb, useQuery } from '../db/provider';
+import { useQuery } from '../db/provider';
 import { syncStatus } from '../sync/push';
 import { loadSyncConfig } from '../sync/config';
 import { syncNag } from '../domain/sync-nag';
@@ -21,7 +20,6 @@ import { syncNag } from '../domain/sync-nag';
  */
 export function SyncBanner() {
   const router = useRouter();
-  const { db } = useDb();
 
   const { data } = useQuery(async (d) => ({
     configured: (await loadSyncConfig(d)) !== null,

@@ -124,7 +124,6 @@ export const accentSoft: Record<Accent, string> = {
 export const touch = {
   min: 56,
   cta: 64,
-  tabBar: 60,
 } as const;
 
 export const type = {
@@ -154,29 +153,23 @@ export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
  * restyle took its colours and wording, never its sizes. The doctor works
  * with these dimensions every day.
  */
-export const radius = { sm: 10, md: 14, lg: 20, xl: 28, pill: 999 } as const;
+export const radius = { sm: 10, md: 14, lg: 20, pill: 999 } as const;
 
 /**
- * At most one, very light, and only on a raised surface (the floating footer).
- * clinic-queue's rule: never under every card - edges and tints carry the
- * structure, so it still reads in a sunlit room where a shadow vanishes.
+ * The one shadow in the app, on the floating footer. Very light, and only on a
+ * raised surface. clinic-queue's rule: never under every card - edges and tints
+ * carry the structure, so it still reads in a sunlit room where a shadow vanishes.
  */
-export function elevation(level: 0 | 1 | 2 | 3): ViewStyle {
-  if (level === 0) return {};
-  const ios = {
-    1: { shadowOpacity: 0.06, shadowRadius: 5, shadowOffset: { width: 0, height: 2 } },
-    2: { shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
-    3: { shadowOpacity: 0.12, shadowRadius: 20, shadowOffset: { width: 0, height: 8 } },
-  }[level];
-  const web = {
-    boxShadow: `0 ${level * 2}px ${level * 6}px rgba(16,35,58,${0.05 + level * 0.02})`,
-  } as unknown as ViewStyle;
-  return (Platform.select({
-    ios: { shadowColor: color.text, ...ios } as ViewStyle,
-    android: { elevation: level * 2 } as ViewStyle,
-    default: web,
-  }) ?? {}) as ViewStyle;
-}
+export const footerShadow = (Platform.select({
+  ios: {
+    shadowColor: color.text,
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+  } as ViewStyle,
+  android: { elevation: 6 } as ViewStyle,
+  default: { boxShadow: '0 6px 18px rgba(16,35,58,0.11)' } as unknown as ViewStyle,
+}) ?? {}) as ViewStyle;
 
 /**
  * Honour the system font scale - this cohort very often has Android's font AND

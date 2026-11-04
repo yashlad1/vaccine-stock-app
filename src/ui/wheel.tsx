@@ -1,10 +1,10 @@
-import React, { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   type NativeScrollEvent, type NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, View,
 } from 'react-native';
 import { T } from './components';
 import { type Accent, accentColor, color, radius, space, touch, type, weight } from './tokens';
-import { MONTHS, dateFromParts, expiryFromMonth, formatAge } from '../domain/time';
+import { MONTHS, dateFromParts, expiryFromMonth, formatAge, formatLocalDate } from '../domain/time';
 
 /**
  * A scrolling wheel picker - the familiar month/year carousel.
@@ -230,8 +230,7 @@ export function DateOfBirthWheel({
 }
 
 function lastDayLabel(year: number, month: number): string {
-  const [, m, d] = expiryFromMonth(year, month).split('-');
-  return `${Number(d)} ${MONTHS[Number(m) - 1]} ${year}`;
+  return `${formatLocalDate(expiryFromMonth(year, month))} ${year}`;
 }
 
 const st = StyleSheet.create({

@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Badge, Chip, ErrorState, Input, Loading, SecondaryButton, SectionTitle, T, useBottomInset } from '../../ui/components';
+import { Badge, Chip, ErrorState, Input, Loading, Screen, SecondaryButton, SectionTitle, T, useBottomInset } from '../../ui/components';
 import { color, radius, space, type, weight } from '../../ui/tokens';
 import { useDb, useQuery } from '../../db/provider';
 import { dosesGivenTotals, vaccinesByUsage } from '../../domain/reports';
@@ -9,7 +9,7 @@ import { describeStockRow } from '../../domain/stock';
 import { daysAgoLocal, formatDayLabel, todayLocal } from '../../domain/time';
 import { BackupBanner } from '../../ui/backup-banner';
 import { SyncBanner } from '../../ui/sync-banner';
-import { useColumns } from '../../ui/layout';
+import { useWide, useColumns } from '../../ui/layout';
 import { searchRank } from '../../domain/search';
 import { isAwaitingCatalog, startNewClinicHere } from '../../sync/adopt';
 import { useAction } from '../../ui/use-action';
@@ -23,6 +23,7 @@ import { useAction } from '../../ui/use-action';
  * never navigates to read them.
  */
 export default function GiveDoseScreen() {
+  const centred = useWide();
   const router = useRouter();
   const bottomInset = useBottomInset();
   const columns = useColumns();
@@ -87,8 +88,8 @@ export default function GiveDoseScreen() {
   if (loading && !rows) return <Loading label="Loading vaccines" />;
 
   return (
-    <View style={st.screen}>
-      <View style={st.header}>
+    <Screen>
+      <View style={[st.header, centred]}>
         <View style={st.statusLeft}>
           <T style={st.status}>{formatDayLabel()} ·</T>
           <Pressable
@@ -116,7 +117,7 @@ export default function GiveDoseScreen() {
         ) : null}
       </View>
 
-      <View style={st.pad}>
+      <View style={[st.pad, centred]}>
         <BackupBanner />
         <SyncBanner />
         {/* Not autofocused: the keyboard must not cover the grid on arrival. */}
@@ -139,7 +140,7 @@ export default function GiveDoseScreen() {
         key={`cols-${columns}`}
         numColumns={columns}
         columnWrapperStyle={{ gap: space.md }}
-        contentContainerStyle={[st.grid, { paddingBottom: space.xxl + bottomInset }]}
+        contentContainerStyle={[st.grid, centred, { paddingBottom: space.xxl + bottomInset }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         ListFooterComponent={
@@ -187,9 +188,8 @@ export default function GiveDoseScreen() {
                   label="Start a new list on this phone"
                   onPress={() =>
                     void run('start the vaccine list', async () => {
-                      const n = await startNewClinicHere(db, deviceId);
+                      await startNewClinicHere(db, deviceId);
                       bump();
-                      if (n === 0) return;
                     })
                   }
                 />
@@ -234,12 +234,11 @@ export default function GiveDoseScreen() {
           );
         }}
       />
-    </View>
+    </Screen>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   // Wraps rather than clipping the last badge at font scale 1.6x.
   flags: { flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, justifyContent: 'flex-end' },
   header: {

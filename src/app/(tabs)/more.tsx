@@ -1,13 +1,14 @@
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Badge, BigButton, Card, Row, SectionTitle, T, useBottomInset } from '../../ui/components';
+import { Badge, BigButton, Card, Row, SectionTitle, T, s as base, useBottomInset } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useWide } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { SETTING, getSetting } from '../../db/repo/settings';
 import { lastBackupLabel } from '../../domain/backup-nag';
 import { missingChildEntries } from '../../domain/reports';
+import { plural } from '../../domain/stock';
 import { pushOnce, syncStatus } from '../../sync/push';
 import { pullOnce } from '../../sync/pull';
 import { backendFor, loadSyncConfig } from '../../sync/config';
@@ -16,6 +17,7 @@ import { useAction } from '../../ui/use-action';
 
 /** Everything infrequent, as a flat list of large labelled rows. */
 export default function MoreScreen() {
+  const centred = useWide();
   const bottomInset = useBottomInset();
   const router = useRouter();
   const { db, deviceId, bump } = useDb();
@@ -52,7 +54,7 @@ export default function MoreScreen() {
         }
         toast.show(
           out.pushedRows
-            ? `Uploaded ${out.pushedRows} ${out.pushedRows === 1 ? 'entry' : 'entries'}.`
+            ? `Uploaded ${plural(out.pushedRows, 'entry', 'entries')}.`
             : 'Already up to date.',
         );
       } finally {
@@ -69,7 +71,7 @@ export default function MoreScreen() {
 
   return (
     <ScrollView
-      style={st.screen}
+      style={base.screen}
       contentContainerStyle={[centred, { padding: space.lg, paddingBottom: space.xxl + bottomInset }]}
       showsVerticalScrollIndicator={false}
     >
@@ -84,7 +86,7 @@ export default function MoreScreen() {
       <T style={st.eyebrow}>Your data</T>
       <T style={st.headline}>{lastBackupLabel(lastBackupAt ?? null)}</T>
 
-      <Card tone="soft" style={{ marginTop: space.md }}>
+      <Card style={{ marginTop: space.md }}>
         <Row title="Back up / restore" onPress={() => router.push('/backup')} />
         {/* The pending count is the honest answer to "is my data safe?" - a
             server backup that is quietly 40 entries behind is worse than none,
@@ -95,9 +97,11 @@ export default function MoreScreen() {
             sync == null
               ? undefined
               : sync.lastOkAt === null
-                ? 'Not set up'
+                ? serverOn
+                  ? 'Nothing uploaded yet. Your records are safe on this phone.'
+                  : 'Not set up'
                 : sync.pending > 0
-                  ? `${sync.pending} ${sync.pending === 1 ? 'entry' : 'entries'} waiting to upload`
+                  ? `${plural(sync.pending, 'entry', 'entries')} waiting to upload`
                   : 'Everything uploaded'
           }
           right={
@@ -113,7 +117,7 @@ export default function MoreScreen() {
             label={busy ? 'Uploading…' : 'Upload now'}
             sublabel={
               sync && sync.pending > 0
-                ? `${sync.pending} ${sync.pending === 1 ? 'entry' : 'entries'} not on the server yet`
+                ? `${plural(sync.pending, 'entry', 'entries')} not on the server yet`
                 : 'Send today\u2019s entries to the server'
             }
             onPress={uploadNow}
@@ -172,7 +176,6 @@ export default function MoreScreen() {
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   eyebrow: { fontSize: type.min, color: color.textMuted, fontWeight: weight.semibold },
   headline: {
     fontSize: type.big,

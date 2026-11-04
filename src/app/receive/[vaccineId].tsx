@@ -1,22 +1,20 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { BigButton, Chip, ErrorState, Field, Footer, Input, Loading, Stepper, T } from '../../ui/components';
+import { BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, Stepper, T } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 import { newId } from '../../domain/ids';
 import { recordReceipt, reverseMovement } from '../../domain/ledger';
 import { findOrCreateLot } from '../../db/repo/lots';
-import { describeStock, dosesFromVials } from '../../domain/stock';
+import { describeStock, describeStockRow, dosesFromVials, plural } from '../../domain/stock';
 import { lastsLabel, loadLedger, usageRate } from '../../domain/supply';
 import { MonthYearWheel } from '../../ui/wheel';
 import { expiryFromMonth, todayLocal } from '../../domain/time';
 import type { FundingSource, StockRow } from '../../domain/types';
-
-const dosesText = (n: number) => `${n} ${n === 1 ? 'dose' : 'doses'}`;
 
 /**
  * Log a delivery. This is where the expensive keystrokes live - once per box,
@@ -24,6 +22,7 @@ const dosesText = (n: number) => `${n} ${n === 1 ? 'dose' : 'doses'}`;
  * point of care with a crying infant.
  */
 export default function ReceiveScreen() {
+  const centred = useCentred();
   const { vaccineId } = useLocalSearchParams<{ vaccineId: string }>();
   const router = useRouter();
   const run = useAction();
@@ -53,12 +52,7 @@ export default function ReceiveScreen() {
   const byVial = vaccine.unit_mode === 'VIAL' && vaccine.doses_per_vial > 1;
   // The app multiplies. She never does.
   const doses = byVial ? dosesFromVials(vaccine.doses_per_vial, qty) : qty;
-  const after = describeStock(
-    vaccine.on_hand_doses + doses,
-    vaccine.unit_mode,
-    vaccine.doses_per_vial,
-    vaccine.min_balance_doses,
-  );
+  const after = describeStock(vaccine.on_hand_doses + doses, vaccine.min_balance_doses);
 
   const save = async () => {
     if (saving || !lotNumber.trim()) return;
@@ -82,7 +76,7 @@ export default function ReceiveScreen() {
         doses,
       });
       bump();
-      toast.show(`Added ${doses} doses of ${vaccine.name}.`, async () => {
+      toast.show(`Added ${plural(doses, 'dose', 'doses')} of ${vaccine.name}.`, async () => {
         await run('undo that delivery', async () => {
           await reverseMovement(db, { deviceId }, { clientActionId: newId(), movementId: movement.id });
           bump();
@@ -94,7 +88,7 @@ export default function ReceiveScreen() {
   };
 
   return (
-    <View style={st.screen}>
+    <KeyboardSafe>
       <ScrollView contentContainerStyle={[st.content, centred]} keyboardShouldPersistTaps="handled">
         <T style={st.name}>{vaccine.name}</T>
         <T style={st.sub}>
@@ -138,8 +132,8 @@ export default function ReceiveScreen() {
           <Stepper accent="stock" value={qty} onChange={setQty} min={1} max={500} quickValues={[1, 5, 10, 20, 50]} />
         </Field>
 
-        <T style={st.fact}>In stock now: {describeStock(vaccine.on_hand_doses, vaccine.unit_mode, vaccine.doses_per_vial, vaccine.min_balance_doses).primary}</T>
-        <T style={st.fact}>Safety limit: {dosesText(vaccine.min_balance_doses)}</T>
+        <T style={st.fact}>In stock now: {describeStockRow(vaccine).primary}</T>
+        <T style={st.fact}>Safety limit: {plural(vaccine.min_balance_doses, 'dose', 'doses')}</T>
         {lasts ? <T style={st.fact}>{lasts}</T> : null}
         <T style={st.after}>After adding: {after.primary}</T>
       </ScrollView>
@@ -153,12 +147,11 @@ export default function ReceiveScreen() {
           disabled={saving || !lotNumber.trim()}
         />
       </Footer>
-    </View>
+    </KeyboardSafe>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   content: { padding: space.lg, paddingBottom: space.xxl },
   name: { fontSize: type.big, fontWeight: weight.bold, color: color.text },
   sub: { fontSize: type.label, color: color.textMuted, marginTop: space.xs, marginBottom: space.xl },

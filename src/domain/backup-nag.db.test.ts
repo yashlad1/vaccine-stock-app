@@ -1,7 +1,50 @@
-import { NAG, backupNag, lastBackupLabel } from './backup-nag';
+import { NAG, backupNag, coveredByServer, lastBackupLabel } from './backup-nag';
 
 const DAY = 86_400_000;
+const HOUR = 3600_000;
 const NOW = Date.UTC(2026, 8, 6, 12, 0);
+
+/** The clinic's real state: red for weeks, while every dose was on the server. */
+const UPLOADING = { serverOn: true, pendingUploads: 0, lastUploadAt: NOW - 60_000 };
+
+describe('the server as the second copy', () => {
+  // The clinic ran 55 days red on its only tablet while the server held every
+  // dose and copied itself 8 times a day. The nag was asking for a zip that
+  // had stopped being the only safeguard on 27 Oct 2026.
+  it('goes quiet two months overdue when every entry is on the server', () => {
+    const stranded = { lastBackupAt: NOW - 55 * DAY, dosesSinceBackup: 190, now: NOW };
+    expect(backupNag(stranded).level).toBe('overdue');
+    expect(backupNag({ ...stranded, ...UPLOADING }).level).toBe('none');
+  });
+
+  it('still nags when server backup is switched off', () => {
+    const off = { ...UPLOADING, serverOn: false };
+    expect(backupNag({ lastBackupAt: NOW - 55 * DAY, dosesSinceBackup: 190, now: NOW, ...off }).level).toBe('overdue');
+  });
+
+  it('still nags when sync is configured but has never once succeeded', () => {
+    // Wrong password since setup: switched on proves nothing.
+    const never = { serverOn: true, pendingUploads: 40, lastUploadAt: null };
+    expect(coveredByServer({ lastBackupAt: null, dosesSinceBackup: 40, now: NOW, ...never })).toBe(false);
+  });
+
+  it('does not flicker back during the seconds a dose is waiting to upload', () => {
+    const justWritten = { serverOn: true, pendingUploads: 1, lastUploadAt: NOW - 10_000 };
+    expect(coveredByServer({ lastBackupAt: NOW - 55 * DAY, dosesSinceBackup: 190, now: NOW, ...justWritten })).toBe(true);
+  });
+
+  it('comes back the moment uploads are genuinely stuck', () => {
+    // Four hours behind with entries waiting is a fault, not a delay - and a
+    // zip is exactly the right fallback, so both banners show together.
+    const stuck = { serverOn: true, pendingUploads: 12, lastUploadAt: NOW - 5 * HOUR };
+    expect(coveredByServer({ lastBackupAt: NOW - 55 * DAY, dosesSinceBackup: 190, now: NOW, ...stuck })).toBe(false);
+    expect(backupNag({ lastBackupAt: NOW - 55 * DAY, dosesSinceBackup: 190, now: NOW, ...stuck }).level).toBe('overdue');
+  });
+
+  it('a call site that forgets the server fields nags, never goes silent', () => {
+    expect(coveredByServer({ lastBackupAt: NOW - 55 * DAY, dosesSinceBackup: 190, now: NOW })).toBe(false);
+  });
+});
 
 describe('backup nag', () => {
   it('stays quiet on a fresh install with nothing to lose', () => {

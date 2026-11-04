@@ -2,7 +2,8 @@ import { makeTestDb, T0 } from '../testing';
 import { findOrCreateLot } from '../repo/lots';
 import { createPatient } from '../repo/patients';
 import { recordAdministration, recordReceipt, reverseMovement } from '../../domain/ledger';
-import { collectCsvs, dosesCsv, vaccinesCsv, tableCounts } from './collect';
+import { collectCsvs, dosesCsv, vaccinesCsv } from './collect';
+import { tableCounts } from './validate';
 
 const MR = { name: 'Measles-Rubella (MR)', unit_mode: 'VIAL' as const, doses_per_vial: 10, min_balance_doses: 10 };
 

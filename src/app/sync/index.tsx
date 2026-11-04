@@ -4,7 +4,7 @@ import {
   BigButton, Chip, ErrorState, Field, Input, Loading, Row, SecondaryButton, SectionTitle, T, useBottomInset,
 } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
@@ -24,6 +24,7 @@ import { formatDate } from '../../domain/time';
  * is also kept off it.
  */
 export default function SyncScreen() {
+  const centred = useCentred();
   const bottomInset = useBottomInset();
   const { db, deviceId, bump } = useDb();
   const toast = useToast();
@@ -114,11 +115,13 @@ export default function SyncScreen() {
         // Same rule as the zip restore: real numbers BEFORE anything is
         // touched. A restore offered without counts asks for blind trust.
         const counts = await previewServer(backend);
-        const local = await db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM stock_movements`);
+        const here = (await db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM stock_movements`))?.n ?? 0;
+        const { stock_movements: there, vaccines } = counts;
         Alert.alert(
           'Bring records down from the server?',
-          `The server has ${counts.stock_movements} entries and ${counts.vaccines} vaccines.\n\n` +
-            `This phone has ${local?.n ?? 0} entries.\n\n` +
+          `The server has ${there} ${there === 1 ? 'entry' : 'entries'} and ` +
+            `${vaccines} ${vaccines === 1 ? 'vaccine' : 'vaccines'}.\n\n` +
+            `This phone has ${here} ${here === 1 ? 'entry' : 'entries'}.\n\n` +
             'Anything the server has and this phone does not will be added. Nothing on this phone ' +
             'is deleted or overwritten.',
           [

@@ -204,7 +204,7 @@ export async function recordAdjustment(
 /**
  * THE ONLY UNDO MECHANISM, and the only correction mechanism.
  *
- * The 8-second snackbar and a correction made three weeks later run through
+ * The 3.5-second snackbar and a correction made three weeks later run through
  * this exact path. One code path means one set of bugs, and it means undo can
  * never be quietly implemented as a delete that breaks the audit trail.
  */

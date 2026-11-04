@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, userEvent } from '@testing-library/react-native';
+import { act, fireEvent, render, userEvent } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Badge, BigButton, Footer, Stepper, T } from './components';
 import { MAX_FONT_SCALE } from './tokens';
@@ -40,6 +40,51 @@ const metrics = {
 
 const wrap = (ui: React.ReactElement) =>
   render(<SafeAreaProvider initialMetrics={metrics}>{ui}</SafeAreaProvider>);
+
+describe('Stepper long press', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  const Held = ({ onValue }: { onValue: (n: number) => void }) => {
+    const [v, setV] = React.useState(5);
+    return (
+      <Stepper
+        value={v}
+        min={1}
+        max={8}
+        onChange={(n) => {
+          setV(n);
+          onValue(n);
+        }}
+      />
+    );
+  };
+
+  it('repeats while held, stops at the limit, and stops on release', async () => {
+    const seen: number[] = [];
+    const s = await wrap(<Held onValue={(n) => seen.push(n)} />);
+    const inc = s.getByLabelText('Increase');
+    await fireEvent(inc, 'longPress');
+    await act(async () => {
+      jest.advanceTimersByTime(120 * 2);
+    });
+    expect(seen).toEqual([6, 7]);
+    await act(async () => {
+      jest.advanceTimersByTime(120 * 5);
+    });
+    expect(seen).toEqual([6, 7, 8]); // clamped at max, no more calls
+    const dec = s.getByLabelText('Decrease');
+    await fireEvent(dec, 'longPress');
+    await act(async () => {
+      jest.advanceTimersByTime(120);
+    });
+    await fireEvent(dec, 'pressOut');
+    await act(async () => {
+      jest.advanceTimersByTime(120 * 5);
+    });
+    expect(seen).toEqual([6, 7, 8, 7]);
+  });
+});
 
 describe('Stepper', () => {
   it('cannot be pushed past its maximum', async () => {

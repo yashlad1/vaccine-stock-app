@@ -4,24 +4,16 @@
  *
  * Run with: npm run schema:dump
  *
- * Note the explicit file-extension imports. Node's ESM resolver does not do
- * directory imports (Metro and Jest do), so this script reaches for the
- * migration files directly rather than through src/db/migrations/index.ts.
+ * Runs the app's own `migrate()`, so every migration is in it: a hand-kept
+ * list here once stopped at m001 and left the file four versions behind.
  */
-import { openNodeDb } from '../src/db/driver.node.ts';
-import { m001 } from '../src/db/migrations/m001_initial.ts';
+import './resolve.ts';
 
-const MIGRATIONS = [m001];
-const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].to;
+const { openNodeDb } = await import('../src/db/driver.node.ts');
+const { migrate, LATEST_VERSION } = await import('../src/db/migrate.ts');
 
 const db = openNodeDb();
-await db.exec('PRAGMA foreign_keys = ON');
-for (const m of MIGRATIONS) {
-  await db.tx(async (tx) => {
-    await m.up(tx);
-    await tx.exec(`PRAGMA user_version = ${Number(m.to)}`);
-  });
-}
+await migrate(db);
 
 const rows = await db.all<{ type: string; name: string; sql: string | null }>(
   `SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL

@@ -3,8 +3,8 @@ import * as Sharing from 'expo-sharing';
 import { Directory, File, Paths } from 'expo-file-system';
 import { zipSync, strToU8 } from 'fflate';
 import type { Db } from '../driver';
-import { collectCsvs, tableCounts } from './collect';
-import { BACKUP_FORMAT, DB_ENTRY, MANIFEST_ENTRY, type BackupManifest } from './validate';
+import { collectCsvs } from './collect';
+import { BACKUP_FORMAT, DB_ENTRY, MANIFEST_ENTRY, tableCounts, type BackupManifest } from './validate';
 import { currentVersion } from '../migrate';
 
 const BACKUP_DIR = 'backups';

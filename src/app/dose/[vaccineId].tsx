@@ -1,9 +1,9 @@
-import React, { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { BigButton, Badge, Chip, ErrorState, Field, Footer, Input, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
+import { Badge, BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
 import { color, radius, space, touch, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
@@ -12,7 +12,7 @@ import { reverseMovement, findRecentSimilar } from '../../domain/ledger';
 import { lotsInStock, lastUsedLot, isExpired } from '../../db/repo/lots';
 import { type Patient, type Sex, createPatient, recentPatients, searchPatients, setPatientDob, setPatientSex } from '../../db/repo/patients';
 import { bumpDosesSinceBackup } from '../../db/repo/settings';
-import { describeStock } from '../../domain/stock';
+import { describeStock, describeStockRow, plural } from '../../domain/stock';
 import { addDays, expiryToMonthLabel, formatAge, todayLocal } from '../../domain/time';
 import { type DoseNote, stripDoseToken } from '../../domain/names';
 import { type Visit, type VisitIds, coGiven, recordVisit, visitIds } from '../../domain/visits';
@@ -27,8 +27,6 @@ const DOSE_CHIPS: { label: string; note: DoseNote }[] = [
   { label: 'Booster', note: 'Booster' },
 ];
 
-const dosesText = (n: number) => `${n} ${Math.abs(n) === 1 ? 'dose' : 'doses'}`;
-
 /**
  * The dose modal. Target: 3 taps from launch (tile -> child chip -> GIVE), or
  * 2 if she skips the child.
@@ -38,6 +36,7 @@ const dosesText = (n: number) => `${n} ${Math.abs(n) === 1 ? 'dose' : 'doses'}`;
  * through confirms.
  */
 export default function DoseScreen() {
+  const centred = useCentred();
   const { vaccineId } = useLocalSearchParams<{ vaccineId: string }>();
   const router = useRouter();
   const { db, deviceId, bump } = useDb();
@@ -150,12 +149,7 @@ export default function DoseScreen() {
   if (error) return <ErrorState error={error} onRetry={reload} what="load this vaccine" />;
   if (!vaccine) return <Loading label="Loading vaccine" />;
 
-  const stock = describeStock(
-    vaccine.on_hand_doses,
-    vaccine.unit_mode,
-    vaccine.doses_per_vial,
-    vaccine.min_balance_doses,
-  );
+  const stock = describeStockRow(vaccine);
   const wouldGoNegative = vaccine.on_hand_doses - doses < 0;
   const stockInk = stock.level === 'OK' ? color.textMuted : stock.level === 'LOW' ? color.low : color.danger;
 
@@ -340,7 +334,7 @@ export default function DoseScreen() {
   };
 
   return (
-    <View style={st.screen}>
+    <KeyboardSafe>
       <Stack.Screen options={{ title: `Give ${vaccine.name}` }} />
       <ScrollView contentContainerStyle={[st.content, centred]} keyboardShouldPersistTaps="handled">
         {/* The vaccine name IS the confirmation, and it costs no tap. */}
@@ -503,8 +497,8 @@ export default function DoseScreen() {
                       // OUT can still be chosen: a dose is never blocked (invariant 5).
                       // The tile's word (OUT, CHECK, LOW) over a bare "-3 doses".
                       sublabel={
-                        describeStock(s.on_hand_doses, s.unit_mode, s.doses_per_vial, s.min_balance_doses).badge ??
-                        dosesText(s.on_hand_doses)
+                        describeStock(s.on_hand_doses, s.min_balance_doses).badge ??
+                        plural(s.on_hand_doses, 'dose', 'doses')
                       }
                       selected={extras.includes(s.vaccine_id)}
                       onPress={() =>
@@ -541,19 +535,18 @@ export default function DoseScreen() {
           // Doses first, the unit of the whole app: one dose of each added vaccine.
           label={
             chosenExtras.length
-              ? `Give ${dosesText(doses + chosenExtras.length)} (${chosenExtras.length + 1} vaccines)`
-              : `Give ${dosesText(doses)}`
+              ? `Give ${plural(doses + chosenExtras.length, 'dose', 'doses')} (${chosenExtras.length + 1} vaccines)`
+              : `Give ${plural(doses, 'dose', 'doses')}`
           }
           onPress={() => give(false)}
           disabled={saving}
         />
       </Footer>
-    </View>
+    </KeyboardSafe>
   );
 }
 
 const st = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.bg },
   content: { padding: space.lg, paddingBottom: space.xxl },
   head: { marginBottom: space.md },
   headRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: space.md, rowGap: space.xs },
