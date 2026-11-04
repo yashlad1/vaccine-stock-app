@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { BigButton, Empty, ErrorState, Input, Loading, Row, SecondaryButton, T, s as base, useBottomInset } from '../../ui/components';
 import { useAction } from '../../ui/use-action';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useWide } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { asOfLabel, dosesGiven, dosesGivenTotals, missingChildEntries, movementStrip } from '../../domain/reports';
 import { fillMissingChild } from '../../domain/ledger';
@@ -13,6 +13,7 @@ import { MovementStrip } from '../../ui/movement-strip';
 
 /** "Vaccines given today, time, count" - the notebook page, arithmetic included. */
 export default function TodayScreen() {
+  const centred = useWide();
   const run = useAction();
   const bottomInset = useBottomInset();
   const { db, bump } = useDb();

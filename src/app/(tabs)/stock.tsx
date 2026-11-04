@@ -20,7 +20,7 @@ import {
 } from "../../ui/components";
 import { color, space, type, weight } from "../../ui/tokens";
 import { MovementStrip } from "../../ui/movement-strip";
-import { centred } from "../../ui/layout";
+import { useWide } from "../../ui/layout";
 import { searchRank } from "../../domain/search";
 import { useQuery } from "../../db/provider";
 import { asOfLabel, movementStrip, stockOnHand } from "../../domain/reports";
@@ -48,6 +48,7 @@ const expiryLabel = (date: string, today: string) =>
  * next to it in the tab bar, so the visual separation is doing real work.
  */
 export default function AddStockScreen() {
+  const centred = useWide();
   const router = useRouter();
   const bottomInset = useBottomInset();
   const [q, setQ] = useState("");
