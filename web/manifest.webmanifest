@@ -1,6 +1,6 @@
 {
-  "name": "Clinic Stock",
-  "short_name": "Clinic Stock",
+  "name": "Vialbook",
+  "short_name": "Vialbook",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#FFFFFF",

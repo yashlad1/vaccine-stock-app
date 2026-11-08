@@ -1,4 +1,6 @@
-# Clinic Stock — how to use it
+# Vialbook — how to use it
+
+The app is now called Vialbook. It is the same app, with the same records.
 
 This app replaces the vaccine stock notebook.
 
@@ -64,7 +66,7 @@ flowchart TD
 1. Tap the link.
 2. Let it download.
 3. The phone will say it is not from the Play Store. Tap **More details**, then **Install anyway**.
-4. Open **Clinic Stock**.
+4. Open **Vialbook**.
 
 It asks only the first time.
 

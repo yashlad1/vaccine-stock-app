@@ -84,7 +84,7 @@ export function parseManifest(raw: string): BackupManifest {
   }
   const m = parsed as Partial<BackupManifest>;
   if (m?.format !== BACKUP_FORMAT) {
-    throw new BackupInvalidError('This file is not a Clinic Stock backup.');
+    throw new BackupInvalidError('This file is not a Vialbook backup.');
   }
   return m as BackupManifest;
 }
@@ -107,7 +107,7 @@ export async function inspectBackup(
   const schemaVersion = vRow?.user_version ?? 0;
 
   if (schemaVersion === 0) {
-    throw new BackupInvalidError('This backup does not contain a Clinic Stock database.');
+    throw new BackupInvalidError('This backup does not contain a Vialbook database.');
   }
   if (schemaVersion > LATEST_VERSION) {
     throw new BackupInvalidError(

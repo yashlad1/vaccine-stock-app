@@ -22,7 +22,7 @@ const rows = await db.all<{ type: string; name: string; sql: string | null }>(
 );
 
 const out: string[] = [
-  `-- Reference DDL for Clinic Stock, schema v${LATEST_VERSION}.`,
+  `-- Reference DDL for Vialbook, schema v${LATEST_VERSION}.`,
   `--`,
   `-- GENERATED from src/db/migrations by scripts/dump-schema.ts.`,
   `-- Do not edit by hand; run \`npm run schema:dump\` instead.`,

@@ -1,4 +1,6 @@
-# Clinic Stock — start here
+# Vialbook — start here
+
+The app is now called Vialbook. It is the same app, with the same records.
 
 ---
 

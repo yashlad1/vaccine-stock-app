@@ -58,9 +58,11 @@ clinic-backup-*.zip
 
 # Local editor / tooling
 .idea/
-.vscode/*
-!.vscode/extensions.json
-.DS_Store
+.vscode/
+# Local Claude Code settings and agent worktrees.
+.claude/
+# The project spec lives in the owner's private vault and is symlinked here.
+CLAUDE.md
 
 # Secrets
 .env

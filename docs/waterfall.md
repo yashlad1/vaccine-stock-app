@@ -1,5 +1,5 @@
 # Waterfall Model & Project Timeline
-## Clinic Vaccine Stock Logger
+## Vialbook (Clinic Vaccine Stock Logger)
 
 ---
 
@@ -128,7 +128,7 @@ flowchart LR
 
 ```mermaid
 gantt
-    title Clinic Stock — delivery plan
+    title Vialbook — delivery plan
     dateFormat YYYY-MM-DD
     axisFormat %d %b
 

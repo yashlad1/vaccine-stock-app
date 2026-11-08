@@ -1,4 +1,6 @@
-# Clinic Stock
+# Vialbook
+
+Formerly "Clinic Stock". The Android package id (`in.clinicstock.app`), the EAS slug (`clinic-stock`) and the URL scheme keep the old name on purpose: changing any of them would cut the installed phones off from updates.
 
 An offline Android app that replaces a pediatric clinic's paper vaccine-stock notebook.
 

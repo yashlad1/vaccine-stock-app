@@ -61,7 +61,7 @@ describe('backup rejection is always specific', () => {
   it('rejects a database that is not ours', async () => {
     const db = openNodeDb();
     await db.exec(`CREATE TABLE something_else (x)`);
-    await expect(inspectBackup(db)).rejects.toThrow(/does not contain a Clinic Stock database/);
+    await expect(inspectBackup(db)).rejects.toThrow(/does not contain a Vialbook database/);
   });
 
   it('rejects a backup from a NEWER app rather than silently mangling it', async () => {
@@ -103,7 +103,7 @@ describe('manifest parsing', () => {
 
   it('rejects JSON that is some other app\'s backup', () => {
     expect(() => parseManifest(JSON.stringify({ format: 'someone-elses-app' }))).toThrow(
-      /not a Clinic Stock backup/,
+      /not a Vialbook backup/,
     );
   });
 

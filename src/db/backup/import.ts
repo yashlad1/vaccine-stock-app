@@ -46,7 +46,7 @@ export async function pickBackup(): Promise<PickedBackup | null> {
     entries = unzipSync(bytes);
   } catch {
     throw new BackupInvalidError(
-      'That file is not a Clinic Stock backup - it is not a zip file. Pick the ' +
+      'That file is not a Vialbook backup - it is not a zip file. Pick the ' +
         'clinic-backup-....zip file you saved or sent to yourself.',
     );
   }
@@ -54,7 +54,7 @@ export async function pickBackup(): Promise<PickedBackup | null> {
   const dbBytes = entries[DB_ENTRY];
   if (!dbBytes) {
     throw new BackupInvalidError(
-      `That zip does not contain ${DB_ENTRY}, so it cannot be a Clinic Stock backup.`,
+      `That zip does not contain ${DB_ENTRY}, so it cannot be a Vialbook backup.`,
     );
   }
 
