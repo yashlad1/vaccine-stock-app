@@ -65,8 +65,29 @@ window.CLINIC_CONFIG = {
 EOF
 
 # Removed even if the deploy fails, so it can never be committed by accident.
-cleanup() { rm -f web/config.js; }
+# install-config.js holds the APK link for web/install.html and is treated the
+# same way: the repo is public and the build must reach only the clinic.
+cleanup() { rm -f web/config.js web/install-config.js; }
 trap cleanup EXIT
+
+# The install page's download link: the latest FINISHED Android build. The
+# expiry is EAS's own `expirationDate` for that build (about 30 days), written
+# into the file and compared with the viewer's clock when the page opens. A
+# date typed here would drift from what EAS really does; a runtime check on
+# the link itself is blocked by the page's CSP and cross-origin rules.
+# Not fatal: without it the page says "This link has expired".
+BUILD=$(eas_cli build:list --platform android --status finished --limit 1 --json --non-interactive 2>/dev/null | node -e '
+  let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+    try {
+      const b = JSON.parse(s.slice(s.indexOf("[")))[0];
+      process.stdout.write(JSON.stringify({ url: b.artifacts.buildUrl, version: b.appBuildVersion, date: b.completedAt, expires: b.expirationDate }));
+    } catch (e) {}
+  });') || true
+if [ -n "$BUILD" ]; then
+  echo "window.INSTALL_CONFIG = $BUILD;" > web/install-config.js
+else
+  echo "No finished EAS build found: the install page will say its link has expired." >&2
+fi
 
 # ---------------------------------------------------------------------------
 # Deploy, then PROVE it.
@@ -127,9 +148,10 @@ fi
 # fine - the alias caught up about two minutes later. That false alarm is worse
 # than no check at all: it invites a panicked re-promote of the wrong thing.
 #
-# config.js is skipped: it is generated per deploy and holds the credentials,
+# config.js and install-config.js are skipped: generated per deploy, holding the
+# credentials and the build link,
 # so it is the one file worth never piping through this script's output.
-FILES=$(cd web && find . -type f ! -name 'config.js' | sed 's|^\./||')
+FILES=$(cd web && find . -type f ! -name 'config.js' ! -name 'install-config.js' | sed 's|^\./||')
 
 MISMATCH=""
 for attempt in $(seq 1 12); do
