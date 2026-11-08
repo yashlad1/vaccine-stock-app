@@ -212,14 +212,17 @@ export function SecondaryButton({
   onPress,
   accent = 'dose',
   danger,
+  outlined,
 }: {
   label: string;
   onPress: () => void;
   accent?: Accent;
   danger?: boolean;
+  /** For a link that changes data: the control edge sits inside the 56dp box, so nothing grows. */
+  outlined?: boolean;
 }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={s.secondary}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={[s.secondary, outlined && s.secondaryOutlined]}>
       <T style={[s.secondaryLabel, { color: danger ? color.danger : accentColor[accent] }]}>
         {label}
       </T>
@@ -576,6 +579,13 @@ export const s = StyleSheet.create({
   bigButtonSub: { fontSize: type.min, marginTop: 2, fontWeight: weight.medium },
 
   secondary: { minHeight: touch.min, justifyContent: 'center', alignSelf: 'flex-start' },
+  secondaryOutlined: {
+    backgroundColor: color.surface,
+    borderWidth: 2,
+    borderColor: color.borderControl,
+    borderRadius: radius.md,
+    paddingHorizontal: space.lg,
+  },
   secondaryLabel: { fontSize: type.body, fontWeight: weight.semibold },
 
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
