@@ -22,4 +22,20 @@ describe('tablet layout policy', () => {
     expect(columnsFor(200)).toBe(2);
     expect(columnsFor(2400)).toBe(6);
   });
+
+  // The grid gives every tile tileWidthFor(w) (an explicit width, not flex: 1),
+  // so a row's tiles plus gaps never exceed the content and a partial last row
+  // is not stretched. Full-row width must equal what flex: 1 + gap produced.
+  it.each([360, 390, 600, 800, 1000])('%idp: every tile is tileWidthFor, in full and partial rows', (w) => {
+    const cols = columnsFor(w);
+    const tile = tileWidthFor(w);
+    const flexFull = (contentWidthFor(w) - (cols - 1) * 12) / cols; // old flex: 1 width of a full row
+    expect(tile).toBe(flexFull);
+    for (const count of [1, cols + 1, 2 * cols + 1, 21]) {
+      const lastRow = count % cols || cols;
+      // Last row's tiles are the same width as a full row's, so a row of one is not stretched.
+      expect(tile * lastRow + (lastRow - 1) * 12).toBeLessThanOrEqual(contentWidthFor(w));
+      if (lastRow < cols) expect(tile).toBeLessThan(contentWidthFor(w) / lastRow);
+    }
+  });
 });

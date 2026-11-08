@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Badge, Chip, ErrorState, Input, Loading, Screen, SecondaryButton, SectionTitle, T, useBottomInset } from '../../ui/components';
 import { color, radius, space, type, weight } from '../../ui/tokens';
@@ -9,7 +9,7 @@ import { describeStockRow } from '../../domain/stock';
 import { daysAgoLocal, formatDayLabel, todayLocal } from '../../domain/time';
 import { BackupBanner } from '../../ui/backup-banner';
 import { SyncBanner } from '../../ui/sync-banner';
-import { useWide, useColumns } from '../../ui/layout';
+import { useWide, useColumns, tileWidthFor } from '../../ui/layout';
 import { searchRank } from '../../domain/search';
 import { isAwaitingCatalog, startNewClinicHere } from '../../sync/adopt';
 import { useAction } from '../../ui/use-action';
@@ -27,6 +27,8 @@ export default function GiveDoseScreen() {
   const router = useRouter();
   const bottomInset = useBottomInset();
   const columns = useColumns();
+  // An explicit width, not flex: 1, so a lone tile in a partial last row does not stretch.
+  const tileWidth = tileWidthFor(useWindowDimensions().width);
   const run = useAction();
   const { db, deviceId, bump } = useDb();
   const [q, setQ] = useState('');
@@ -210,7 +212,7 @@ export default function GiveDoseScreen() {
                 setQ('');
                 router.push(`/dose/${item.vaccine_id}`);
               }}
-              style={({ pressed }) => [st.tile, pressed && st.tilePressed]}
+              style={({ pressed }) => [st.tile, { width: tileWidth }, pressed && st.tilePressed]}
             >
               <T style={st.tileName} numberOfLines={3}>
                 {item.name}
@@ -264,7 +266,6 @@ const st = StyleSheet.create({
 
   grid: { paddingHorizontal: space.lg, gap: space.md },
   tile: {
-    flex: 1,
     minHeight: 138,
     borderRadius: radius.lg,
     padding: space.lg,
