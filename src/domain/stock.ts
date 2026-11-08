@@ -38,6 +38,9 @@ export function stockLevel(onHandDoses: number, minBalanceDoses: number): StockL
 /** "1 dose", "12 doses". `Math.abs` so a negative balance of -1 still reads singular. */
 export const plural = (n: number, one: string, many: string) => `${n} ${Math.abs(n) === 1 ? one : many}`;
 
+/** A ledger amount with its unit and an explicit sign: "+10 doses", "-1 dose". */
+export const formatDelta = (n: number) => `${n > 0 ? '+' : ''}${plural(n, 'dose', 'doses')}`;
+
 export function describeStock(doses: number, minBalanceDoses: number): StockDisplay {
   const level = stockLevel(doses, minBalanceDoses);
   const badge = level === 'NEGATIVE' ? 'CHECK' : level === 'OK' ? undefined : level;

@@ -7,6 +7,7 @@ import { useDb, useQuery } from '../../db/provider';
 import { newId } from '../../domain/ids';
 import { useToast } from '../../ui/snackbar';
 import { reverseMovement } from '../../domain/ledger';
+import { formatDelta } from '../../domain/stock';
 import { formatAge, formatLocalDate, formatTime12h } from '../../domain/time';
 
 interface LedgerLine {
@@ -98,6 +99,7 @@ export default function LedgerScreen() {
               {!undone && item.movement_type !== 'REVERSAL' ? (
                 <SecondaryButton
                   accent="more"
+                  outlined
                   label="Undo this entry"
                   onPress={() =>
                     void run('undo this entry', async () => {
@@ -117,8 +119,8 @@ export default function LedgerScreen() {
             </View>
             <View style={{ alignItems: 'flex-end', gap: space.xs }}>
               <T style={[st.delta, { color: deltaColor[item.movement_type] ?? color.text }]}>
-                {item.delta_doses > 0 ? '+' : ''}
-                {item.delta_doses}
+                {formatDelta(item.delta_doses).split(' ')[0]}
+                <T style={st.unit}> {formatDelta(item.delta_doses).split(' ')[1]}</T>
               </T>
               {undone ? <Badge text="UNDONE" tone="neutral" /> : null}
             </View>
@@ -139,5 +141,6 @@ const st = StyleSheet.create({
   },
   title: { fontSize: type.body, fontWeight: weight.semibold, color: color.text },
   meta: { fontSize: type.min, color: color.textMuted, marginTop: 2 },
+  unit: { fontSize: type.min, fontWeight: weight.semibold },
   delta: { fontSize: type.title, fontWeight: weight.bold },
 });

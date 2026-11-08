@@ -1,4 +1,4 @@
-import { describeStock, dosesFromVials, stockLevel } from './stock';
+import { describeStock, dosesFromVials, formatDelta, stockLevel } from './stock';
 
 describe('vial <-> dose arithmetic (the clinician never multiplies)', () => {
   it('converts vials to doses', () => {
@@ -43,5 +43,19 @@ describe('stock display', () => {
     expect(describeStock(0, 10).badge).toBe('OUT');
     expect(describeStock(-2, 10).badge).toBe('CHECK');
     expect(describeStock(50, 10).badge).toBeUndefined();
+  });
+});
+
+describe('ledger amount wording', () => {
+  it('names the unit and signs positive and negative amounts', () => {
+    expect(formatDelta(10)).toBe('+10 doses');
+    expect(formatDelta(-1)).toBe('-1 dose');
+    expect(formatDelta(-120)).toBe('-120 doses');
+  });
+
+  it('reads a vial-mode delivery in doses, never vials', () => {
+    // 1 vial of 10 stays "+10 doses"; 2 vials of 10 is "+20 doses", not "+2".
+    expect(formatDelta(dosesFromVials(10, 1))).toBe('+10 doses');
+    expect(formatDelta(dosesFromVials(10, 2))).toBe('+20 doses');
   });
 });
