@@ -7,7 +7,7 @@ import { actions, makeTestDb, T0, type TestEnv } from '../db/testing';
 import { recordAdministration, recordAdjustment, recordOpeningBalance, recordReceipt, recordWastage, reverseMovement } from '../domain/ledger';
 import { findOrCreateLot, getLot, isExpired } from '../db/repo/lots';
 import { insertVaccine, listVaccines, removeVaccine, setVaccinePrice } from '../db/repo/catalog';
-import { dosesGiven, stockOnHand } from '../domain/reports';
+import { dosesGiven, stockOnHand, vaccinesByUsage } from '../domain/reports';
 import { dosesFromVials, stockLevel } from '../domain/stock';
 import { expiryFromMonth, formatAge } from '../domain/time';
 import { dosesSince, summarise } from '../domain/insights';
@@ -574,5 +574,36 @@ describe('other numbers CLAUDE.md states', () => {
 
   test('two live vaccines cannot share a name', async () => {
     await expect(insertVaccine(env.db, SEED[0], env.ctx.deviceId, T0)).rejects.toThrow();
+  });
+});
+
+/**
+ * Added by the lead after mutation testing, not by the spec author.
+ *
+ * Replacing `v_movement_effective` with the raw table inside `vaccinesByUsage`
+ * killed no test: the rule was pinned on the reporting path and left unpinned
+ * on the one that orders the Give dose grid. CLAUDE.md section 6 does not
+ * scope the rule to reports - "for ACTIVITY COUNTS you MUST use
+ * v_movement_effective, or '3 given, 1 undone' renders as 3" - so the grid's
+ * ordering query owes the same answer.
+ */
+describe('an undone dose is not recent usage either', () => {
+  it('orders the grid by doses that still count, not by doses that were undone', async () => {
+    const env: TestEnv = await makeTestDb({
+      seed: [{ name: 'BCG', unit_mode: 'DOSE', doses_per_vial: 1, min_balance_doses: 5 }],
+    });
+    const { db, ctx } = env;
+    const id = await env.vaccineId('BCG');
+    await recordReceipt(db, ctx, { clientActionId: 'r1', vaccineId: id, doses: 100 });
+    const given = [];
+    for (const n of ['a1', 'a2', 'a3']) {
+      given.push(await recordAdministration(db, ctx, { clientActionId: n, vaccineId: id }));
+    }
+    await reverseMovement(db, ctx, { clientActionId: 'u1', movementId: given[0].movement.id });
+
+    // 3 given, 1 undone. The spec's own example: this must read 2, never 3.
+    const rows = await vaccinesByUsage(db, '2026-01-01', '2027-01-01');
+    const bcg = rows.find((r) => r.vaccine_id === id);
+    expect(bcg?.recent_doses).toBe(2);
   });
 });
