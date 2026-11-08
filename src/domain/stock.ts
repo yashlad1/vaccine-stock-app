@@ -50,3 +50,20 @@ export function describeStock(doses: number, minBalanceDoses: number): StockDisp
 export function describeStockRow(row: StockRow): StockDisplay {
   return describeStock(row.on_hand_doses, row.min_balance_doses);
 }
+
+/**
+ * Why the Add stock headline and the strip under it differ.
+ *
+ * The headline counts a below-zero vaccine as 0 - a missing delivery is not
+ * stock to subtract - while the strip sums the ledger raw, so the same
+ * vaccine subtracts there. Both are right, and a total that disagrees with
+ * the line under it is a total she stops believing. Returns '' when they
+ * agree, which is the normal case.
+ */
+export function belowZeroNote(onHand: readonly number[]): string {
+  const below = onHand.filter((n) => n < 0);
+  if (below.length === 0) return '';
+  const short = -below.reduce((a, n) => a + n, 0);
+  const who = below.length === 1 ? 'One vaccine is' : `${below.length} vaccines are`;
+  return `${who} below zero by ${short === 1 ? '1 dose' : `${short} doses`}, so the line above is that much lower. A delivery was probably not logged.`;
+}
