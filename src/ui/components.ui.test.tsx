@@ -1,7 +1,8 @@
 import React from 'react';
 import { act, fireEvent, render, userEvent } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Badge, BigButton, Footer, Stepper, T } from './components';
+import { Badge, BigButton, Footer, ProblemView, Stepper, T } from './components';
+import { loadProblem, startupProblem } from './error-copy';
 import { MAX_FONT_SCALE } from './tokens';
 
 /**
@@ -179,5 +180,22 @@ describe('Footer — the navigation-bar fix', () => {
       node = node.parent;
     }
     expect(paddingBottom).toBeGreaterThanOrEqual(NAV_BAR);
+  });
+});
+
+describe('ProblemView', () => {
+  test('shows the still-safe line and a worded action for a failed read', async () => {
+    const onAction = jest.fn();
+    const { getByText } = await wrap(<ProblemView problem={loadProblem(new Error('x'), 'load your vaccines')} onAction={onAction} />);
+    getByText('Could not load your vaccines');
+    getByText('Your records are still safe on this phone.');
+    fireEvent.press(getByText('Try again'));
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
+  test('leaves the still-safe line out when the data may be at risk', async () => {
+    const { queryByText, getByText } = await wrap(<ProblemView problem={startupProblem('disk I/O error')} onAction={() => {}} />);
+    getByText('Restart the app');
+    expect(queryByText('Your records are still safe on this phone.')).toBeNull();
   });
 });

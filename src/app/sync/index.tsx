@@ -7,6 +7,7 @@ import { color, space, type, weight } from '../../ui/tokens';
 import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
+import { syncProblem } from '../../ui/error-copy';
 import { useAction } from '../../ui/use-action';
 import { SYNC_SETTING, loadSyncConfig, saveSyncConfig } from '../../sync/config';
 import { EMBEDDED_SYNC, hasEmbeddedSync } from '../../sync/embedded';
@@ -93,7 +94,7 @@ export default function SyncScreen() {
         const out = await pushOnce(db, supabaseBackend(cfg), deviceId);
         bump();
         if (!out.ok) {
-          return toast.showError(out.error ?? 'Upload failed. Your entries are safe on this phone.');
+          return toast.showError(syncProblem(out.error ?? ''));
         }
         toast.show(
           out.pushedRows
@@ -170,7 +171,7 @@ export default function SyncScreen() {
         title="Last successful upload"
         subtitle={status?.lastOkAt ? formatDate(status.lastOkAt) : 'Not yet'}
       />
-      {status?.lastError ? <T style={st.err}>Last attempt failed: {status.lastError}</T> : null}
+      {status?.lastError ? <T style={st.err}>{syncProblem(status.lastError)}</T> : null}
 
       <View style={{ gap: space.md, marginTop: space.md }}>
         <SecondaryButton accent="more" label="Upload now" onPress={uploadNow} />

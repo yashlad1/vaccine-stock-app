@@ -6,7 +6,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DbProvider } from '../db/provider';
 import { ToastProvider } from '../ui/snackbar';
 import { AutoSync } from '../sync/auto';
-import { Empty, Loading, Screen, T } from '../ui/components';
+import * as Updates from 'expo-updates';
+import { Loading, ProblemView, Screen, T } from '../ui/components';
+import { startupProblem } from '../ui/error-copy';
 import { color, space, touch, type, weight } from '../ui/tokens';
 
 /**
@@ -55,6 +57,21 @@ const tint = (c: string) => ({ headerTintColor: c });
 const cancel = (c: string) => ({ ...tint(c), headerLeft: () => <Cancel tint={c} /> });
 
 /**
+ * Opening failed. Pulls any waiting update before restarting, which is also the
+ * fix for the guard against an app older than the data. Expo Go and the web loop
+ * have no updater, so a failure there is ignored rather than shown twice.
+ */
+async function restartApp() {
+  try {
+    const check = await Updates.checkForUpdateAsync();
+    if (check.isAvailable) await Updates.fetchUpdateAsync();
+    await Updates.reloadAsync();
+  } catch {
+    // Nothing more to offer here; the screen already says what to do.
+  }
+}
+
+/**
  * The migration gate lives here: nothing renders until the schema is current,
  * because a screen that reads a half-migrated database shows numbers that are
  * quietly wrong.
@@ -71,7 +88,7 @@ function RootLayout() {
         )}
         renderError={(message) => (
           <Screen>
-            <Empty title="Cannot open clinic records" hint={message} />
+            <ProblemView problem={startupProblem(message)} onAction={() => void restartApp()} />
           </Screen>
         )}
       >

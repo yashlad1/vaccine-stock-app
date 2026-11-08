@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { BigButton, ErrorState, Loading, Row, T, useBottomInset } from '../../ui/components';
+import { BigButton, ErrorState, Loading, ProblemView, Row, T, useBottomInset } from '../../ui/components';
+import { exportProblem, restoreFailedProblem, restoreRejectedProblem, type Problem } from '../../ui/error-copy';
 import { color, radius, space, type, weight } from '../../ui/tokens';
 import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
@@ -34,12 +35,15 @@ function backupTitle(name: string): string {
  * liability. Phone-only storage means a lost, stolen or reset phone loses the
  * ledger unless a backup left the device.
  */
+const reasonOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
 export default function BackupScreen() {
   const centred = useCentred();
   const bottomInset = useBottomInset();
   const { db, raw, deviceId, appVersion, bump } = useDb();
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
+  const [problem, setProblem] = useState<{ problem: Problem; retry: () => void } | null>(null);
 
   const { data: meta, error, reload } = useQuery(async (d) => ({
     lastBackupAt: Number(await getSetting(d, SETTING.lastBackupAt)) || null,
@@ -50,8 +54,11 @@ export default function BackupScreen() {
 
   if (error) return <ErrorState error={error} onRetry={reload} what="load your backup details" />;
   if (!meta) return <Loading />;
+  // An inline panel, not an Alert: a failed backup must not stack a modal on a screen she is already reading.
+  if (problem) return <ProblemView problem={problem.problem} onAction={problem.retry} />;
 
   const doExport = async () => {
+    setProblem(null);
     setBusy('export');
     try {
       const res = await exportBackup(db, raw, { appVersion, deviceId });
@@ -64,13 +71,14 @@ export default function BackupScreen() {
           : `Backup saved on this phone (${Math.round(res.sizeBytes / 1024)} KB).`,
       );
     } catch (e) {
-      Alert.alert('Backup failed', e instanceof Error ? e.message : String(e));
+      setProblem({ problem: exportProblem(), retry: doExport });
     } finally {
       setBusy(null);
     }
   };
 
   const doRestore = async () => {
+    setProblem(null);
     setBusy('restore');
     try {
       const picked = await pickBackup();
@@ -105,7 +113,7 @@ export default function BackupScreen() {
                 reloadLocal();
                 toast.show('Data restored from backup.');
               } catch (e) {
-                Alert.alert('Restore failed', e instanceof Error ? e.message : String(e));
+                setProblem({ problem: restoreFailedProblem(reasonOf(e)), retry: doRestore });
               }
             },
           },
@@ -114,7 +122,7 @@ export default function BackupScreen() {
     } catch (e) {
       // Rejections are specific on purpose: "restore failed" teaches nothing and
       // leaves her unsure whether her data is safe.
-      Alert.alert('Cannot use that file', e instanceof Error ? e.message : String(e));
+      setProblem({ problem: restoreRejectedProblem(reasonOf(e)), retry: doRestore });
     } finally {
       setBusy(null);
     }

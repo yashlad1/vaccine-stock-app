@@ -13,6 +13,7 @@ import { pushOnce, syncStatus } from '../../sync/push';
 import { pullOnce } from '../../sync/pull';
 import { backendFor, loadSyncConfig } from '../../sync/config';
 import { useToast } from '../../ui/snackbar';
+import { syncProblem } from '../../ui/error-copy';
 import { useAction } from '../../ui/use-action';
 
 /** Everything infrequent, as a flat list of large labelled rows. */
@@ -49,7 +50,7 @@ export default function MoreScreen() {
         const out = await pushOnce(db, backend, deviceId);
         bump();
         if (!out.ok) {
-          toast.showError(out.error ?? 'Could not upload. Your entries are safe on this phone.');
+          toast.showError(syncProblem(out.error ?? ''));
           return;
         }
         toast.show(

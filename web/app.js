@@ -288,7 +288,7 @@ function renderStock(rows) {
   $('stock').classList.toggle('grid', rows.length > 0);
   $('stock').innerHTML = rows.length
     ? rows.map(tile).join('')
-    : '<p class="meta">No vaccines yet.</p>';
+    : '<p class="meta">No records yet. They appear here after the clinic phone uploads its first entry.</p>';
 
   // A count on the tab, so the reason to open Stock is visible from Today.
   $('stockBadge').textContent = attention.length ? String(attention.length) : '';
@@ -499,6 +499,26 @@ function showLogin(msg) {
   $('email').value = $('email').value || CFG.email || '';
 }
 
+/**
+ * What a failed load says. Every branch ends with the same promise, because
+ * every failure here is on the way to the server: the records are on the clinic
+ * phone either way. Each names the one thing to do.
+ */
+function dashProblem(e) {
+  const m = String(e && e.message);
+  const safe = 'Your records are still safe on the clinic phone.';
+  if (m.includes('signed out') || m.includes('not signed in')) {
+    return `You were signed out. ${safe} Sign in again to see them.`;
+  }
+  if (e instanceof TypeError || navigator.onLine === false) {
+    return `No internet on this device. ${safe} Connect, then tap Refresh.`;
+  }
+  if (m.includes('out of date')) {
+    return `The server is not ready for this version of the page. ${safe} Tell whoever looks after the app.`;
+  }
+  return `The server did not answer. ${safe} Wait a minute, then tap Refresh.`;
+}
+
 async function showDash() {
   $('login').classList.add('hide');
   $('dash').classList.remove('hide');
@@ -508,14 +528,14 @@ async function showDash() {
   } catch (e) {
     if (String(e.message).includes('signed out') || String(e.message).includes('not signed in')) {
       clearSession();
-      showLogin('Please sign in again.');
+      showLogin(dashProblem(e));
     } else {
       // In the red banner above the figures, not in the subtitle. A page that
       // failed to load must not look like a page that loaded.
-      $('loadError').textContent = e.message;
+      $('loadError').textContent = dashProblem(e);
       $('loadError').classList.remove('hide');
       // Never leave a stale "Checked 3:04pm" implying this read succeeded.
-      $('checked').textContent = `Could not check — last shown figures are from earlier`;
+      $('checked').textContent = 'Could not check. The figures shown are from earlier.';
     }
     return null;
   }
@@ -534,7 +554,7 @@ $('signin').addEventListener('click', async () => {
     $('password').value = '';
     await showDash();
   } catch (e) {
-    showLogin(e.message);
+    showLogin(e instanceof TypeError ? dashProblem(e) : e.message);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Sign in';
