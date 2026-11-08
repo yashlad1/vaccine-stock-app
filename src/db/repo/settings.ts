@@ -18,6 +18,8 @@ export const SETTING = {
    * admin action, not a daily one.
    */
   isPrimaryDevice: 'is_primary_device',
+  /** recorded_at before which an unstamped dose predates m005 (m006). */
+  priceStampFrom: 'price_stamp_from',
 } as const;
 
 export async function getSetting(db: Db, key: string): Promise<string | null> {

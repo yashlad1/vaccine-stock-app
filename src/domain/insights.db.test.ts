@@ -2,6 +2,7 @@ import { actions, makeTestDb, type TestEnv } from '../db/testing';
 import { createPatient, type Sex } from '../db/repo/patients';
 import { insertVaccine, removeVaccine, setVaccinePrice } from '../db/repo/catalog';
 import { findOrCreateLot } from '../db/repo/lots';
+import { SETTING, setSetting } from '../db/repo/settings';
 import { recordAdministration, reverseMovement } from './ledger';
 import { addDays } from './time';
 import {
@@ -266,19 +267,32 @@ describe('sales value', () => {
   const week = async (db: Parameters<typeof dosesSince>[0], vaccine?: string) =>
     summarise(await dosesSince(db, '2026-10-01'), { grain: 'week', period: '2026-10-26', vaccine });
 
-  it('values a stamped dose at its own price and an unstamped old one at today\'s', async () => {
+  it('values a stamped dose at its own price and a pre-m005 one at today\'s', async () => {
     const { env, act, at, typbar } = await setup();
-    // Given before any price existed: no stamp.
+    // Given before prices existed (before m005): no stamp, older than the boundary.
     await recordAdministration(env.db, at, { clientActionId: act(), vaccineId: typbar });
-    await setVaccinePrice(env.db, typbar, 500, at.now);
+    await setSetting(env.db, SETTING.priceStampFrom, String(at.now + 1));
+    const later = { ...at, now: at.now + 1000 };
+    await setVaccinePrice(env.db, typbar, 500, later.now);
     // Stamped at 500, then the price goes up.
-    await recordAdministration(env.db, at, { clientActionId: act(), vaccineId: typbar, doses: 2 });
-    await setVaccinePrice(env.db, typbar, 700, at.now);
+    await recordAdministration(env.db, later, { clientActionId: act(), vaccineId: typbar, doses: 2 });
+    await setVaccinePrice(env.db, typbar, 700, later.now);
 
     const s = await week(env.db);
     expect(s.sales).toBe(700 + 2 * 500);
     expect(s.byVaccineSales).toEqual([{ key: 'typbar', label: 'Typbar', rupees: 1700 }]);
     expect(s.unpriced).toBe(0);
+  });
+
+  it('does not re-price a dose given while the vaccine had no price', async () => {
+    const { env, act, at, typbar } = await setup();
+    // Post-m005 (fresh db: boundary 0): the vaccine has no price, so the stamp is NULL.
+    await recordAdministration(env.db, at, { clientActionId: act(), vaccineId: typbar, doses: 3 });
+    await setVaccinePrice(env.db, typbar, 500, at.now);
+
+    const s = await week(env.db);
+    expect(s.sales).toBe(0);
+    expect(s.unpriced).toBe(3);
   });
 
   it('counts a government dose as 0, which is a price, not a missing one', async () => {

@@ -1,5 +1,6 @@
 import type { Db } from '../db/driver';
 import type { Sex } from '../db/repo/patients';
+import { SETTING, getNumber } from '../db/repo/settings';
 import { MONTHS, addDays, ageInMonths, daysBetween } from './time';
 
 /**
@@ -60,21 +61,25 @@ export function vaccineKey(name: string): string {
   return name.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-export function dosesSince(db: Db, fromLocalDate: string): Promise<InsightDose[]> {
+export async function dosesSince(db: Db, fromLocalDate: string): Promise<InsightDose[]> {
   // A dose keeps the price it was given at; one from before prices existed
-  // has no stamp and takes today's (CLAUDE.md section 9, Trends). A
-  // government dose was free to the family whatever the vaccine costs.
+  // has no stamp and takes today's (CLAUDE.md section 9, Trends). A NULL
+  // stamp at or after `price_stamp_from` means the vaccine had no price then,
+  // and stays unpriced (m006). A government dose was free to the family
+  // whatever the vaccine costs.
+  const boundary = await getNumber(db, SETTING.priceStampFrom, 0);
   return db.all<InsightDose>(
     `SELECT m.local_date, m.vaccine_id, v.name AS vaccine_name,
             -m.delta_doses AS doses, p.dob, p.sex,
             CASE WHEN l.funding_source = 'GOVT_UIP' THEN 0
-                 ELSE COALESCE(m.price_rupees, v.price_rupees) END AS price
+                 ELSE COALESCE(m.price_rupees,
+                      CASE WHEN m.recorded_at < ? THEN v.price_rupees END) END AS price
        FROM v_movement_effective m
        JOIN vaccines v ON v.id = m.vaccine_id
        LEFT JOIN lots l ON l.id = m.lot_id
        LEFT JOIN patients p ON p.id = m.patient_id
       WHERE m.movement_type = 'ADMINISTRATION' AND m.local_date >= ?`,
-    [fromLocalDate],
+    [boundary, fromLocalDate],
   );
 }
 
