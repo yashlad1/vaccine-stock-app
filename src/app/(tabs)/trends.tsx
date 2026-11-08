@@ -13,7 +13,7 @@ import { plural } from '../../domain/stock';
 import { todayLocal } from '../../domain/time';
 import {
   NOT_RECORDED_KEY, PERCENT_FROM, PERIODS, type Grain, type Tally, compareWithPrevious,
-  comparisonLabel, dosesSince, percent, periodEnd, periodLabel, periodStart, recentPeriods, series,
+  comparisonLabel, dosesSince, givenNote, percent, periodEnd, periodLabel, periodStart, recentPeriods, series,
   summarise, type Summary, vaccineKey, windowStart,
 } from '../../domain/insights';
 
@@ -300,7 +300,7 @@ function StockView({
   strip: Strip | null;
   ledger: Ledger | null;
   label: string;
-  /** Doses given that the strip leaves out, because their vaccine was removed. */
+  /** Doses total minus the strip's Given: positive for removed vaccines, negative for later undos. */
   left: number;
   outs: { vaccine_id: string; name: string; days: number }[];
   chosen?: string;
@@ -322,7 +322,7 @@ function StockView({
       {/* Stock counts the vaccines on her list; doses given count every dose,
           removed vaccines included. Say so when they differ, or the page
           shows two "given" numbers for one period. */}
-      {left > 0 ? <T style={st.note}>Given leaves out {plural(left, 'dose', 'doses')} of vaccines you have since removed or hidden.</T> : null}
+      {givenNote(left) ? <T style={st.note}>{givenNote(left)}</T> : null}
 
       {end >= firstEntry ? (
         <>

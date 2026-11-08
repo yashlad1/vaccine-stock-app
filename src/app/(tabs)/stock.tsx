@@ -24,7 +24,7 @@ import { useWide } from "../../ui/layout";
 import { searchRank } from "../../domain/search";
 import { useQuery } from "../../db/provider";
 import { asOfLabel, movementStrip, stockOnHand } from "../../domain/reports";
-import { describeStockRow, plural } from "../../domain/stock";
+import { belowZeroNote, describeStockRow, plural } from "../../domain/stock";
 import { formatLocalDate, todayLocal } from "../../domain/time";
 import {
   expiringLots,
@@ -64,7 +64,7 @@ export default function AddStockScreen() {
   const { data: strip } = useQuery((db) => movementStrip(db, today), [today]);
 
   const { data: supply } = useQuery(async (db) => {
-    const ledger = await loadLedger(db);
+    const ledger = await loadLedger(db, today);
     return { ledger, lots: await expiringLots(db, ledger, today) };
   }, [today]);
   const ledger = supply?.ledger;
@@ -104,6 +104,8 @@ export default function AddStockScreen() {
     0,
   );
 
+  const zeroNote = belowZeroNote(decorated.map((x) => x.on_hand_doses));
+
   return (
     <Screen>
       <FlatList
@@ -118,6 +120,8 @@ export default function AddStockScreen() {
             <T style={st.total}>{plural(totalDoses, 'dose', 'doses')} in stock</T>
 
             {strip ? <MovementStrip strip={strip} /> : null}
+
+            {zeroNote ? <T style={base.rowSub}>{zeroNote}</T> : null}
 
             {ledger ? (
               <>
@@ -142,7 +146,7 @@ export default function AddStockScreen() {
                                 `${o.onHand} left`,
                                 o.perDay === null
                                   ? "not used enough to estimate"
-                                  : lastsLabel(o.onHand, o.perDay)?.toLowerCase(),
+                                  : lastsLabel(o.onHand, o.perDay, o.expired)?.toLowerCase(),
                               ]
                                 .filter(Boolean)
                                 .join(" · ")

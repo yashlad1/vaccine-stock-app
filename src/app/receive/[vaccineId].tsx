@@ -11,7 +11,7 @@ import { newId } from '../../domain/ids';
 import { recordReceipt, reverseMovement } from '../../domain/ledger';
 import { findOrCreateLot } from '../../db/repo/lots';
 import { describeStock, describeStockRow, dosesFromVials, plural } from '../../domain/stock';
-import { lastsLabel, loadLedger, usageRate } from '../../domain/supply';
+import { lastsLabel, loadLedger, usableDoses, usageRate } from '../../domain/supply';
 import { MonthYearWheel } from '../../ui/wheel';
 import { expiryFromMonth, todayLocal } from '../../domain/time';
 import type { FundingSource, StockRow } from '../../domain/types';
@@ -42,7 +42,16 @@ export default function ReceiveScreen() {
   );
 
   const { data: lasts } = useQuery(
-    async (d) => lastsLabel(vaccine?.on_hand_doses ?? 0, usageRate(await loadLedger(d), vaccineId, todayLocal())),
+    async (d) => {
+      const today = todayLocal();
+      const ledger = await loadLedger(d, today);
+      const onHand = vaccine?.on_hand_doses ?? 0;
+      return lastsLabel(
+        usableDoses(ledger, vaccineId, onHand),
+        usageRate(ledger, vaccineId, today),
+        ledger.expired?.get(vaccineId) ?? 0,
+      );
+    },
     [vaccineId, vaccine?.on_hand_doses],
   );
 

@@ -7,7 +7,7 @@ import { useWide } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { SETTING, getSetting } from '../../db/repo/settings';
 import { lastBackupLabel } from '../../domain/backup-nag';
-import { missingChildEntries } from '../../domain/reports';
+import { missingChildCount } from '../../domain/reports';
 import { plural } from '../../domain/stock';
 import { pushOnce, syncStatus } from '../../sync/push';
 import { pullOnce } from '../../sync/pull';
@@ -65,7 +65,7 @@ export default function MoreScreen() {
   const { data: lastBackupAt } = useQuery(
     async (db) => Number(await getSetting(db, SETTING.lastBackupAt)) || null,
   );
-  const { data: missing } = useQuery((db) => missingChildEntries(db, 100));
+  const { data: missing } = useQuery((db) => missingChildCount(db));
   const { data: sync } = useQuery((db) => syncStatus(db));
   const { data: serverOn } = useQuery(async (db) => (await loadSyncConfig(db)) !== null);
 
@@ -136,11 +136,11 @@ export default function MoreScreen() {
         <Row
           title="Missing child names"
           subtitle={
-            missing?.length
-              ? `${missing.length} ${missing.length === 1 ? 'dose has' : 'doses have'} no name`
+            missing
+              ? `${missing} ${missing === 1 ? 'entry is' : 'entries are'} missing a child name`
               : 'Fill in doses logged without a name'
           }
-          right={missing?.length ? <Badge text={String(missing.length)} tone="neutral" /> : undefined}
+          right={missing ? <Badge text={String(missing)} tone="neutral" /> : undefined}
           onPress={() => router.push('/reports/today?missing=1')}
         />
         <Row

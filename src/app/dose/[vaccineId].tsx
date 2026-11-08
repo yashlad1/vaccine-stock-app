@@ -9,7 +9,7 @@ import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
 import { newId } from '../../domain/ids';
 import { reverseMovement, findRecentSimilar } from '../../domain/ledger';
-import { lotsInStock, lastUsedLot, isExpired } from '../../db/repo/lots';
+import { lotsInStock, suggestLot, isExpired } from '../../db/repo/lots';
 import { type Patient, type Sex, createPatient, recentPatients, searchPatients, setPatientDob, setPatientSex } from '../../db/repo/patients';
 import { bumpDosesSinceBackup } from '../../db/repo/settings';
 import { describeStock, describeStockRow, plural } from '../../domain/stock';
@@ -87,7 +87,6 @@ export default function DoseScreen() {
     (d) => d.first<{ n: number }>(`SELECT 1 AS n FROM v_lot_balance WHERE vaccine_id = ? LIMIT 1`, [vaccineId]),
     [vaccineId],
   );
-  const { data: preferredLot } = useQuery((d) => lastUsedLot(d, vaccineId), [vaccineId]);
   const { data: recent } = useQuery((d) => recentPatients(d, today, 3), [today]);
   const { data: matches } = useQuery(
     (d) => (typed.name.length >= 2 ? searchPatients(d, typed.name, 8) : Promise.resolve([])),
@@ -100,15 +99,15 @@ export default function DoseScreen() {
       return Promise.all(
         rows.map(async (r) => ({
           ...r,
-          lot: (await lastUsedLot(d, r.vaccine_id)) ?? (await lotsInStock(d, r.vaccine_id))[0] ?? null,
+          lot: suggestLot(await lotsInStock(d, r.vaccine_id), today),
         })),
       );
     },
     [vaccineId, today],
   );
 
-  // Preselect the most-recently-used lot, so lot choice is usually zero taps.
-  const effectiveLot = lotId !== undefined ? lotId : (preferredLot?.lot_id ?? lots?.[0]?.lot_id ?? null);
+  // Preselect the batch marked "use first" (earliest expiry), so lot choice is usually zero taps.
+  const effectiveLot = lotId !== undefined ? lotId : (suggestLot(lots ?? [], today)?.lot_id ?? null);
   const selected = useMemo(() => lots?.find((l) => l.lot_id === effectiveLot) ?? null, [lots, effectiveLot]);
   const expired = selected ? isExpired(selected, today) : false;
   // FEFO as a hint only. lotsInStock is ordered by expiry with undated last;

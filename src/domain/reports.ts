@@ -154,14 +154,13 @@ export interface MovementStrip {
   now: number;
 }
 
-/** One day's strip: the Stock tab (active vaccines) and Given today (`activeOnly = false`, every dose given). */
+/** One day's strip: the Stock tab and Given today both use it, so they report the same total. */
 export function movementStrip(
   db: Db,
   localDate: string,
   vaccineId?: string,
-  activeOnly = true,
 ): Promise<MovementStrip> {
-  return periodStrip(db, localDate, localDate, vaccineId, activeOnly);
+  return periodStrip(db, localDate, localDate, vaccineId);
 }
 
 /**
@@ -175,20 +174,17 @@ export async function periodStrip(
   from: string,
   to: string,
   vaccineId?: string,
-  activeOnly = true,
 ): Promise<MovementStrip> {
   // Whole-clinic: only vaccines the Stock list shows, so a removed vaccine's
   // leftover doses are not counted anywhere (the remove dialog promises that).
   // A single vaccine keeps its own numbers whatever its state.
-  // `activeOnly = false` is for Given today (see movementStrip): its list and
-  // headline name every dose given, so a vaccine removed or retired later in
-  // the day must not make the strip disagree with them. A dose given is a
-  // dose given, whatever became of the catalog row afterwards.
+  // Given today uses this too: its strip must show the same total as the Stock
+  // tab. The cost is one narrow case: a dose given and its vaccine removed later
+  // the same day is listed on Given today but not in the strip's -Given. The
+  // strip still adds up (every term is filtered alike).
   const vFilter = vaccineId
     ? 'AND vaccine_id = ?'
-    : activeOnly
-      ? 'AND vaccine_id IN (SELECT id FROM vaccines WHERE deleted_at IS NULL AND is_active = 1)'
-      : '';
+    : 'AND vaccine_id IN (SELECT id FROM vaccines WHERE deleted_at IS NULL AND is_active = 1)';
   const vArg = vaccineId ? [vaccineId] : [];
 
   // `now` is read straight off the ledger rather than accumulated from the
@@ -273,4 +269,12 @@ export function missingChildEntries(db: Db, limit = 50): Promise<DoseLine[]> {
       LIMIT ?`,
     [limit],
   );
+}
+
+/** How many entries are missing a child name. A COUNT, not a row total: the list is capped, this is not. */
+export async function missingChildCount(db: Db): Promise<number> {
+  const r = await db.first<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM v_movement_effective WHERE needs_detail = 1`,
+  );
+  return r?.n ?? 0;
 }

@@ -44,11 +44,27 @@ export interface Ledger {
   /** Per vaccine, sorted by date. Only days with a movement appear. */
   days: Map<string, DayDelta[]>;
   names: Map<string, string>;
+  /**
+   * Doses per vaccine sitting in batches already past expiry (only batches
+   * with a positive balance). Unset when `loadLedger` got no date.
+   */
+  expired?: Map<string, number>;
 }
 
-export async function loadLedger(db: Db): Promise<Ledger> {
+/**
+ * Doses she can actually give: on hand minus what sits in expired batches.
+ * Doses with no batch (`lot_id IS NULL`) have no expiry to fail, so they stay
+ * usable. A negative count is returned as is (a missing delivery, not expiry).
+ */
+export function usableDoses(ledger: Ledger, vaccineId: string, onHand: number): number {
+  if (onHand <= 0) return onHand;
+  return Math.max(0, onHand - (ledger.expired?.get(vaccineId) ?? 0));
+}
+
+/** `today` (local date) makes the ledger expiry-aware; pass it for anything that forecasts supply. */
+export async function loadLedger(db: Db, today?: string): Promise<Ledger> {
   const active = `vaccine_id IN (SELECT id FROM vaccines WHERE deleted_at IS NULL AND is_active = 1)`;
-  const [vaccines, deltas, given] = await Promise.all([
+  const [vaccines, deltas, given, expiredRows] = await Promise.all([
     db.all<{ id: string; name: string }>(
       `SELECT id, name FROM vaccines WHERE deleted_at IS NULL AND is_active = 1`,
     ),
@@ -62,6 +78,14 @@ export async function loadLedger(db: Db): Promise<Ledger> {
         WHERE movement_type = 'ADMINISTRATION' AND ${active}
         GROUP BY vaccine_id, local_date`,
     ),
+    today
+      ? db.all<{ vaccine_id: string; n: number }>(
+          `SELECT vaccine_id, SUM(on_hand_doses) AS n FROM v_lot_balance
+            WHERE on_hand_doses > 0 AND expiry_date IS NOT NULL AND expiry_date < ? AND ${active}
+            GROUP BY vaccine_id`,
+          [today],
+        )
+      : Promise.resolve([]),
   ]);
 
   const byKey = new Map<string, DayDelta & { vaccine_id: string }>();
@@ -80,7 +104,11 @@ export async function loadLedger(db: Db): Promise<Ledger> {
     days.get(vaccine_id)!.push(d);
   }
   for (const list of days.values()) list.sort((a, b) => a.local_date.localeCompare(b.local_date));
-  return { days, names: new Map(vaccines.map((v) => [v.id, v.name])) };
+  return {
+    days,
+    names: new Map(vaccines.map((v) => [v.id, v.name])),
+    expired: new Map(expiredRows.map((r) => [r.vaccine_id, r.n])),
+  };
 }
 
 /**
@@ -164,7 +192,9 @@ export function stockOuts(
 }
 
 /** "Lasts about 3 weeks", in weeks because she restocks weekly; null when there is nothing to last. */
-export function lastsLabel(onHand: number, perDay: number | null): string | null {
+export function lastsLabel(onHand: number, perDay: number | null, expired = 0): string | null {
+  // `onHand` is usable doses. Nothing usable but expired stock held: say so, not "0 weeks".
+  if (onHand === 0 && expired > 0) return 'Only expired stock';
   if (onHand <= 0) return null; // the OUT / CHECK badge already says it
   if (perDay === null) return 'Not used enough to tell';
   const days = onHand / perDay;
@@ -177,7 +207,10 @@ export function lastsLabel(onHand: number, perDay: number | null): string | null
 export interface OrderLine {
   vaccine_id: string;
   name: string;
+  /** Usable doses: expired batches are not counted. */
   onHand: number;
+  /** Doses held in expired batches, not counted in `onHand`. */
+  expired: number;
   /** Doses to order, whole vials for a vial-mode vaccine. 0 when `belowZero`. */
   order: number;
   perDay: number | null;
@@ -186,8 +219,10 @@ export interface OrderLine {
 }
 
 /** One vaccine's line for "Order this week", or null when it does not need ordering yet. */
-export function suggestOrder(row: StockRow, perDay: number | null): OrderLine | null {
-  const base = { vaccine_id: row.vaccine_id, name: row.name, onHand: row.on_hand_doses, perDay };
+export function suggestOrder(row: StockRow, perDay: number | null, expired = 0): OrderLine | null {
+  const usable = row.on_hand_doses <= 0 ? row.on_hand_doses : Math.max(0, row.on_hand_doses - expired);
+  row = { ...row, on_hand_doses: usable };
+  const base = { vaccine_id: row.vaccine_id, name: row.name, onHand: usable, expired, perDay };
   if (row.on_hand_doses < 0) return { ...base, order: 0, belowZero: true };
   if (perDay === null) {
     // No usable rate, but at or below the safety limit it still needs stock:
@@ -231,7 +266,7 @@ export function orderList(rows: StockRow[], ledger: Ledger, today: string): Orde
       // 17 lines of a 26-line list. Same rule as Give dose's in-use counts.
       // Below zero always shows: that is a missing delivery, used or not.
       if (perDay === null && r.on_hand_doses >= 0 && !givenInWindow(ledger, r.vaccine_id, today)) return null;
-      return suggestOrder(r, perDay);
+      return suggestOrder(r, perDay, ledger.expired?.get(r.vaccine_id) ?? 0);
     })
     .filter((l): l is OrderLine => l !== null);
   const daysLeft = (l: OrderLine) => (l.perDay ? l.onHand / l.perDay : Infinity);

@@ -89,7 +89,8 @@ Related, same reason: **never change `android.package`** (`in.clinicstock.app`).
 | 7 Sep 2026 | 3 | 0.1.0 | 109 MB | First successful build. Universal APK — all four ABIs. **Orphaned from OTA** (see below) |
 | 7 Sep 2026 | 4 | 0.1.0 | 62 MB | ARM-only. Same signing key as build 3, so it upgrades in place. `runtimeVersion fa84bf12…`. **This is the build actually in use at the clinic**: build 6 was never installed. OTAs on it: `ee46a7f0` (27 Oct, Trends), then `76d8ec5c` (3 Nov, tablet layout + the build-6 fixes, published from branch `ota/fa84bf12` = build-6 source on the old native base with `expo-observe` stripped, because that native module is not in this APK). To roll `76d8ec5c` back, republish `ee46a7f0`: `npx eas-cli@23.2.0 update:republish --group ee46a7f0-c3d7-4105-a9fa-a415142e7763` |
 | 7 Sep 2026 | 5 | 0.1.0 | — | Built, never installed at the clinic (it carried EAS Observe, fingerprint `e2d1f065`) |
-| 27 Oct 2026 | **6** | 0.1.0 | **62 MB** | **Current.** Build `c350c6c3`, from `cf2addd`. `runtimeVersion b17f432d…` (in the APK's `assets/fingerprint`). Signing cert SHA-256 `f83efd0e…` checked against the APK, so it upgrades build 4 in place. Brings back EAS Observe, `npm run ota` with `--environment production`, and the production profile's explicit `environment`. **Every device (phone AND tablet) must install it, or that device stops receiving updates**. OTAs on it: group `5954aaec` (27 Oct, Give dose grid centred on tablets); group `49a1ef7c` (27 Oct, from `2493aae`: pull pages by (synced_at, id) so no row is skipped, day-end names reach the server once `supabase/movement-annotations.sql` has run, restore counts match, UI fixes and trims) |
+| 8 Nov 2026 | **12** | 0.1.0 | 63 MB | **Current.** Build `11c9b495`, from `release/apk-7` = `d2f7442`. **App renamed Vialbook** (launcher label is native, so it could only ship in a build). `runtimeVersion 803fb2da…`; cert `f83efd0e…` verified against the APK, so it upgrades in place. Brings EAS Observe back (`expo.modules.observe.*` confirmed in the dex), plus the tablet layout and every fix through 8 Nov. versionCodes 7-11 were failed attempts, see the note below. Durable copy: `backups/apk/vialbook-build12-vc12.apk` |
+| 27 Oct 2026 | 6 | 0.1.0 | **62 MB** | **Current.** Build `c350c6c3`, from `cf2addd`. `runtimeVersion b17f432d…` (in the APK's `assets/fingerprint`). Signing cert SHA-256 `f83efd0e…` checked against the APK, so it upgrades build 4 in place. Brings back EAS Observe, `npm run ota` with `--environment production`, and the production profile's explicit `environment`. **Every device (phone AND tablet) must install it, or that device stops receiving updates**. OTAs on it: group `5954aaec` (27 Oct, Give dose grid centred on tablets); group `49a1ef7c` (27 Oct, from `2493aae`: pull pages by (synced_at, id) so no row is skipped, day-end names reach the server once `supabase/movement-annotations.sql` has run, restore counts match, UI fixes and trims) |
 
 ### Why later builds are ~half the size
 
@@ -290,3 +291,25 @@ builds are rare and OTA updates are unlimited in practice, this is unlikely to b
 | Ship a JS-only fix to India | `npm run ota -- "what changed"` |
 | Install over an existing copy by USB | `adb install -r clinic-stock.apk` |
 | Run the tests | `npm test` |
+
+## The runtime fingerprint must be computed from a REAL node_modules (8 Nov 2026)
+
+Builds 7 to 11 all failed in EAS's "Configure expo-updates" phase with "Unknown
+error". The real message, found with `eas build:inspect --stage pre-build
+--verbose`, was:
+
+    Runtime version calculated on local machine: 0ae25eb1...
+    Runtime version calculated on EAS:           803fb2da...
+
+Agent worktrees here symlink `node_modules` to the main checkout. The fingerprint
+hashes Expo's config-plugin files BY PATH, and through a symlink those paths
+resolve as `../../../../Users/...`, outside the project. EAS has a real
+`node_modules` inside the project, so it computes a different hash and refuses to
+build. The same trap gave a wrong answer earlier the same day when checking which
+commit produced runtime `fa84bf12`.
+
+**So: before `eas build`, `eas update` or any `fingerprint:generate`, the tree must
+have a real `npm ci`, never a symlinked `node_modules`.** It was not version drift:
+the lockfile pins `expo-updates 57.0.21`, EAS runs `npm ci`, and both agreed.
+`expo-doctor`'s "N packages out of date" is a red herring here - upgrading would
+move the fingerprint and cut the clinic off from updates.

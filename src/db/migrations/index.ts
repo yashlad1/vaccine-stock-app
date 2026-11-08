@@ -3,6 +3,7 @@ import { m002 } from './m002_sync';
 import { m003 } from './m003_multidevice';
 import { m004 } from './m004_patient_sex';
 import { m005 } from './m005_prices';
+import { m006 } from './m006_price_stamp_boundary';
 
 /**
  * Ordered migration chain. Append new migrations; never edit a shipped one.
@@ -13,6 +14,6 @@ import { m005 } from './m005_prices';
  *   - Every migration gets a test that builds v(N-1) with seeded rows, runs the
  *     chain, and asserts every pre-existing row survived.
  */
-export const MIGRATIONS = [m001, m002, m003, m004, m005];
+export const MIGRATIONS = [m001, m002, m003, m004, m005, m006];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].to;

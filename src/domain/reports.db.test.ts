@@ -7,8 +7,9 @@ import {
 } from './ledger';
 import {
   dosesGiven, dosesGivenTotals, movementStrip, periodStrip, stockOnHand, vaccinesInStock,
-  vaccinesByUsage, missingChildEntries, asOfLabel,
+  vaccinesByUsage, missingChildEntries, missingChildCount, asOfLabel,
 } from './reports';
+import { dosesSince, summarise, givenNote } from './insights';
 
 const BCG = { name: 'BCG', unit_mode: 'VIAL' as const, doses_per_vial: 10, min_balance_doses: 20 };
 const PENTA = { name: 'Pentavac PFS', unit_mode: 'DOSE' as const, doses_per_vial: 1, min_balance_doses: 10 };
@@ -273,8 +274,21 @@ describe('periodStrip: the same equation over a week or a month', () => {
   });
 });
 
-describe('Given today: the list, the headline and the strip agree', () => {
-  it('counts a dose of a vaccine removed since, because the list shows it', async () => {
+describe('Given today and Add stock report one total', () => {
+  it('a removed vaccine still holding stock is in neither screen\'s strip', async () => {
+    const { db, ctx, bcg, penta, lot, next } = await env();
+    await recordOpeningBalance(db, { ...ctx, now: T0 - DAY }, { clientActionId: next(), vaccineId: penta, doses: 33 });
+    await recordOpeningBalance(db, { ...ctx, now: T0 - DAY }, { clientActionId: next(), vaccineId: bcg, doses: 140 });
+    await db.run(`UPDATE vaccines SET deleted_at = ? WHERE id = ?`, ['2026-09-06T00:00:00Z', penta]);
+
+    const stockTab = (await stockOnHand(db, { activeOnly: true })).reduce((n, r) => n + r.on_hand_doses, 0);
+    const strip = await movementStrip(db, '2026-09-06');
+    expect(stockTab).toBe(140);
+    expect(strip.now).toBe(140);
+    expect(strip.opening).toBe(140);
+  });
+
+  it('a dose given, then its vaccine removed the same day: the strip still adds up', async () => {
     const { db, ctx, bcg, penta, lot, next } = await env();
     await recordOpeningBalance(db, { ...ctx, now: T0 - DAY }, { clientActionId: next(), vaccineId: penta, doses: 12 });
     await recordReceipt(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 20 });
@@ -283,12 +297,11 @@ describe('Given today: the list, the headline and the strip agree', () => {
     await db.run(`UPDATE vaccines SET deleted_at = ? WHERE id = ?`, ['2026-09-06T00:00:00Z', penta]);
 
     const listed = (await dosesGiven(db, '2026-09-06')).reduce((n, l) => n + l.doses, 0);
-    const totals = (await dosesGivenTotals(db, '2026-09-06')).reduce((n, t) => n + t.doses, 0);
     expect(listed).toBe(5);
-    expect(totals).toBe(5);
-    expect((await movementStrip(db, '2026-09-06', undefined, false)).given).toBe(5);
-    // The Stock tab's strip (the default) stays on the vaccines its list shows.
-    expect((await movementStrip(db, '2026-09-06')).given).toBe(3);
+    const s = await movementStrip(db, '2026-09-06');
+    expect(s.given).toBe(3);
+    expect(s.opening + s.received - s.given - s.wasted + s.adjusted + s.corrections).toBe(s.now);
+    expect(s.corrections).toBe(0);
   });
 });
 
@@ -364,5 +377,58 @@ describe('as-of stamping', () => {
   it('labels a report with its own time - a stock number without one is a rumour', () => {
     expect(asOfLabel(new Date(2026, 8, 6, 14, 32).getTime())).toBe('as of 2:32 pm');
     expect(asOfLabel(new Date(2026, 8, 6, 0, 5).getTime())).toBe('as of 12:05 am');
+  });
+});
+
+describe('Missing child names count', () => {
+  it('counts entries past the list cap, not doses and not rows returned', async () => {
+    const { db, ctx, bcg, lot, next } = await env();
+    await recordReceipt(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 500 });
+    for (let i = 0; i < 120; i++) {
+      await recordAdministration(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 2 });
+    }
+    expect(await missingChildCount(db)).toBe(120);
+    const rows = await missingChildEntries(db, 100);
+    expect(rows).toHaveLength(100); // the list stays capped; the count must not follow it
+    expect(rows[0].doses).toBe(2); // a row is an entry that can carry several doses
+  });
+});
+
+describe('Trends: headline and Stock strip', () => {
+  async function scenario() {
+    const e = await env();
+    const { db, ctx, bcg, lot, next } = e;
+    const at = (d: string) => new Date(`${d}T09:00:00+05:30`).getTime();
+    await recordOpeningBalance(db, { ...ctx, now: at('2026-10-01') }, { clientActionId: next(), vaccineId: bcg, doses: 100 });
+    const a = await recordAdministration(db, { ...ctx, now: at('2026-10-05') }, { clientActionId: next(), vaccineId: bcg, lotId: lot });
+    await recordAdministration(db, { ...ctx, now: at('2026-10-06') }, { clientActionId: next(), vaccineId: bcg, lotId: lot });
+    await reverseMovement(db, { ...ctx, now: at('2026-10-20') }, { clientActionId: next(), movementId: a.movement.id });
+    return e;
+  }
+  const total = (rows: Awaited<ReturnType<typeof dosesSince>>, grain: 'week' | 'month', period: string) =>
+    summarise(rows, { grain, period }).total;
+  const adds = (s: Awaited<ReturnType<typeof periodStrip>>) =>
+    s.opening + s.received - s.given - s.wasted + s.adjusted + s.corrections;
+
+  it('week of 5 Oct: strip keeps the later-undone dose, the note says so; strip still adds up', async () => {
+    const { db } = await scenario();
+    const rows = await dosesSince(db, '2026-09-01');
+    const week = await periodStrip(db, '2026-10-05', '2026-10-11');
+    expect(total(rows, 'week', '2026-10-05')).toBe(1);
+    expect(week.given).toBe(2);
+    expect(adds(week)).toBe(week.now);
+    expect(givenNote(total(rows, 'week', '2026-10-05') - week.given)).toBe(
+      'Given here includes 1 dose undone later. The doses total above leaves it out.',
+    );
+  });
+
+  it('October: headline and strip agree, so no note; strip still adds up', async () => {
+    const { db } = await scenario();
+    const rows = await dosesSince(db, '2026-09-01');
+    const month = await periodStrip(db, '2026-10-01', '2026-10-31');
+    expect(total(rows, 'month', '2026-10-01')).toBe(1);
+    expect(month.given).toBe(1);
+    expect(adds(month)).toBe(month.now);
+    expect(givenNote(total(rows, 'month', '2026-10-01') - month.given)).toBeNull();
   });
 });
