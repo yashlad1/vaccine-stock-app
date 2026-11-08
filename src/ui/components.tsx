@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput,
-  type TextInputProps, View, type ViewStyle,
+  AccessibilityInfo, Animated, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput,
+  type TextInputProps, useWindowDimensions, View, type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { loadProblem, SAFE, type Problem } from './error-copy';
-import { useCentred } from './layout';
+import { tileWidthFor, useCentred, useWide } from './layout';
 import {
   MAX_FONT_SCALE, type Accent, accentColor, accentSoft, color, footerShadow, radius, space, touch, type,
   weight,
@@ -508,11 +508,60 @@ export function Banner({
   );
 }
 
-export function Loading({ label = 'Loading' }: { label?: string }) {
+/** No placeholders until a load has taken this long: a local read that answers sooner never flashes grey. */
+export const LOADING_DELAY_MS = 300;
+const PULSE_HALF_MS = 600; // 1.2s for a full fade out and back
+
+/**
+ * Grey shapes in the real content's sizes (tile minHeight 138 / row 64, the
+ * same boxes as the screens they stand in for), pulsing between two greys
+ * unless Android's "Remove animations" is on. Screen readers get one label.
+ */
+export function Loading({ label = 'Loading', shape = 'rows' }: { label?: string; shape?: 'rows' | 'tiles' }) {
+  const [shown, setShown] = useState(false);
+  const [still, setStill] = useState(true); // assume still until Android says otherwise
+  const pulse = useRef(new Animated.Value(1)).current;
+  const wide = useWide();
+  const tileWidth = tileWidthFor(useWindowDimensions().width);
+
+  useEffect(() => {
+    const t = setTimeout(() => setShown(true), LOADING_DELAY_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((on) => alive && setStill(on), () => {});
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!shown || still) return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.5, duration: PULSE_HALF_MS, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: PULSE_HALF_MS, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [shown, still, pulse]);
+
+  const block = shape === 'tiles' ? [s.phTile, { width: tileWidth }] : s.phRow;
   return (
-    <View style={s.center}>
-      <ActivityIndicator size="large" color={color.dose} />
-      <T style={s.rowSub}>{label}</T>
+    <View style={s.screen} accessible accessibilityLabel={label} accessibilityLiveRegion="polite">
+      {shown ? (
+        <Animated.View
+          testID="loading-shapes"
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
+          style={[s.phWrap, wide, shape === 'tiles' && s.phTiles, { opacity: pulse }]}
+        >
+          {Array.from({ length: 6 }, (_, i) => (
+            <View key={i} testID="loading-shape" style={block} />
+          ))}
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -656,6 +705,10 @@ export const s = StyleSheet.create({
     borderColor: color.borderControl,
   },
 
+  phWrap: { padding: space.lg },
+  phTiles: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
+  phTile: { minHeight: 138, borderRadius: radius.lg, backgroundColor: color.border },
+  phRow: { height: touch.min + 8, borderRadius: radius.md, marginBottom: space.md, backgroundColor: color.border },
   row: {
     minHeight: touch.min + 8,
     flexDirection: 'row',
