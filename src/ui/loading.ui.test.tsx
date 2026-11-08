@@ -56,3 +56,24 @@ describe('Loading', () => {
     expect(r.getByTestId('loading-shapes', { includeHiddenElements: true }).props.importantForAccessibility).toBe('no-hide-descendants');
   });
 });
+
+describe('the loading screen still says what it is doing', () => {
+  // The spinner this replaced showed its label. Grey shapes and no words is a
+  // worse answer for someone coming from paper.
+  const label = (r: Awaited<ReturnType<typeof render>>) =>
+    r.queryByTestId('loading-label', { includeHiddenElements: true });
+
+  it('shows the label as visible text once the shapes appear', async () => {
+    const { r } = await mount(false);
+    await act(async () => { jest.advanceTimersByTime(LOADING_DELAY_MS - 1); });
+    expect(label(r)).toBeNull();                       // nothing during the delay
+    await act(async () => { jest.advanceTimersByTime(1); });
+    expect(label(r)?.props.children).toBe('Loading your vaccines');
+  });
+
+  it('hides that text from screen readers, which already hear it from the wrapper', async () => {
+    const { r } = await mount(false);
+    await act(async () => { jest.advanceTimersByTime(LOADING_DELAY_MS + 1); });
+    expect(label(r)?.props.accessibilityElementsHidden).toBe(true);
+  });
+});

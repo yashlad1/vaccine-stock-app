@@ -562,6 +562,20 @@ export function Loading({ label = 'Loading', shape = 'rows' }: { label?: string;
           ))}
         </Animated.View>
       ) : null}
+      {/* The spinner this replaced said what it was doing. Grey shapes and no
+          words is a worse answer for someone coming from paper, so the label
+          stays on screen. It is hidden from screen readers because the wrapper
+          already carries it, and hearing it twice is noise. */}
+      {shown ? (
+        <T
+          testID="loading-label"
+          style={s.phLabel}
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
+        >
+          {label}
+        </T>
+      ) : null}
     </View>
   );
 }
@@ -708,6 +722,7 @@ export const s = StyleSheet.create({
   phWrap: { padding: space.lg },
   phTiles: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md },
   phTile: { minHeight: 138, borderRadius: radius.lg, backgroundColor: color.border },
+  phLabel: { fontSize: type.label, color: color.textMuted, textAlign: 'center', marginTop: space.lg },
   phRow: { height: touch.min + 8, borderRadius: radius.md, marginBottom: space.md, backgroundColor: color.border },
   row: {
     minHeight: touch.min + 8,
