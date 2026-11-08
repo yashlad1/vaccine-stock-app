@@ -273,8 +273,21 @@ describe('periodStrip: the same equation over a week or a month', () => {
   });
 });
 
-describe('Given today: the list, the headline and the strip agree', () => {
-  it('counts a dose of a vaccine removed since, because the list shows it', async () => {
+describe('Given today and Add stock report one total', () => {
+  it('a removed vaccine still holding stock is in neither screen\'s strip', async () => {
+    const { db, ctx, bcg, penta, lot, next } = await env();
+    await recordOpeningBalance(db, { ...ctx, now: T0 - DAY }, { clientActionId: next(), vaccineId: penta, doses: 33 });
+    await recordOpeningBalance(db, { ...ctx, now: T0 - DAY }, { clientActionId: next(), vaccineId: bcg, doses: 140 });
+    await db.run(`UPDATE vaccines SET deleted_at = ? WHERE id = ?`, ['2026-09-06T00:00:00Z', penta]);
+
+    const stockTab = (await stockOnHand(db, { activeOnly: true })).reduce((n, r) => n + r.on_hand_doses, 0);
+    const strip = await movementStrip(db, '2026-09-06');
+    expect(stockTab).toBe(140);
+    expect(strip.now).toBe(140);
+    expect(strip.opening).toBe(140);
+  });
+
+  it('a dose given, then its vaccine removed the same day: the strip still adds up', async () => {
     const { db, ctx, bcg, penta, lot, next } = await env();
     await recordOpeningBalance(db, { ...ctx, now: T0 - DAY }, { clientActionId: next(), vaccineId: penta, doses: 12 });
     await recordReceipt(db, ctx, { clientActionId: next(), vaccineId: bcg, lotId: lot, doses: 20 });
@@ -283,12 +296,11 @@ describe('Given today: the list, the headline and the strip agree', () => {
     await db.run(`UPDATE vaccines SET deleted_at = ? WHERE id = ?`, ['2026-09-06T00:00:00Z', penta]);
 
     const listed = (await dosesGiven(db, '2026-09-06')).reduce((n, l) => n + l.doses, 0);
-    const totals = (await dosesGivenTotals(db, '2026-09-06')).reduce((n, t) => n + t.doses, 0);
     expect(listed).toBe(5);
-    expect(totals).toBe(5);
-    expect((await movementStrip(db, '2026-09-06', undefined, false)).given).toBe(5);
-    // The Stock tab's strip (the default) stays on the vaccines its list shows.
-    expect((await movementStrip(db, '2026-09-06')).given).toBe(3);
+    const s = await movementStrip(db, '2026-09-06');
+    expect(s.given).toBe(3);
+    expect(s.opening + s.received - s.given - s.wasted + s.adjusted + s.corrections).toBe(s.now);
+    expect(s.corrections).toBe(0);
   });
 });
 
