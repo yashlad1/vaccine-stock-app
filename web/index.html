@@ -215,6 +215,15 @@
     display: flex; align-items: center; gap: 12px; padding: 10px 16px;
   }
   .bottombar button { width: auto; flex: 0 0 auto; min-width: 132px; }
+  /* Loading placeholders (issue 50): the same boxes as the real tiles and rows,
+     in grey, fading between two greys every 1.2s. They stay invisible for the
+     first 300ms so a fast load never flashes grey, and stand still when the
+     phone's "Remove animations" is on. */
+  .ph { background: var(--sunken); border-color: var(--border); opacity: 0; animation: phShow 0s .3s forwards, phPulse 1.2s .3s ease-in-out infinite alternate; }
+  .row.ph { height: 48px; margin: 6px 0; border: 0; border-radius: 10px; padding: 0; }
+  @keyframes phShow { to { opacity: 1; } }
+  @keyframes phPulse { from { background: var(--sunken); } to { background: var(--border); } }
+  @media (prefers-reduced-motion: reduce) { .ph { animation: phShow 0s .3s forwards; } }
 </style>
 </head>
 <body data-tab="today">

@@ -55,7 +55,7 @@ export default function VaccinesScreen() {
   }, [active, removed, showRemoved, q]);
 
   if (error) return <ErrorState error={error} onRetry={reload} what="load the catalog" />;
-  if (loading && !active) return <Loading label="Loading vaccines" />;
+  if (loading && !active) return <Loading label="Loading your vaccines" />;
 
   return (
     <Screen>

@@ -87,7 +87,7 @@ export default function GiveDoseScreen() {
   const idle = filtered.filter((r) => !tiles.includes(r));
 
   if (error) return <ErrorState error={error} onRetry={reload} what="load your vaccines" />;
-  if (loading && !rows) return <Loading label="Loading vaccines" />;
+  if (loading && !rows) return <Loading label="Loading your vaccines" shape="tiles" />;
 
   return (
     <Screen>

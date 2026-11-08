@@ -95,7 +95,7 @@ export default function AddStockScreen() {
 
   if (error)
     return <ErrorState error={error} onRetry={reload} what="load your stock" />;
-  if (loading && !rows) return <Loading label="Loading stock" />;
+  if (loading && !rows) return <Loading label="Loading your stock" />;
 
   // A negative count is a missing delivery, not stock to subtract: it is
   // flagged CHECK on its own row, and must not shrink the total.

@@ -86,7 +86,7 @@ export default function TrendsScreen() {
   const strip = stripRead?.key === stripKey ? stripRead.strip : null;
 
   if (error) return <ErrorState error={error} onRetry={reload} what="load the trends" />;
-  if (loading && !data) return <Loading label="Loading trends" />;
+  if (loading && !data) return <Loading label="Loading your trends" />;
 
   const shown = chosen ? summarise(rows, { grain, period, vaccine: chosen.key }) : all;
   const compared = compareWithPrevious(rows, { grain, period, today, from });

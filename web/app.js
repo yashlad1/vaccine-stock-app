@@ -523,6 +523,17 @@ async function showDash() {
   $('login').classList.add('hide');
   $('dash').classList.remove('hide');
   $('loadError').classList.add('hide');
+  // First load only: grey shapes in place of the empty panes, replaced by the
+  // real innerHTML as each renders. aria-busy + one label, so a screen reader
+  // does not read the shapes.
+  if (lastSignature === null) {
+    const blocks = (cls, n) => Array.from({ length: n }, () => `<div class="${cls} ph" aria-hidden="true"></div>`).join('');
+    $('stock').innerHTML = blocks('tile', 6);
+    $('attention').innerHTML = blocks('row', 2);
+    $('entries').innerHTML = blocks('row', 4);
+    $('dash').setAttribute('aria-busy', 'true');
+    $('asOf').setAttribute('aria-label', 'Loading your records');
+  }
   try {
     return await load();
   } catch (e) {
@@ -538,6 +549,11 @@ async function showDash() {
       $('checked').textContent = 'Could not check. The figures shown are from earlier.';
     }
     return null;
+  } finally {
+    // A failed load must not leave grey shapes pulsing as if still loading.
+    document.querySelectorAll('#dash .ph').forEach((el) => el.remove());
+    $('dash').removeAttribute('aria-busy');
+    $('asOf').removeAttribute('aria-label');
   }
 }
 
