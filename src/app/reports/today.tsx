@@ -27,7 +27,7 @@ export default function TodayScreen() {
     [today, missingMode],
   );
   const { data: totals } = useQuery((d) => dosesGivenTotals(d, today), [today]);
-  const { data: strip } = useQuery((d) => movementStrip(d, today, undefined, false), [today]);
+  const { data: strip } = useQuery((d) => movementStrip(d, today), [today]);
 
   if (error) return <ErrorState error={error} onRetry={reload} what="load today's doses" />;
   if (loading && !lines) return <Loading />;
