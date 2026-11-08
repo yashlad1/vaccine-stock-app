@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Install Vialbook</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Unlisted: the build behind this page must reach only the clinic's phones. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="theme-color" content="#FFFFFF">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self';
+  style-src 'unsafe-inline';
+  img-src 'self';
+  base-uri 'self';
+  form-action 'none'">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  /* The app's palette and scale (CLAUDE.md section 8): white on #F6F8F7, one
+     hairline edge, no shadow, 18px body, nothing below 14px, 56px targets. */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #F6F8F7; color: #0F172A;
+    font: 18px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding-top: 24px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 8px; }
+  h2 { font-size: 22px; line-height: 1.25; margin: 0 0 12px; }
+  p { margin: 0 0 12px; }
+  .muted { color: #46586F; font-size: 16px; }
+  .card {
+    background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 14px;
+    padding: 16px; margin: 0 0 12px;
+  }
+  .btn {
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    min-height: 64px; padding: 8px 16px; border-radius: 14px;
+    background: #1D4ED8; color: #FFFFFF; font-size: 22px; font-weight: 700;
+    text-decoration: none;
+  }
+  .warn { border-color: #B91C1C; background: #FEF2F2; }
+  .warn p { margin: 0; color: #0F172A; }
+  .warn strong { color: #B91C1C; }
+  .expired { border-color: #B45309; background: #FFFBEB; }
+  .expired p { font-weight: 700; margin: 0; }
+  ol, ul { margin: 0; padding-left: 28px; }
+  li { padding: 4px 0 4px 4px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Vialbook</h1>
+  <p>Your vaccine stock book. Give a dose, add a delivery, and the stock updates itself.</p>
+
+  <div class="card">
+    <a class="btn" id="download" href="#" hidden>Download Vialbook</a>
+    <p class="expired card" id="expired" hidden><strong>This link has expired. Ask for a new one.</strong></p>
+    <p class="muted" id="version" style="margin: 12px 0 0" hidden></p>
+    <noscript><p>Turn on JavaScript in your browser to see the download button.</p></noscript>
+  </div>
+
+  <div class="card warn">
+    <p><strong>Already have the app?</strong> Tap <strong>Update</strong>. Never tap <strong>Uninstall</strong>: that deletes the records on the phone.</p>
+  </div>
+
+  <div class="card">
+    <h2>Install on Android</h2>
+    <ol>
+      <li>Tap <strong>Download Vialbook</strong> above.</li>
+      <li>If Android says it cannot install from this source, tap <strong>Settings</strong>, then turn on <strong>Allow from this source</strong>. This is Chrome if you opened this page in Chrome, or WhatsApp if you opened it from a WhatsApp message.</li>
+      <li>Press the back button to return to the download.</li>
+      <li>Tap the downloaded file <strong>Vialbook</strong>. If you cannot find it, open <strong>Downloads</strong> in Chrome's menu.</li>
+      <li>Tap <strong>Update</strong>. On a new phone it says <strong>Install</strong> instead.</li>
+      <li>Tap <strong>Open</strong>. Your records are still there.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>What is new</h2>
+    <ul>
+      <li>Each vaccine now shows one stock total, the same on every screen.</li>
+      <li>When you give a dose, the batch marked <strong>use first</strong> is the one chosen.</li>
+      <li>Batches past their expiry are no longer counted as stock you can use.</li>
+      <li>Changing a vaccine's price no longer changes the value of doses already given.</li>
+      <li>The last row of vaccines on Give dose is the same size as the rest.</li>
+      <li>Amounts in All entries now say doses.</li>
+      <li>The card on More that lists missing child names now counts entries.</li>
+    </ul>
+  </div>
+</main>
+<script src="install-config.js"></script>
+<script src="install.js"></script>
+</body>
+</html>
