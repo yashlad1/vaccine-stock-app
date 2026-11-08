@@ -64,7 +64,7 @@ export default function AddStockScreen() {
   const { data: strip } = useQuery((db) => movementStrip(db, today), [today]);
 
   const { data: supply } = useQuery(async (db) => {
-    const ledger = await loadLedger(db);
+    const ledger = await loadLedger(db, today);
     return { ledger, lots: await expiringLots(db, ledger, today) };
   }, [today]);
   const ledger = supply?.ledger;
@@ -142,7 +142,7 @@ export default function AddStockScreen() {
                                 `${o.onHand} left`,
                                 o.perDay === null
                                   ? "not used enough to estimate"
-                                  : lastsLabel(o.onHand, o.perDay)?.toLowerCase(),
+                                  : lastsLabel(o.onHand, o.perDay, o.expired)?.toLowerCase(),
                               ]
                                 .filter(Boolean)
                                 .join(" · ")
