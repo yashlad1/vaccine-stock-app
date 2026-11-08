@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { friendlyError } from './errors';
-import { centred } from './layout';
+import { useCentred } from './layout';
 import {
   MAX_FONT_SCALE, type Accent, accentColor, accentSoft, color, footerShadow, radius, space, touch, type,
   weight,
@@ -93,6 +93,7 @@ export function Footer({
   gap?: number;
 }) {
   const insets = useSafeAreaInsets();
+  const centred = useCentred();
   return (
     <View
       style={[

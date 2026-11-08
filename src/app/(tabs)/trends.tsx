@@ -4,7 +4,7 @@ import { Card, Chip, ErrorState, Loading, Row, SecondaryButton, SectionTitle, T,
 import { BarRow, ColumnChart } from '../../ui/charts';
 import { MovementStrip } from '../../ui/movement-strip';
 import { accentSoft, color, space, touch, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useWide } from '../../ui/layout';
 import { useQuery } from '../../db/provider';
 import { asOfLabel, periodStrip, type MovementStrip as Strip } from '../../domain/reports';
 import { type Ledger, loadLedger, stockOuts } from '../../domain/supply';
@@ -45,6 +45,7 @@ function capped<R extends { key: string }>(list: R[], all: boolean, keep?: strin
  * past the stock to find the ages, and back again.
  */
 export default function TrendsScreen() {
+  const centred = useWide();
   const bottomInset = useBottomInset();
   const today = todayLocal();
   const [grain, setGrain] = useState<Grain>('week');

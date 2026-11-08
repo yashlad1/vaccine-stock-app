@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { Empty, ErrorState, Input, Loading, Row, Screen, T, useBottomInset } from '../../ui/components';
 import { color, space, type } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useWide } from '../../ui/layout';
 import { useQuery } from '../../db/provider';
 import { searchPatients } from '../../db/repo/patients';
 import { loadSyncConfig } from '../../sync/config';
 import { formatAge, todayLocal } from '../../domain/time';
 
 export default function ChildrenScreen() {
+  const centred = useWide();
   const bottomInset = useBottomInset();
   const [q, setQ] = useState('');
   const today = todayLocal();

@@ -2,7 +2,7 @@ import { FlatList, StyleSheet, View } from 'react-native';
 import { Badge, Empty, ErrorState, Loading, SecondaryButton, T, s as base, useBottomInset } from '../../ui/components';
 import { useAction } from '../../ui/use-action';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useWide } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { newId } from '../../domain/ids';
 import { useToast } from '../../ui/snackbar';
@@ -31,6 +31,7 @@ interface LedgerLine {
  * remains possible here forever - the 3.5-second snackbar is only the fast path.
  */
 export default function LedgerScreen() {
+  const centred = useWide();
   const run = useAction();
   const bottomInset = useBottomInset();
   const { db, deviceId, bump } = useDb();

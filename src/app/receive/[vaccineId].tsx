@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, Stepper, T } from '../../ui/components';
 import { color, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
@@ -22,6 +22,7 @@ import type { FundingSource, StockRow } from '../../domain/types';
  * point of care with a crying infant.
  */
 export default function ReceiveScreen() {
+  const centred = useCentred();
   const { vaccineId } = useLocalSearchParams<{ vaccineId: string }>();
   const router = useRouter();
   const run = useAction();

@@ -3,7 +3,7 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Badge, BigButton, Chip, ErrorState, Footer, Input, Loading, Row, Screen, T, useBottomInset } from '../../ui/components';
 import { color, radius, space, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useWide } from '../../ui/layout';
 import { searchRank } from '../../domain/search';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
@@ -36,6 +36,7 @@ function describeUnit(v: { unit_mode: string; doses_per_vial: number; min_balanc
  * The clinician sees a removal; the record keeps everything that was ever given.
  */
 export default function VaccinesScreen() {
+  const centred = useWide();
   const router = useRouter();
   const bottomInset = useBottomInset();
   const { db, bump } = useDb();

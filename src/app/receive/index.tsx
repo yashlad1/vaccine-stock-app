@@ -3,7 +3,7 @@ import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ErrorState, Input, Loading, Screen, T, useBottomInset } from '../../ui/components';
 import { color, radius, space, touch, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useWide } from '../../ui/layout';
 import { useQuery } from '../../db/provider';
 import { stockOnHand } from '../../domain/reports';
 import { searchRank } from '../../domain/search';
@@ -11,6 +11,7 @@ import { describeStockRow } from '../../domain/stock';
 
 /** Pick which vaccine arrived. Same grid idea as Give Dose, reused. */
 export default function ReceivePickScreen() {
+  const centred = useWide();
   const bottomInset = useBottomInset();
   const router = useRouter();
   const [q, setQ] = useState('');

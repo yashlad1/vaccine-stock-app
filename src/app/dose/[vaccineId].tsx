@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Badge, BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, SecondaryButton, Stepper, T } from '../../ui/components';
 import { color, radius, space, touch, type, weight } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
@@ -36,6 +36,7 @@ const DOSE_CHIPS: { label: string; note: DoseNote }[] = [
  * through confirms.
  */
 export default function DoseScreen() {
+  const centred = useCentred();
   const { vaccineId } = useLocalSearchParams<{ vaccineId: string }>();
   const router = useRouter();
   const { db, deviceId, bump } = useDb();

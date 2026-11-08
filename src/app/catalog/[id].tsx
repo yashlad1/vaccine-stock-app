@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { BigButton, Chip, ErrorState, Field, Footer, Input, KeyboardSafe, Loading, SecondaryButton, T } from '../../ui/components';
 import { CountingFields } from '../../ui/vaccine-fields';
 import { color, space, type } from '../../ui/tokens';
-import { centred } from '../../ui/layout';
+import { useCentred } from '../../ui/layout';
 import { useDb, useQuery } from '../../db/provider';
 import { useToast } from '../../ui/snackbar';
 import { useAction } from '../../ui/use-action';
@@ -19,6 +19,7 @@ import type { UnitMode, Vaccine } from '../../domain/types';
  * corrupts the arithmetic everywhere.
  */
 export default function EditVaccineScreen() {
+  const centred = useCentred();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const run = useAction();
