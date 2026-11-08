@@ -594,7 +594,8 @@ describe('an undone dose is not recent usage either', () => {
     });
     const { db, ctx } = env;
     const id = await env.vaccineId('BCG');
-    await recordReceipt(db, ctx, { clientActionId: 'r1', vaccineId: id, doses: 100 });
+    const lot = await findOrCreateLot(db, { vaccineId: id, lotNumber: 'K22', expiryDate: null }, ctx.deviceId, T0);
+    await recordReceipt(db, ctx, { clientActionId: 'r1', vaccineId: id, lotId: lot, doses: 100 });
     const given = [];
     for (const n of ['a1', 'a2', 'a3']) {
       given.push(await recordAdministration(db, ctx, { clientActionId: n, vaccineId: id }));
