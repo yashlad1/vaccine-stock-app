@@ -270,3 +270,11 @@ export function missingChildEntries(db: Db, limit = 50): Promise<DoseLine[]> {
     [limit],
   );
 }
+
+/** How many entries are missing a child name. A COUNT, not a row total: the list is capped, this is not. */
+export async function missingChildCount(db: Db): Promise<number> {
+  const r = await db.first<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM v_movement_effective WHERE needs_detail = 1`,
+  );
+  return r?.n ?? 0;
+}

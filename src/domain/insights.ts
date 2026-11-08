@@ -338,3 +338,15 @@ export function comparisonLabel(c: Comparison, grain: Grain): string {
   const pct = c.previous >= PERCENT_FROM ? percent(Math.abs(diff), c.previous) : 0;
   return `${Math.abs(diff)} ${word} than ${than}${pct ? ` (${pct}% ${word})` : ''}`;
 }
+
+/**
+ * Said under the Stock strip when its "Given" differs from the doses total.
+ * The strip keeps a dose that was undone after the period (it was given then);
+ * the total drops it. `left` is total minus strip, so a negative one is undone doses.
+ */
+export function givenNote(left: number): string | null {
+  const n = (k: number) => `${k} ${k === 1 ? 'dose' : 'doses'}`;
+  if (left > 0) return `Given leaves out ${n(left)} of vaccines you have since removed or hidden.`;
+  if (left < 0) return `Given here includes ${n(-left)} undone later. The doses total above leaves ${-left === 1 ? 'it' : 'them'} out.`;
+  return null;
+}
