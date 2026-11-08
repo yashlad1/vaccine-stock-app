@@ -5,7 +5,14 @@
   var c = window.INSTALL_CONFIG;
   var live = c && c.url && Date.parse(c.expires) > Date.now();
   var show = function (id) { document.getElementById(id).hidden = false; };
-  if (!live) { show('expired'); return; }
+  if (!live) {
+    show('expired');
+    // The steps open with 'Tap Download Vialbook above' and there is no
+    // button to tap. Asking for a new link is all that is left to do.
+    var steps = document.getElementById('steps');
+    if (steps) steps.hidden = true;
+    return;
+  }
   var a = document.getElementById('download');
   a.href = c.url;
   show('download');
