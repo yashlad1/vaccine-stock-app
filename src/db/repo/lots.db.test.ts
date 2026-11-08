@@ -20,12 +20,15 @@ async function setup(lots: Array<{ n: string; exp: string | null }>, usedLast?: 
 }
 
 describe('preselected batch', () => {
+  // The two lot numbers differ by ONE character in the same position, which is
+  // the case that makes this dangerous: she cannot catch a wrong preselection
+  // by eye in the two seconds she has. Synthetic numbers - the repo is public.
   it('is the earliest expiry even when a later one was used most recently', async () => {
     const got = await setup(
-      [{ n: '61625016A', exp: '2026-12-31' }, { n: '61G25016A', exp: '2027-06-30' }],
-      '61G25016A',
+      [{ n: 'A41B70219', exp: '2026-12-31' }, { n: 'A41870219', exp: '2027-06-30' }],
+      'A41870219',
     );
-    expect(got).toBe('61625016A');
+    expect(got).toBe('A41B70219');
   });
 
   it('is the only batch when there is one', async () => {
