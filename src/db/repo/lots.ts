@@ -82,15 +82,15 @@ export function lotsInStock(db: Db, vaccineId: string): Promise<LotBalance[]> {
   );
 }
 
-/** Most-recently-used lot for this vaccine, to preselect in the dose modal. */
-export function lastUsedLot(db: Db, vaccineId: string): Promise<LotBalance | null> {
-  return db.first<LotBalance>(
-    `SELECT b.* FROM v_lot_balance b
-       JOIN stock_movements m ON m.lot_id = b.lot_id
-      WHERE b.vaccine_id = ? AND b.on_hand_doses > 0
-      ORDER BY m.recorded_at DESC LIMIT 1`,
-    [vaccineId],
-  );
+/**
+ * The batch the dose screen preselects: the earliest-expiring one that has not
+ * expired (`lots` comes from lotsInStock, so dated lots come first, undated
+ * last). It is the same batch the screen marks "use first", so the label and
+ * the selection cannot disagree. Every other batch stays tappable, and an
+ * expired one is never suggested: null then reads as "Not sure".
+ */
+export function suggestLot(lots: LotBalance[], todayLocalDate: string): LotBalance | null {
+  return lots.find((l) => !isExpired(l, todayLocalDate)) ?? null;
 }
 
 export function getLot(db: Db, lotId: string): Promise<Lot | null> {
