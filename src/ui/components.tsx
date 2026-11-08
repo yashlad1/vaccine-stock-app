@@ -4,7 +4,7 @@ import {
   type TextInputProps, View, type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { friendlyError } from './errors';
+import { loadProblem, SAFE, type Problem } from './error-copy';
 import { useCentred } from './layout';
 import {
   MAX_FONT_SCALE, type Accent, accentColor, accentSoft, color, footerShadow, radius, space, touch, type,
@@ -129,11 +129,20 @@ export function ErrorState({
   onRetry: () => void;
   what: string;
 }) {
+  return <ProblemView problem={loadProblem(error, what)} onAction={onRetry} />;
+}
+
+/**
+ * Title, one sentence, the SAFE line only when the problem says so, and one
+ * worded action. Never a modal: it replaces the screen's content in place.
+ */
+export function ProblemView({ problem, onAction }: { problem: Problem; onAction: () => void }) {
   return (
     <View style={s.center}>
-      <T style={s.errorTitle}>Could not {what}</T>
-      <T style={s.errorBody}>{friendlyError(error, { what })}</T>
-      <SecondaryButton label="Try again" onPress={onRetry} />
+      <T style={s.errorTitle}>{problem.title}</T>
+      <T style={s.errorBody}>{problem.body}</T>
+      {problem.safe ? <T style={[s.errorBody, { color: color.text, fontWeight: weight.semibold }]}>{SAFE}</T> : null}
+      <SecondaryButton label={problem.action} onPress={onAction} />
     </View>
   );
 }
