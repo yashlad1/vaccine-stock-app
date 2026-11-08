@@ -1,10 +1,10 @@
 import { makeTestDb, actions, T0 } from '../db/testing';
 import { findOrCreateLot } from '../db/repo/lots';
 import { removeVaccine, deactivateVaccine } from '../db/repo/catalog';
-import { recordReceipt, recordAdministration, reverseMovement } from './ledger';
+import { recordOpeningBalance, recordReceipt, recordAdministration, reverseMovement } from './ledger';
 import type { StockRow } from './types';
 import {
-  loadLedger, usageRate, daysOut, stockOuts, lastsLabel, suggestOrder, orderList, expiringLots,
+  loadLedger, usableDoses, usageRate, daysOut, stockOuts, lastsLabel, suggestOrder, orderList, expiringLots,
   type Ledger,
 } from './supply';
 
@@ -374,5 +374,66 @@ describe('expiringLots', () => {
     await deactivateVaccine(t.db, t.ids.Off, T0);
     const r = await expiringLots(t.db, await t.ledger(), TODAY);
     expect(r.map((x) => [x.lot_number, x.mayWaste])).toEqual([['D60', null]]);
+  });
+});
+
+describe('expired stock is not supply', () => {
+  // T0 is frozen at 6 Sep 2026. OLD1 expired 31 Aug; NEW1 is good to Jun 2027.
+  const rowOf = (on: number, min = 5): StockRow => ({
+    vaccine_id: 'x', name: 'A', generic_name: null, aliases: null, unit_mode: 'DOSE',
+    doses_per_vial: 1, min_balance_doses: min, is_active: 1, on_hand_doses: on,
+  });
+  /** Receive 90 into `old`, give 30 over the last 30 days from it (OLD1 left 60), then `extra`. */
+  async function scenario(oldExpiry: string | null, extra: (t: Awaited<ReturnType<typeof env>>) => Promise<void>) {
+    const t = await env(['A']);
+    const old = await t.lot('A', 'OLD1', oldExpiry);
+    await t.receive('A', 90, -40, old);
+    for (let off = -30; off <= -1; off++) await t.give('A', 1, off, old);
+    await t.give('A', 1, -1, old);
+    await extra(t);
+    return t;
+  }
+  const lastsAndOrder = async (t: Awaited<ReturnType<typeof env>>) => {
+    const ledger = await loadLedger(t.db, TODAY);
+    const total = (await t.db.first<{ n: number }>(`SELECT SUM(on_hand_doses) n FROM v_stock_on_hand WHERE vaccine_id = ?`, [t.ids.A]))!.n;
+    const perDay = usageRate(ledger, t.ids.A, TODAY);
+    const exp = ledger.expired!.get(t.ids.A) ?? 0;
+    const usable = usableDoses(ledger, t.ids.A, total);
+    return { total, exp, usable, lasts: lastsLabel(usable, perDay, exp), line: suggestOrder(rowOf(total), perDay, exp) };
+  };
+
+  it('expired batch + good batch: counts only the usable 5', async () => {
+    const t = await scenario('2026-08-31', async (t) => {
+      await t.receive('A', 5, -2, await t.lot('A', 'NEW1', '2027-06-30'));
+    });
+    const r = await lastsAndOrder(t);
+    // 31 given over the 40 days it was in stock (receipt at -40): 0.775 a day -> 5 doses last 6 days.
+    expect(r).toMatchObject({ total: 64, exp: 59, usable: 5, lasts: 'Lasts under a week' });
+    expect(r.line).toMatchObject({ onHand: 5, expired: 59, order: Math.ceil((31 / 40) * 28) - 5 });
+    // The old behaviour: all 64 counted, nothing to order.
+    expect(suggestOrder(rowOf(64), 31 / 40)).toBeNull();
+    expect(lastsLabel(64, 31 / 40)).toBe('Lasts more than 8 weeks');
+  });
+
+  it('only expired stock reads "Only expired stock" and still gets an order', async () => {
+    const t = await scenario('2026-08-31', async () => {});
+    const r = await lastsAndOrder(t);
+    expect(r).toMatchObject({ usable: 0, lasts: 'Only expired stock' });
+    expect(r.line).toMatchObject({ onHand: 0, belowZero: false });
+    expect(r.line!.order).toBeGreaterThan(0);
+  });
+
+  it('no expiry dates at all: nothing is expired', async () => {
+    const t = await scenario(null, async () => {});
+    const r = await lastsAndOrder(t);
+    expect(r).toMatchObject({ exp: 0, usable: 59, lasts: 'Lasts more than 8 weeks' });
+  });
+
+  it('doses with no batch count as usable', async () => {
+    const t = await scenario('2026-08-31', async (t) => {
+      await recordOpeningBalance(t.db, t.ctx, { clientActionId: 'u1', vaccineId: t.ids.A, lotId: null, doses: 20 });
+    });
+    const r = await lastsAndOrder(t);
+    expect(r).toMatchObject({ total: 79, exp: 59, usable: 20 });
   });
 });
