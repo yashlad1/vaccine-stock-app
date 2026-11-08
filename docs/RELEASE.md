@@ -122,7 +122,7 @@ clinic that may hand this to a spare handset.
 Send the artifact URL over WhatsApp. Build 4 (62 MB):
 
 ```
-https://expo.dev/artifacts/eas/voPkm1slDGItnvKLE-cfsI53HG9ZHFihekgP5nZF7Nk.apk
+`https://expo.dev/artifacts/eas/<id>.apk` (the real link is never committed: this repo is public, and the install page generates it at deploy time, issue #48)
 ```
 
 On her phone:
