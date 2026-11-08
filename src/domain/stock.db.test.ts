@@ -1,4 +1,4 @@
-import { describeStock, dosesFromVials, formatDelta, stockLevel } from './stock';
+import { belowZeroNote, describeStock, dosesFromVials, formatDelta, stockLevel } from './stock';
 
 describe('vial <-> dose arithmetic (the clinician never multiplies)', () => {
   it('converts vials to doses', () => {
@@ -57,5 +57,27 @@ describe('ledger amount wording', () => {
     // 1 vial of 10 stays "+10 doses"; 2 vials of 10 is "+20 doses", not "+2".
     expect(formatDelta(dosesFromVials(10, 1))).toBe('+10 doses');
     expect(formatDelta(dosesFromVials(10, 2))).toBe('+20 doses');
+  });
+});
+
+describe('why the headline and the strip disagree', () => {
+  // The headline counts a below-zero vaccine as 0; the strip sums raw. Both
+  // are right, so the screen has to say why rather than show two totals.
+  it('says nothing at all when every vaccine is at or above zero', () => {
+    expect(belowZeroNote([140, 0, 12])).toBe('');
+  });
+
+  it('names the gap so the two numbers reconcile', () => {
+    const note = belowZeroNote([140, -23, 12]);
+    expect(note).toContain('One vaccine is below zero by 23 doses');
+    expect(note).toContain('A delivery was probably not logged');
+  });
+
+  it('counts several, and totals their shortfall', () => {
+    expect(belowZeroNote([-5, -18, 40])).toContain('2 vaccines are below zero by 23 doses');
+  });
+
+  it('says "1 dose", not "1 doses"', () => {
+    expect(belowZeroNote([-1])).toContain('below zero by 1 dose,');
   });
 });
