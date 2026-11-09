@@ -9,7 +9,7 @@ It answers the two questions that prompted it: **is there stock**, and **did tod
 
 ## What it shows
 
-**Three tabs**, each with the accent colour the same view carries in the app, plus a bar pinned to
+**Four tabs**, each with the accent colour the same view carries in the app, plus a bar pinned to
 the bottom holding **Refresh** and when it last checked. It used to be one column with everything
 stacked in it — so answering "is there stock" meant scrolling past a month of entries, and Refresh
 sat underneath all of them.
@@ -23,11 +23,20 @@ wrong and reads as fact.
 | **Today** (blue) | Doses given today and how long ago the last entry was · how many vaccines are low or out · **Needs attention**, only what is `CHECK`, `OUT` or `LOW`, most urgent first · **Devices**: last entry, last contact with the server, `UP TO DATE` or `BEHIND` |
 | **Stock** (teal) | Every vaccine as a tile in a grid, alphabetical, doses on hand. The tab carries a count of what needs attention, so the reason to open it is visible from Today |
 | **Entries** (slate) | The last 30 days grouped by day, or one picked day |
+| **Money** (pink) | Doses given and their sales value by week or by month (last 12), tap a period for detail and a neutral comparison with the one before. Mirrors the app's Trends tab |
 
 The grid **adds columns** as the screen widens — two on a phone, four or five on a laptop — rather
 than stretching or shrinking the tiles. Same rule as the app: bound the text, not the grid.
 
-Every figure comes from a Postgres view. **Nothing is calculated in the page**, including whether a
+**Money is the one calculated figure.** It sums the price stamped on each dose (`price_rupees` on
+`v_movement_effective`, no server change). A dose with no stamp is counted on its own line as
+`Price not set`, never as ₹0; a real ₹0 is a value. Percents appear only from 20 doses. The page
+cannot read `lots`, so it cannot tell a government (UIP) dose from a clinic one: the screen says so,
+and a total can be higher than the app's, which counts UIP doses as ₹0. Doses from before prices
+existed take today's price in the app but are unpriced here. The arithmetic is `web/money.js`,
+tested in `src/domain/dashboard-money.db.test.ts`.
+
+Every other figure comes from a Postgres view. **Nothing else is calculated in the page**, including whether a
 vaccine counts as low — that would be a second definition of "low", and the one that drifts would
 still look authoritative.
 

@@ -6,9 +6,11 @@
  *
  * Three rules shape it:
  *
- *  1. NO ARITHMETIC HERE. Every number comes from a Postgres view that mirrors
- *     the app's own definitions. Two implementations of "what is on hand" would
- *     drift, and the drifting one would still look authoritative.
+ *  1. NO STOCK ARITHMETIC HERE. Every stock number comes from a Postgres view
+ *     that mirrors the app's own definitions. Two implementations of "what is
+ *     on hand" would drift, and the drifting one would still look authoritative.
+ *     The one exception is the Money tab, which sums stamped prices over doses
+ *     (money.js, tested in Node): no view carries a sales value.
  *  2. FRESHNESS BEFORE FIGURES. A stock count read at home while a device has
  *     not synced for hours is wrong and reads as fact. So staleness is stated
  *     above the numbers, not below them.
@@ -354,6 +356,90 @@ function renderEntries(rows, today, picked) {
   $('entries').innerHTML = out.join('');
 }
 
+/* ----------------------------------------------------------------- money */
+
+const MONEY_PERIODS = 12;
+let moneyGrain = 'week';
+let moneyPicked = null; // a period start, or null for the current one
+let moneyRows = [];
+let moneyFrom = '';
+let moneyToday = '';
+
+/** PostgREST caps a response at 1000 rows, so a year of doses is read in pages. */
+async function readAll(pathAndQuery) {
+  const out = [];
+  for (let offset = 0; ; offset += 1000) {
+    const page = await read(`${pathAndQuery}&limit=1000&offset=${offset}`);
+    out.push(...page);
+    if (page.length < 1000) return out;
+  }
+}
+
+const doseWord = (n) => `${n} ${n === 1 ? 'dose' : 'doses'}`;
+
+function renderMoney() {
+  const grain = moneyGrain;
+  const periods = Money.series(moneyRows, moneyToday, grain, MONEY_PERIODS);
+  const picked = periods.find((p) => p.start === moneyPicked) || periods[0];
+  $('gWeek').setAttribute('aria-pressed', String(grain === 'week'));
+  $('gMonth').setAttribute('aria-pressed', String(grain === 'month'));
+
+  const all = Money.tally(moneyRows, '0000-01-01', '9999-12-31');
+  const title = grain === 'week' ? `Week of ${picked.label}` : picked.label;
+  const d = [];
+
+  // Today's data: no vaccine has a price, so every dose is unpriced. That is
+  // the normal state until prices are set, so it is explained, not hidden.
+  if (all.doses && !all.priced) {
+    d.push(`<div class="name">No prices set yet</div>
+      <p class="line">${doseWord(all.doses)} given so far have no price, so there is no sales value to show.
+      Nothing is wrong with the app.</p>
+      <p class="line">To see money here, open the app, tap Vaccines, tap a vaccine and enter its price per dose.
+      Each dose keeps the price it had when it was given.</p>`);
+  }
+
+  d.push(`<p class="eyebrow" style="margin-top:${d.length ? 16 : 0}px">${esc(title)}</p>`);
+  if (!picked.doses) {
+    d.push('<p class="line">No doses given in this period.</p>');
+  } else {
+    d.push(picked.priced
+      ? `<p class="hero">${Money.rupees(picked.value)}</p>
+         <p class="sub">${doseWord(picked.priced)} with a price</p>`
+      : `<p class="hero" style="font-size:28px">Price not set</p>`);
+    d.push(`<p class="line"><b>${doseWord(picked.doses)}</b> given</p>`);
+    if (picked.unpriced && picked.priced) {
+      const pct = Money.share(picked.unpriced, picked.doses);
+      d.push(`<p class="line">${doseWord(picked.unpriced)} have no price and are not in the value${
+        pct === null ? '' : ` (${pct}% of doses)`}.</p>`);
+    }
+    const cmp = Money.compare(moneyRows, moneyToday, grain, picked.start, moneyFrom);
+    if (cmp) d.push(`<p class="line">${esc(cmp)}</p>`);
+  }
+  $('moneyDetail').innerHTML = d.join('');
+
+  $('money').innerHTML = periods.map((p) => {
+    const val = p.priced
+      ? `<div class="pval">${Money.rupees(p.value)}</div>`
+      : p.doses ? '<div class="pval unset">Price not set</div>' : '';
+    const part = p.priced && p.unpriced ? ` · ${p.unpriced} with no price` : '';
+    return `<button class="prow" data-start="${p.start}" aria-pressed="${p.start === picked.start}">
+        <div class="grow"><div class="name">${esc(grain === 'week' ? `Week of ${p.label}` : p.label)}</div>
+        <div class="meta">${doseWord(p.doses)}${part}</div></div>${val}</button>`;
+  }).join('');
+
+  $('moneyNote').textContent = all.priced
+    ? 'Values use the price stamped on each dose. This page cannot tell government supply doses from clinic stock, ' +
+      'so a government dose with a price counts here at that price. The app counts it as ₹0, so a total here can be higher than in the app.'
+    : 'Values will use the price stamped on each dose. This page cannot tell government supply doses from clinic stock.';
+}
+
+$('money').addEventListener('click', (e) => {
+  const b = e.target.closest('.prow');
+  if (b) { moneyPicked = b.dataset.start; renderMoney(); }
+});
+$('gWeek').addEventListener('click', () => { moneyGrain = 'week'; moneyPicked = null; renderMoney(); });
+$('gMonth').addEventListener('click', () => { moneyGrain = 'month'; moneyPicked = null; renderMoney(); });
+
 async function load() {
   const today = todayLocal();
 
@@ -368,7 +454,12 @@ async function load() {
     ? `&local_date=eq.${pickedDate}`
     : `&local_date=gte.${sinceLocal(DAYS_BACK)}`;
 
-  const [stock, devices, given, todayGiven] = await Promise.all([
+  // A year of months, plus the month before the oldest so it can be compared.
+  moneyToday = today;
+  moneyFrom = Money.previousStart(
+    Money.recentPeriods(today, 'month', MONEY_PERIODS).pop(), 'month');
+
+  const [stock, devices, given, todayGiven, moneyDoses] = await Promise.all([
     read('v_stock_on_hand?select=*&order=name.asc'),
     read('v_device_activity?select=*'),
     read(
@@ -378,6 +469,10 @@ async function load() {
     read(
       `v_movement_effective?select=${COLS}&movement_type=eq.ADMINISTRATION` +
       `&local_date=eq.${today}&order=local_time.desc`,
+    ),
+    readAll(
+      'v_movement_effective?select=local_date,delta_doses,price_rupees&movement_type=eq.ADMINISTRATION' +
+      `&local_date=gte.${moneyFrom}&order=local_date.asc,local_time.asc`,
     ),
   ]);
 
@@ -429,6 +524,8 @@ async function load() {
   const stale = renderDevices(devices);
   renderStock(stock);
   renderEntries(entries, today, pickedDate);
+  moneyRows = moneyDoses;
+  renderMoney();
 
   // Freshness ABOVE the numbers, not below them.
   if (stale.length) {
@@ -531,6 +628,7 @@ async function showDash() {
     $('stock').innerHTML = blocks('tile', 6);
     $('attention').innerHTML = blocks('row', 2);
     $('entries').innerHTML = blocks('row', 4);
+    $('money').innerHTML = blocks('row', 4);
     $('dash').setAttribute('aria-busy', 'true');
     $('asOf').setAttribute('aria-label', 'Loading your records');
   }
