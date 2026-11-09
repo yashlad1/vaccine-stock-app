@@ -67,7 +67,16 @@ EOF
 # Removed even if the deploy fails, so it can never be committed by accident.
 # install-config.js holds the APK link for web/install.html and is treated the
 # same way: the repo is public and the build must reach only the clinic.
-cleanup() { rm -f web/config.js web/install-config.js; }
+PAGE_BACKUP=$(mktemp -d)
+cleanup() {
+  rm -f web/config.js web/install-config.js
+  # Put back the pages versioned below, so the committed files never carry
+  # a deploy-specific ?v= and git status stays clean, even after a failure.
+  for page in index.html install.html; do
+    [ -f "$PAGE_BACKUP/$page" ] && cp "$PAGE_BACKUP/$page" "web/$page"
+  done
+  rm -rf "$PAGE_BACKUP"
+}
 trap cleanup EXIT
 
 # The install page's download link: the latest FINISHED Android build. The
@@ -88,6 +97,29 @@ if [ -n "$BUILD" ]; then
 else
   echo "No finished EAS build found: the install page will say its link has expired." >&2
 fi
+
+# ---------------------------------------------------------------------------
+# Version every script URL by its content.
+#
+# The host serves the pages with no cache rule but every .js with
+# max-age=3600, and the pages loaded them as plain `app.js`. So a browser that
+# had opened the dashboard in the previous hour got the NEW page wired to its
+# cached OLD script: on 9 Nov the Money tab, its buttons and an empty card
+# appeared with no code behind them, and no error to say so. A half-new page is
+# worse than a stale one - a stale page at least agrees with itself.
+#
+# `?v=<content hash>` makes the URL change exactly when the file does, so an
+# unchanged script keeps its cache and a changed one can never be served stale.
+# The committed pages are restored by cleanup() above.
+for page in index.html install.html; do
+  [ -f "web/$page" ] || continue
+  cp "web/$page" "$PAGE_BACKUP/$page"
+  for js in $(grep -oE 'src="[a-z0-9_-]+\.js"' "web/$page" | sed 's/src="//; s/"$//'); do
+    [ -f "web/$js" ] || continue
+    v=$(shasum -a 256 "web/$js" | cut -c1-12)
+    sed -i '' "s|src=\"$js\"|src=\"$js?v=$v\"|" "web/$page"
+  done
+done
 
 # ---------------------------------------------------------------------------
 # Deploy, then PROVE it.
