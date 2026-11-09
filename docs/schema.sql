@@ -1,4 +1,4 @@
--- Reference DDL for Vialbook, schema v5.
+-- Reference DDL for Vialbook, schema v6.
 --
 -- GENERATED from src/db/migrations by scripts/dump-schema.ts.
 -- Do not edit by hand; run `npm run schema:dump` instead.
@@ -6,7 +6,7 @@
 -- The migrations are the source of truth. This file exists so reviewers and
 -- the ERD have a single flat view of what they produce.
 
-PRAGMA user_version = 5;
+PRAGMA user_version = 6;
 
 CREATE TABLE lots (
   id                TEXT    PRIMARY KEY NOT NULL,
@@ -232,6 +232,13 @@ END;
 
 CREATE TRIGGER trg_movements_immutable_price
 BEFORE UPDATE OF price_rupees ON stock_movements
+BEGIN
+  SELECT RAISE(ABORT,
+    'stock_movements is append-only: append a REVERSAL instead of editing a movement');
+END;
+
+CREATE TRIGGER trg_movements_immutable_times
+BEFORE UPDATE OF recorded_at, created_at ON stock_movements
 BEGIN
   SELECT RAISE(ABORT,
     'stock_movements is append-only: append a REVERSAL instead of editing a movement');
