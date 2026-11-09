@@ -60,6 +60,8 @@
   body[data-tab="today"]   { --accent: var(--dose); }
   body[data-tab="stock"]   { --accent: var(--stock); }
   body[data-tab="entries"] { --accent: var(--slate); }
+  /* Money is the app's Trends pink. */
+  body[data-tab="money"]   { --accent: #BE185D; }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body {
@@ -215,6 +217,20 @@
     display: flex; align-items: center; gap: 12px; padding: 10px 16px;
   }
   .bottombar button { width: auto; flex: 0 0 auto; min-width: 132px; }
+  /* ------------------------------------------------------------- money */
+  .seg { display: flex; gap: 8px; margin-bottom: 10px; }
+  .seg button { background: var(--sunken); color: var(--text); border: 2px solid var(--border); }
+  .seg button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  .prow {
+    display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+    min-height: 56px; padding: 8px 12px; margin-bottom: 8px;
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 14px;
+  }
+  .prow[aria-pressed="true"] { border: 2px solid var(--accent); padding: 7px 11px; }
+  .prow .pval { font-size: 18px; font-weight: 700; text-align: right; white-space: nowrap; }
+  .prow .pval.unset { font-size: 16px; font-weight: 600; color: var(--muted); }
+  .line { margin: 6px 0 0; font-size: 16px; }
   /* Loading placeholders (issue 50): the same boxes as the real tiles and rows,
      in grey, fading between two greys every 1.2s. They stay invisible for the
      first 300ms so a fast load never flashes grey, and stand still when the
@@ -254,6 +270,7 @@
           Stock<span class="tabcount" id="stockBadge"></span>
         </button>
         <button class="tab" role="tab" data-tab="entries" aria-selected="false">Entries</button>
+        <button class="tab" role="tab" data-tab="money" aria-selected="false">Money</button>
       </div>
     </nav>
 
@@ -308,6 +325,17 @@
         </div>
         <div class="card" id="entries"></div>
       </div>
+
+      <div class="pane narrow hide" data-tab="money">
+        <p class="eyebrow">Doses and sales value</p>
+        <div class="seg">
+          <button id="gWeek" aria-pressed="true">By week</button>
+          <button id="gMonth" aria-pressed="false">By month</button>
+        </div>
+        <div class="card" id="moneyDetail"></div>
+        <div id="money"></div>
+        <p class="foot" id="moneyNote"></p>
+      </div>
     </div>
 
     <div class="bottombar">
@@ -322,6 +350,7 @@
   </section>
 
 <script src="config.js"></script>
+<script src="money.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
