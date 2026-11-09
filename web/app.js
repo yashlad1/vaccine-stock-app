@@ -364,6 +364,8 @@ let moneyPicked = null; // a period start, or null for the current one
 let moneyRows = [];
 let moneyFrom = '';
 let moneyToday = '';
+// Why the Money tab could not load, or null. It fails on its own: see load().
+let moneyError = null;
 
 /** PostgREST caps a response at 1000 rows, so a year of doses is read in pages. */
 async function readAll(pathAndQuery) {
@@ -378,6 +380,17 @@ async function readAll(pathAndQuery) {
 const doseWord = (n) => `${n} ${n === 1 ? 'dose' : 'doses'}`;
 
 function renderMoney() {
+  if (moneyError) {
+    // moneyDetail is the card; clear the period list and the foot note so a
+    // stale render cannot sit underneath this message.
+    $('moneyDetail').innerHTML =
+      '<p><strong>Money is not available yet.</strong></p>' +
+      '<p>The server needs a one-time update before it can show sales value. ' +
+      'Your records are still safe on the clinic phone, and the other tabs are unaffected.</p>';
+    $('money').innerHTML = '';
+    $('moneyNote').textContent = '';
+    return;
+  }
   const grain = moneyGrain;
   const periods = Money.series(moneyRows, moneyToday, grain, MONEY_PERIODS);
   const picked = periods.find((p) => p.start === moneyPicked) || periods[0];
@@ -459,7 +472,7 @@ async function load() {
   moneyFrom = Money.previousStart(
     Money.recentPeriods(today, 'month', MONEY_PERIODS).pop(), 'month');
 
-  const [stock, devices, given, todayGiven, moneyDoses] = await Promise.all([
+  const [stock, devices, given, todayGiven] = await Promise.all([
     read('v_stock_on_hand?select=*&order=name.asc'),
     read('v_device_activity?select=*'),
     read(
@@ -469,10 +482,6 @@ async function load() {
     read(
       `v_movement_effective?select=${COLS}&movement_type=eq.ADMINISTRATION` +
       `&local_date=eq.${today}&order=local_time.desc`,
-    ),
-    readAll(
-      'v_movement_effective?select=local_date,delta_doses,price_rupees&movement_type=eq.ADMINISTRATION' +
-      `&local_date=gte.${moneyFrom}&order=local_date.asc,local_time.asc`,
     ),
   ]);
 
@@ -524,7 +533,21 @@ async function load() {
   const stale = renderDevices(devices);
   renderStock(stock);
   renderEntries(entries, today, pickedDate);
-  moneyRows = moneyDoses;
+  // Money is fetched ON ITS OWN, after everything else has drawn. It used to
+  // sit in the Promise.all above, so on 9 Nov a 400 from it - the server's
+  // view had no price_rupees column - took Today, Stock and Entries down
+  // with it, and the page read as though every record had gone. One panel
+  // must never be able to blank the others.
+  try {
+    moneyRows = await readAll(
+      'v_movement_effective?select=local_date,delta_doses,price_rupees&movement_type=eq.ADMINISTRATION' +
+      `&local_date=gte.${moneyFrom}&order=local_date.asc,local_time.asc`,
+    );
+    moneyError = null;
+  } catch (e) {
+    moneyRows = [];
+    moneyError = e;
+  }
   renderMoney();
 
   // Freshness ABOVE the numbers, not below them.
