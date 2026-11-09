@@ -193,4 +193,7 @@ if [ -n "$MISMATCH" ]; then
   exit 1
 fi
 
-echo "Verified: $TARGET_URL is serving this build ($LOCAL_SUM)"
+# Not $LOCAL_SUM: after the loop that holds only the LAST file checked
+# (favicon.svg, which never changes), so every deploy printed the same
+# "build" hash and a real success looked identical to a stale one.
+echo "Verified: $TARGET_URL is serving all $(echo "$FILES" | wc -l | tr -d ' ') files of this build, byte for byte"
