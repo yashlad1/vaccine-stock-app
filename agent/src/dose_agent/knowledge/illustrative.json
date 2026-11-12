@@ -28,6 +28,13 @@
       "min_age_months": null, "max_mg_per_kg_dose": null, "max_single_mg": null, "max_daily_mg": null,
       "source": "Illustrative test formulary", "version": "2026-11-illustrative-1",
       "safety_net": "Finish the whole course, and call the clinic at once if a rash or swelling appears."
+    },
+    {
+      "generic": "cefixime", "generics": ["cefixime", "ofloxacin"], "class": "cephalosporin", "brands": ["Cefoflox"],
+      "strength": "200 mg + 200 mg tablet", "mg_per_kg_day": 8, "doses_per_day": 2,
+      "min_age_months": null, "max_mg_per_kg_dose": null, "max_single_mg": null, "max_daily_mg": null,
+      "source": "Illustrative test formulary", "version": "2026-11-illustrative-1",
+      "safety_net": "Finish the whole course, and call the clinic if the diarrhoea is bad or does not stop."
     }
   ]
 }

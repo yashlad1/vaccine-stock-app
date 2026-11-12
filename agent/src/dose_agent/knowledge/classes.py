@@ -78,3 +78,9 @@ def primary(text: str | None) -> tuple[str | None, str | None]:
     if not gs:
         return None, None
     return gs[0], next((class_of(g) for g in gs if class_of(g)), None)
+
+
+def components(text: str | None) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(every component generic, every distinct class among them) of a free-text generic name."""
+    gs = normalise(text)
+    return tuple(gs), tuple(dict.fromkeys(c for c in map(class_of, gs) if c))

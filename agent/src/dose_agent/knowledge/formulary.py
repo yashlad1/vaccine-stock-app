@@ -29,6 +29,16 @@ class Product:
     version: str
     safety_net: str
     unusable: str = ""             # why this product cannot compute a dose; "" when it can
+    generics: tuple[str, ...] = ()  # every component of a combination; generic/cls above are the first, for display
+    classes: tuple[str, ...] = ()
+
+    @property
+    def all_generics(self) -> set[str]:
+        return set(self.generics) | ({self.generic} if self.generic else set())
+
+    @property
+    def all_classes(self) -> set[str]:
+        return set(self.classes) | ({self.cls} if self.cls else set())
 
     @property
     def label(self) -> str:
@@ -65,8 +75,10 @@ class Formulary:
 
     def stub(self, term: str) -> Product:
         """A product-less stand-in for a medicine that is not in the formulary, so allergy checks still run."""
-        g, c = classes.primary(term)
+        gs, cs = classes.components(term)
+        g, c = (gs[0] if gs else None), (cs[0] if cs else None)
         return Product(key="stub:" + key_of(term), generic=g or key_of(term), cls=c, brands=(), strength=None,
+                       generics=gs, classes=cs,
                        mg_per_kg_day=None, doses_per_day=None, min_age_months=None, max_mg_per_kg_dose=None,
                        max_single_mg=None, max_daily_mg=None, source="", version="", safety_net="",
                        unusable="not in the formulary")
@@ -88,8 +100,8 @@ class Formulary:
         for g, c in classes._KNOWN.items():
             t.setdefault(g, ("generic", g, c))
         for p in self.products:
-            if p.generic:
-                t.setdefault(p.generic, ("generic", p.generic, p.cls))
+            for g in p.all_generics:
+                t.setdefault(g, ("generic", g, classes.class_of(g) or (p.cls if g == p.generic else None)))
             for b in p.brands:
                 k = key_of(b)
                 if len(k) >= 3:
@@ -108,6 +120,8 @@ def illustrative() -> Formulary:
     for i, e in enumerate(raw["products"]):
         ps.append(Product(
             key=f"illustrative:{i}", generic=e["generic"], cls=e["class"], brands=tuple(e["brands"]),
+            generics=tuple(e.get("generics") or [e["generic"]]),
+            classes=tuple(dict.fromkeys(c for c in map(classes.class_of, e.get("generics") or [e["generic"]]) if c)),
             strength=e["strength"], mg_per_kg_day=e["mg_per_kg_day"], doses_per_day=e["doses_per_day"],
             min_age_months=e["min_age_months"], max_mg_per_kg_dose=e["max_mg_per_kg_dose"],
             max_single_mg=e["max_single_mg"], max_daily_mg=e["max_daily_mg"],

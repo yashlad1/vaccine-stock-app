@@ -96,11 +96,12 @@ def load() -> Formulary:
     version = f"drugs.json {date.fromtimestamp((Path(os.environ['DOSE_AGENT_HEALTHLINK']) / 'drugs.json').stat().st_mtime)}"
     ps = []
     for e, bad, state in entries():
-        generic, cls = classes.primary(e.get("generic_name"))
+        gens, clss = classes.components(e.get("generic_name"))
+        generic, cls = (gens[0] if gens else None), (clss[0] if clss else None)
         unusable = NOT_REVIEWED if state == "unreviewed" else CORRECTION if state == "correction" else bad
         freq = _num(e.get("frequency"))
         ps.append(Product(
-            key=f"healthlink:{e.get('id')}", generic=generic, cls=cls, brands=(str(e.get("drug", "")).strip(),),
+            key=f"healthlink:{e.get('id')}", generic=generic, cls=cls, generics=gens, classes=clss, brands=(str(e.get("drug", "")).strip(),),
             strength=strength_text(e) or None, mg_per_kg_day=_num(e.get("mg_per_kg_day")),
             doses_per_day=int(freq) if freq and freq == int(freq) else None, min_age_months=None,
             max_mg_per_kg_dose=None, max_single_mg=None, max_daily_mg=None,

@@ -30,6 +30,8 @@ CHILDREN = [
     ("Ishaan Gupta", "2023-01-09", "M", [(0, 11.6)], [("Ibunorm", "Hives after Ibunorm syrup, parent reported")], [], []),
     ("Zoya Khan", "2022-09-03", "F", [(0, 14.0)], [], [(60, "Penicillin allergy noted by the parent")], []),
     ("Tara Rao", 90, "F", [(0, 5.4)], [], [], []),
+    # a MISSPELT allergy (amoxycilin) to a penicillin-class medicine
+    ("Aditi Verma", "2022-06-21", "F", [(0, 13.4)], [("amoxycilin", "Rash after amoxycilin, parent reported")], [], []),
 ]
 VACCINES = [("Pentavac", "VIAL", 1), ("Rotavac", "DOSE", 1), ("MR", "VIAL", 10), ("Varilrix", "DOSE", 1), ("Havrix", "DOSE", 1)]
 
