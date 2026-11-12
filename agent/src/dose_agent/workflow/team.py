@@ -37,6 +37,10 @@ def build_graph(db, extra: dict, main_model, triage_fn=None, check=check_draft, 
         if amount:  # a request that states its own amount is a dose change: the doctor's decision
             return {"label": "needs_doctor", "child_name": "", "medicines": [],
                     "reasoning": f"the request names an amount ('{amount}'); changing a dose is the doctor's decision"}
+        phrase = triage_mod.override_phrase(state["request"])
+        if phrase:  # trying to skip a safety rule, or claiming someone approved skipping it: the doctor's decision
+            return {"label": "needs_doctor", "child_name": "", "medicines": [],
+                    "reasoning": f"the request tries to override a safety rule ('{phrase}'); that is the doctor's decision"}
         t = triage_fn(state["request"])
         meds = list(dict.fromkeys(m.strip().lower() for m in t.medicines if m.strip()))
         label = t.label if t.label != "dose_request" or (meds and t.child_name.strip()) else "needs_doctor"

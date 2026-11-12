@@ -30,6 +30,14 @@ dose_pair (a fixed code workflow, `workflow/dose_pair.py`):
            (code)   (code)  (helper model)   (main model)   (code)
 ```
 - A request that names its own amount ("give 5 ml") goes to the doctor before any model runs.
+- So does a request that tries to override a safety rule (`llm/triage.py: override_phrase`), reason "the request tries
+  to override a safety rule ('<matched text>'); that is the doctor's decision". It matches (a) ignore / disregard /
+  override / overrule / skip / bypass / forget (any ending) within 4 words of allergy / note / max / limit /
+  formulary / rule(s) / warning / check / safety / record ("disregard the allergy note"); (b) parent / mother / mom /
+  father / dad / doctor / dr + said / says / told / approved / allowed / okayed, then fine / ok / okay / allowed /
+  approved or one of those verbs ("the parent said it is fine", "doctor said ignore it"); (c) such a person (and
+  optionally one name word) + approved / allowed / okayed ("Dr Rao approved it"). "Is it fine to give paracetamol?"
+  does not match.
 - A medicine refused before drafting (no or several children, no weight today, allergy, age, a maximum, an
   unknown or ambiguous product) costs zero model calls beyond reading the request: 1 helper call plus 1 to 3
   draft calls otherwise.

@@ -43,6 +43,22 @@ def stated_amount(request: str) -> str | None:
     return m.group() if m else None
 
 
+_VERB = r"(?:ignor\w*|disregard\w*|overrid\w*|overrul\w*|skip\w*|bypass\w*|forget\w*|forgot)"
+_THING = r"(?:allerg\w*|notes?|max\w*|limits?|formulary|rules?|warnings?|checks?|safety|records?)"
+_PARTY = r"(?:parents?|mother|mom|father|dad|doctor|dr)"
+_OVERRIDE = re.compile(
+    rf"\b{_VERB}\W+(?:\w+\W+){{0,4}}?{_THING}\b"                                    # "disregard the allergy note"
+    rf"|\b{_PARTY}\W+(?:said|says|told|approved|allowed|okayed)\W+(?:\w+\W+){{0,6}}?(?:fine|ok|okay|allowed|approved|{_VERB})\b"
+    rf"|\b{_PARTY}\W+(?:\w+\W+)?(?:approved|allowed|okayed)\b", re.I)                           # "the parent said it is fine"
+
+
+def override_phrase(request: str) -> str | None:
+    """The first text that tells the assistant to skip a safety rule or record, or says someone approved skipping one;
+    None for a plain question ('is it fine to give paracetamol?'). Decided in code, before any model."""
+    m = _OVERRIDE.search(request)
+    return m.group() if m else None
+
+
 def triage(request: str, formulary: str, model=None) -> Triage:
     model = model or models.chat_model("main")
     system = PROMPT.format(formulary=formulary, request_note="Read the request below and label it.")
