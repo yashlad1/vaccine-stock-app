@@ -7,6 +7,8 @@ requires-python = ">=3.13"
 dependencies = [
     "langchain>=1.5.0",
     "langchain-anthropic>=1.7.10",
+    "langchain-google-genai>=4.5.0",
+    "langchain-nvidia-ai-endpoints>=1.5.0",
     "langchain-ollama>=1.1.0",
     "langgraph>=1.2.20",
     "pydantic>=2.14.3",
