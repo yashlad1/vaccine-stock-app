@@ -213,6 +213,15 @@ def test_compute_dose_edges():
     assert (both.capped, one.capped, none.capped) == (True, False, False)
 
 
+def test_equal_to_a_maximum_is_allowed():
+    base = dict(weight_kg=11.2, mg_per_kg_day=30, doses_per_day=2, mg_per_ml=50.0)  # 168 mg a dose = 15 mg/kg
+    assert compute_dose(DoseRule(**base, max_mg_per_kg_dose=15)).ok               # 168 / 11.2 = 15.000000000000002
+    assert compute_dose(DoseRule(**base, max_single_mg=168, max_daily_mg=336)).ok
+    assert not compute_dose(DoseRule(**base, max_mg_per_kg_dose=14.99)).ok
+    assert not compute_dose(DoseRule(**base, max_single_mg=167.9)).ok
+    assert not compute_dose(DoseRule(**base, max_daily_mg=335.9)).ok
+
+
 @pytest.mark.parametrize("draft", [
     "Hi { {DOSE}", "Hi } {DOSE}", "Hi {name} {DOSE}", "Hi {DOSE} and {DOSE}", "no placeholder", "Hi {DOSE} ml",
     "Hi {DOSE}, he weighs 12.4 kg", "Hi {DOSE}, he weighs 12.4 KG", "Hi {DOSE} 5", "Hi {DOSE} " + "x" * 600])

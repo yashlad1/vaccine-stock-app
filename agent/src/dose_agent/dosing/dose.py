@@ -10,6 +10,11 @@ MAX_PLAUSIBLE_ML = 20.0
 STEP_ML = 0.5
 
 
+def _over(value: float, limit: float) -> bool:
+    """value > limit, where equal is allowed whatever float noise says (168 / 11.2 = 15.000000000000002)."""
+    return value > limit * (1 + 1e-9)
+
+
 def _round(n: float, dp: int) -> float:
     return round(n, dp)
 
@@ -105,11 +110,11 @@ def compute_dose(r: DoseRule) -> DoseResult:
     if r.max_mg_per_kg_dose is not None:
         limits.append(f"max {r.max_mg_per_kg_dose:g} mg/kg per dose")
     steps += f"; limits on file: {', '.join(limits)}" if limits else "; no maximum on file"
-    if r.max_mg_per_kg_dose is not None and mg / r.weight_kg > r.max_mg_per_kg_dose:
+    if r.max_mg_per_kg_dose is not None and _over(mg / r.weight_kg, r.max_mg_per_kg_dose):
         return DoseResult(False, "over the per-kg dose maximum", steps=steps)
-    if r.max_single_mg is not None and mg > r.max_single_mg:
+    if r.max_single_mg is not None and _over(mg, r.max_single_mg):
         return DoseResult(False, "over the single dose maximum", steps=steps)
-    if r.max_daily_mg is not None and daily > r.max_daily_mg:
+    if r.max_daily_mg is not None and _over(daily, r.max_daily_mg):
         return DoseResult(False, "over the daily maximum", steps=steps)
     if exact > MAX_PLAUSIBLE_ML:
         return DoseResult(False, "volume implausible", steps=steps)
