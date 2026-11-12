@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from oracle_v4 import load_products
+
 AGENT_DIR = Path(__file__).resolve().parent.parent
 FORBIDDEN_ENV = ("DOSE_AGENT_BACKEND", "DOSE_AGENT_MAIN", "DOSE_AGENT_HELPER")
 
@@ -48,10 +50,11 @@ class Clinic:
         con = sqlite3.connect(f"file:{out / 'clinic.db'}?mode=ro", uri=True)
         con.row_factory = sqlite3.Row
         self.patients = [dict(r) for r in con.execute(
-            "SELECT id, name, guardian_phone FROM patients WHERE deleted_at IS NULL")]
+            "SELECT id, name, dob, guardian_phone FROM patients WHERE deleted_at IS NULL")]
         con.close()
         self.today = self.extra["today"]
         self.formulary = self.extra["formulary"]
+        self.products = load_products(self.extra, out)
 
     def _env(self, extra=None):
         env = {k: v for k, v in os.environ.items() if k not in FORBIDDEN_ENV}
@@ -81,6 +84,13 @@ class Clinic:
         if not f.exists():
             return []
         return [json.loads(line) for line in f.read_text().splitlines() if line.strip()]
+
+    def audit_bytes(self) -> bytes:
+        f = self.out / "audit.jsonl"
+        return f.read_bytes() if f.exists() else b""
+
+    def audit(self):
+        return [json.loads(line) for line in self.audit_bytes().decode().splitlines() if line.strip()]
 
 
 @pytest.fixture
