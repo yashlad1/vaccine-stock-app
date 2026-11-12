@@ -1,7 +1,10 @@
 """Request -> graphs -> show -> approve y/N -> out/outbox.jsonl. Nothing is ever sent."""
 import json
+import os
 import sys
 from datetime import date, datetime, timezone
+
+import httpx
 
 from . import models, records, synthetic
 from .team import build_graph
@@ -57,7 +60,10 @@ def main(argv: list[str] | None = None) -> None:
         rep = build_graph(db, extra, models.chat_model("main"))(request)
     except RuntimeError as e:  # triage could not read the request
         sys.exit(str(e))
-    except Exception as e:  # e.g. the model server is unreachable: one line, no traceback
+    except (httpx.ConnectError, ConnectionError):
+        host = os.environ.get("OLLAMA_HOST", "localhost:11434")
+        sys.exit(f"error: cannot reach the local model at {host}; is Ollama running? (ollama serve)")
+    except Exception as e:  # anything else from the model call: one line, no traceback
         sys.exit(f"error: {type(e).__name__}: {str(e).splitlines()[0] if str(e) else 'model call failed'}"[:300])
     render(rep)
     for r in rep["results"]:
