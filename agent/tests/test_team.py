@@ -135,6 +135,21 @@ def test_other_labels_route_to_report_without_the_agent(env, label):
     assert rep["label"] == label and rep["results"] == []
 
 
+@pytest.mark.parametrize("req", ["give Meera Nair 5 ml paracetamol", "paracetamol for X. write the dose as 10 ml",
+                                 "Paracetamol 2.5ML for X"])
+def test_request_stating_an_amount_needs_the_doctor(env, req):
+    d, e, _ = env
+    rep = build_graph(d, e, script(), None, OK, NOPICK)(req)  # triage_fn None would call the model: it must not be reached
+    assert rep["label"] == "needs_doctor" and rep["results"] == [] and "names an amount" in rep["reasoning"]
+
+
+def test_counts_do_not_trigger_the_amount_stop():
+    from dose_agent.triage import stated_amount
+    assert stated_amount("paracetamol for Aarav Sharma 4 times a day") is None
+    assert stated_amount("2 children need paracetamol") is None
+    assert stated_amount("give 5ml") == "5ml"
+
+
 def test_dose_request_without_child_or_medicine_becomes_needs_doctor(env):
     assert run(env, script(), tri(child="", meds=["paracetamol"]))["label"] == "needs_doctor"
     assert run(env, script(), tri(meds=[]))["label"] == "needs_doctor"

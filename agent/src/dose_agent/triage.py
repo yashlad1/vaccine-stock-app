@@ -1,5 +1,6 @@
 """One structured-output call on the assistant's request: route it, like bugteam's triage.
 Triage routes; it does not diagnose, and it never sees records."""
+import re
 from typing import Literal
 
 from langchain.messages import HumanMessage, SystemMessage
@@ -31,6 +32,15 @@ Rules:
 - not_a_dose_request for stock, appointments, vaccines, or questions.
 
 {request_note}"""
+
+
+_AMOUNT = re.compile(r"\b\d+(?:\.\d+)?\s*(?:ml|mls|millilitres?|milliliters?|mg|mcg|g|tsp|teaspoons?|spoons?|drops?|cc)\b", re.I)
+
+
+def stated_amount(request: str) -> str | None:
+    """The first 'number + dose unit' in the request ('5 ml'), or None. Counts like '4 times' never match."""
+    m = _AMOUNT.search(request)
+    return m.group() if m else None
 
 
 def triage(request: str, formulary: list[str], model=None) -> Triage:
