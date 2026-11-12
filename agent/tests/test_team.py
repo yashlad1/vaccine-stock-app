@@ -145,3 +145,22 @@ def test_two_medicines_fan_out_in_request_order(env):
     reply = AIMessage(content="", tool_calls=[{"name": "calculate_dose", "args": {"patient_id": pid, "medicine": "x"}, "id": "c"}])
     rep = run(env, FakeModel(messages=itertools.cycle([reply])), tri(meds=["ibuprofen", "paracetamol"]), step_cap=4)
     assert [r["medicine"] for r in rep["results"]] == ["ibuprofen", "paracetamol"]
+
+
+def test_shared_first_name_submit_anyway_is_never_accepted(env):
+    pid = env[2]("Aarav Sharma")  # one of the two Aaravs; nobody confirmed which
+    (r,) = run(env, script(draft(pid), draft(pid), draft(pid)), tri(child="Aarav"))["results"]
+    assert r["status"] == "needs_person" and r["draft"] == "" and r["patient_id"] == ""
+    assert r["rounds"] == 1 and "2 children" in r["why"]  # not fixable by redrafting: no more rounds
+
+
+def test_unique_child_but_other_childs_id_is_not_accepted(env):
+    other = env[2]("Meera")
+    (r,) = run(env, script(draft(other), draft(other), draft(other)), tri(child="Aarav Sharma"))["results"]
+    assert r["status"] == "needs_person" and r["draft"] == "" and r["rounds"] == 1 and "different child" in r["why"]
+
+
+def test_accepted_result_carries_verified_patient_id(env):
+    pid = env[2]("Aarav Sharma")
+    (r,) = run(env, script(draft(pid), "Done."))["results"]
+    assert r["status"] == "accepted" and r["patient_id"] == pid

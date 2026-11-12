@@ -18,7 +18,7 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import Send
 
-from . import triage as triage_mod
+from . import records, triage as triage_mod
 from .dose import check_draft
 from .tools import dose_for, make_tools
 
@@ -47,6 +47,9 @@ class Team(TypedDict):
 
 class PairState(MessagesState):
     medicine: str
+    child_name: str
+    patient_id: str  # set only once code has verified it is the one named child
+    fatal: bool      # a failure redrafting cannot fix
     rounds: int
     accepted: str  # the draft that passed the check, with the dose filled in by code
     why: str       # the last check failure
@@ -78,6 +81,11 @@ def build_graph(db, extra: dict, main_model, triage_fn=None, check=check_draft, 
         call = next(c for m in reversed(state["messages"]) if isinstance(m, AIMessage)
                     for c in m.tool_calls if c["name"] == "submit_draft")
         a, rounds = call["args"], state["rounds"] + 1
+        found = records.find_children(db, state["child_name"])
+        if len(found) != 1 or a.get("patient_id") != found[0]["id"]:
+            who = "no child" if not found else f"{len(found)} children" if len(found) > 1 else "a different child"
+            return {"rounds": rounds, "fatal": True,
+                    "why": f"{who} matches '{state['child_name']}' or the draft is for another child; a person must confirm which"}
         dose = dose_for(db, extra, a.get("patient_id", ""), a.get("medicine", ""))
         message = a.get("message", "")
         if not dose.ok:
@@ -89,12 +97,12 @@ def build_graph(db, extra: dict, main_model, triage_fn=None, check=check_draft, 
         else:
             ok, why = check(message)
         if ok:
-            return {"rounds": rounds, "accepted": message.replace("{DOSE}", f"{dose.result.ml:g} ml"), "why": ""}
+            return {"rounds": rounds, "patient_id": found[0]["id"], "accepted": message.replace("{DOSE}", f"{dose.result.ml:g} ml"), "why": ""}
         note = HumanMessage(content=f"The check sent your draft back. Reason: {why}")
         return {"rounds": rounds, "why": why, "messages": [note] if rounds < MAX_ROUNDS else []}
 
     def after_check(state: PairState) -> str:
-        return END if state["accepted"] or state["rounds"] >= MAX_ROUNDS else "agent"
+        return END if state["accepted"] or state["fatal"] or state["rounds"] >= MAX_ROUNDS else "agent"
 
     pg = StateGraph(PairState)
     pg.add_node("agent", agent)
@@ -112,14 +120,14 @@ def build_graph(db, extra: dict, main_model, triage_fn=None, check=check_draft, 
         request = f"Child: {job['child_name']}\nMedicine: {job['medicine']}"
         try:
             out = pair.invoke({"messages": [HumanMessage(content=request)], "rounds": 0, "accepted": "", "why": "",
-                               "medicine": job["medicine"]}, {"recursion_limit": step_cap})
+                               "medicine": job["medicine"], "child_name": job["child_name"], "patient_id": "", "fatal": False}, {"recursion_limit": step_cap})
         except GraphRecursionError:
             return {"results": [{**base, "status": "needs_person", "draft": "", "why": "ran out of steps",
-                                 "doses": [], "answer": "", "rounds": 0}]}
+                                 "doses": [], "answer": "", "rounds": 0, "patient_id": ""}]}
         msgs = out["messages"]
         last = msgs[-1]
         return {"results": [{**base, "status": "accepted" if out["accepted"] else "needs_person",
-                             "draft": out["accepted"], "rounds": out["rounds"],
+                             "patient_id": out["patient_id"], "draft": out["accepted"], "rounds": out["rounds"],
                              "why": "" if out["accepted"] else (out["why"] or "no draft was submitted"),
                              "doses": [m.content for m in msgs if isinstance(m, ToolMessage) and m.name == "calculate_dose"],
                              "answer": last.content if isinstance(last, AIMessage) else ""}]}

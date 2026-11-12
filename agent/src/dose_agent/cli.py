@@ -1,10 +1,11 @@
 """Request -> graphs -> show -> approve y/N -> out/outbox.jsonl. Nothing is ever sent."""
 import json
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 
 from . import models, records, synthetic
 from .team import build_graph
+from .tools import dose_for
 
 
 def render(rep: dict) -> None:
@@ -24,6 +25,18 @@ def render(rep: dict) -> None:
             print(f"Agent said: {r['answer']}")
 
 
+def outbox_record(db, extra: dict, r: dict) -> dict:
+    steps = dose_for(db, extra, r["patient_id"], r["medicine"]).result.steps  # the working, recomputed by code
+    return {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "patient_id": r["patient_id"],
+            "guardian_phone": records.guardian_phone(db, r["patient_id"]), "child": r["child_name"],
+            "medicine": r["medicine"], "message": r["draft"], "steps": steps, **models.info()}
+
+
+def write_outbox(path, record: dict) -> None:
+    with open(path, "a") as f:
+        f.write(json.dumps(record) + "\n")
+
+
 def main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
     request = " ".join(argv) or input("Request: ")
@@ -36,6 +49,5 @@ def main(argv: list[str] | None = None) -> None:
     render(rep)
     for r in rep["results"]:
         if r["status"] == "accepted" and input(f"\nApprove the {r['medicine']} message? (nothing is sent) [y/N] ").strip().lower() == "y":
-            with open(synthetic.OUT / "outbox.jsonl", "a") as f:
-                f.write(json.dumps({"child": r["child_name"], "medicine": r["medicine"], "message": r["draft"]}) + "\n")
+            write_outbox(synthetic.OUT / "outbox.jsonl", outbox_record(db, extra, r))
             print("Saved to out/outbox.jsonl (not sent).")

@@ -51,3 +51,8 @@ def child_records(db: sqlite3.Connection, extra: dict, patient_id: str) -> list[
             if x["patient_id"] == patient_id:
                 recs.append({"id": x["id"], "kind": k, "date": x.get("date", ""), "text": fmt(x)})
     return sorted(recs, key=lambda r: (r["date"], r["id"]))
+
+
+def guardian_phone(db: sqlite3.Connection, patient_id: str) -> str | None:
+    r = db.execute("SELECT guardian_phone FROM patients WHERE id=?", (patient_id,)).fetchone()
+    return r["guardian_phone"] if r else None

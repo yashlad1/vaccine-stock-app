@@ -14,6 +14,11 @@ def backend() -> str:
     return b
 
 
+def info() -> dict:
+    """The backend and model ids in use, for the outbox record."""
+    return {"backend": backend(), "models": dict((OLLAMA_MODELS if backend() == "ollama" else CLAUDE_MODELS))}
+
+
 def chat_model(tier: str):
     if backend() == "ollama":
         from langchain_ollama import ChatOllama
