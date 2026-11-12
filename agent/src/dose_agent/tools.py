@@ -14,7 +14,8 @@ from .dose import DoseResult, DoseRule, compute_dose, mg_per_ml
 PICK_SYSTEM = ("You help a paediatric clinic assistant. You are given one child's records, each with an id, and one "
                "medicine. Pick the ids of the records that matter for giving THIS medicine to THIS child (allergies, "
                "past reactions, earlier use, recent illness, recent weights). Use only the ids shown. Also list short "
-               "cautions, each drawn only from the records.")
+               "cautions, each drawn only from the records and only about THIS medicine (for example an allergy or reaction "
+               "to it); no cautions about vaccines, other medicines, dates, weights or ages.")
 
 
 class Pick(BaseModel):
@@ -104,8 +105,9 @@ def make_tools(db, extra: dict, pick=None):
     def submit_draft(patient_id: str, medicine: str, message: str) -> str:
         """Hand in the draft message to the parent. Write the exact text {DOSE} where the amount goes: code replaces it
         with the amount with its unit (e.g. "3.75 ml"), so write no unit after it. The message may contain only a
-        greeting, the medicine, {DOSE}, how often (from the formulary) and cautions from search_history; no other
-        medical advice. Call this once the dose is calculated."""
+        greeting, the medicine, {DOSE}, how often (from the formulary) and cautions from search_history. A caution
+        is only about THIS medicine (e.g. an allergy or reaction to it); never mention vaccines, other medicines, dates,
+        weights or ages; no monitoring or other medical advice. Call this once the dose is calculated."""
         return "Draft received."
 
     return [find_child, get_dose_rule, search_history, calculate_dose, submit_draft]
