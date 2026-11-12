@@ -28,5 +28,18 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "mutmut>=3.8.1",
     "pytest>=9.2.0",
 ]
+
+[tool.mutmut]
+paths_to_mutate = [
+    "src/dose_agent/dosing/",
+    "src/dose_agent/knowledge/allergy.py",
+    "src/dose_agent/knowledge/classes.py",
+    "src/dose_agent/workflow/dose_pair.py",
+]
+tests_dir = ["tests/test_interface.py", "evals/test_sweep.py", "evals/test_fast_checks.py"]
+also_copy = ["tests/", "evals/", "src/", "pyproject.toml", "uv.lock", "README.md"]
+# Only the fast tests: never the CLI suite (about 12 min on local Qwen).
+pytest_add_cli_args_test_selection = ["tests/test_interface.py", "evals/test_sweep.py", "evals/test_fast_checks.py"]
