@@ -39,18 +39,32 @@ def write_outbox(path, record: dict) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     argv = sys.argv[1:] if argv is None else argv
-    request = " ".join(argv) or input("Request: ")
-    extra_path = synthetic.OUT / "extra.json"
+    try:
+        request = " ".join(argv) or input("Request: ")
+    except EOFError:
+        request = ""
+    if not request.strip():
+        sys.exit("error: empty request")
+    out = synthetic.out_dir()
+    extra_path = out / "extra.json"
     if not extra_path.exists() or records.load_extra(extra_path)["today"] != date.today().isoformat():
         synthetic.build()  # the simulated clinic day is today
-    db, extra = records.open_ro(synthetic.OUT / "clinic.db"), records.load_extra(extra_path)
+    db, extra = records.open_ro(out / "clinic.db"), records.load_extra(extra_path)
     models.require_synthetic(records.is_synthetic(db))
     try:
         rep = build_graph(db, extra, models.chat_model("main"))(request)
     except RuntimeError as e:  # triage could not read the request
         sys.exit(str(e))
+    except Exception as e:  # e.g. the model server is unreachable: one line, no traceback
+        sys.exit(f"error: {type(e).__name__}: {str(e).splitlines()[0] if str(e) else 'model call failed'}"[:300])
     render(rep)
     for r in rep["results"]:
-        if r["status"] == "accepted" and input(f"\nApprove the {r['medicine']} message? (nothing is sent) [y/N] ").strip().lower() == "y":
-            write_outbox(synthetic.OUT / "outbox.jsonl", outbox_record(db, extra, r))
-            print("Saved to out/outbox.jsonl (not sent).")
+        if r["status"] != "accepted":
+            continue
+        try:
+            answer = input(f"\nApprove the {r['medicine']} message? (nothing is sent) [y/N] ")
+        except EOFError:
+            answer = ""
+        if answer.strip().lower() == "y":
+            write_outbox(out / "outbox.jsonl", outbox_record(db, extra, r))
+            print(f"Saved to {'out' if out == synthetic.OUT else out}/outbox.jsonl (not sent).")

@@ -20,3 +20,11 @@ def test_outbox_record_shape(tmp_path, monkeypatch):
     cli.write_outbox(out, rec)
     cli.write_outbox(out, rec)
     assert [json.loads(l) for l in out.read_text().splitlines()] == [rec, rec]
+
+
+def test_dose_agent_out_env_selects_the_folder(tmp_path, monkeypatch):
+    monkeypatch.setenv("DOSE_AGENT_OUT", str(tmp_path / "elsewhere"))
+    db, extra = synthetic.build(today=TODAY)
+    assert db == tmp_path / "elsewhere" / "clinic.db" and extra.exists()
+    monkeypatch.delenv("DOSE_AGENT_OUT")
+    assert synthetic.out_dir() == synthetic.OUT and synthetic.OUT.name == "out" and synthetic.OUT.parent.name == "agent"

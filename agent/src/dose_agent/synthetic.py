@@ -2,6 +2,7 @@
 The repo is public; nothing here is, or is derived from, a real patient.
 The formulary values are illustrative, not clinical guidance."""
 import json
+import os
 import sqlite3
 import uuid
 from datetime import date, datetime, timedelta, timezone
@@ -33,6 +34,11 @@ FORMULARY = {  # illustrative
 VACCINES = [("Pentavac", "VIAL", 1), ("Rotavac", "DOSE", 1), ("MR", "VIAL", 10), ("Varilrix", "DOSE", 1), ("Havrix", "DOSE", 1)]
 
 
+def out_dir() -> Path:
+    """DOSE_AGENT_OUT when set, else agent/out."""
+    return Path(os.environ["DOSE_AGENT_OUT"]) if os.environ.get("DOSE_AGENT_OUT") else OUT
+
+
 def _id(*parts: str) -> str:
     return str(uuid.uuid5(NS, "/".join(parts)))
 
@@ -41,7 +47,8 @@ def _ms(d: date, hour: int = 10) -> int:
     return int(datetime(d.year, d.month, d.day, hour, tzinfo=timezone.utc).timestamp() * 1000)
 
 
-def build(out: Path = OUT, today: date | None = None) -> tuple[Path, Path]:
+def build(out: Path | None = None, today: date | None = None) -> tuple[Path, Path]:
+    out = out or out_dir()
     today = today or date.today()
     out.mkdir(parents=True, exist_ok=True)
     db_path, extra_path = out / "clinic.db", out / "extra.json"
