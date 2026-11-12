@@ -20,7 +20,9 @@ def render(rep: dict) -> None:
         for d in r["doses"]:
             print(f"Dose: {d}")
         if r["draft"]:
-            print(f"Draft:\n{r['draft']}")
+            label = ("Draft (template: the model's drafts failed the number check)"
+                     if r.get("draft_source") == "template" else "Draft")
+            print(f"{label}:\n{r['draft']}")
         elif r["answer"]:
             print(f"Agent said: {r['answer']}")
 

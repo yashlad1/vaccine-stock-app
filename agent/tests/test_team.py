@@ -91,12 +91,25 @@ def test_three_failures_needs_a_person_and_never_fills_dose(env):
     assert r["status"] == "needs_person" and r["rounds"] == 3 and r["draft"] == "" and r["why"] == "no"
 
 
-def test_draft_failing_check_draft_three_times_needs_a_person(env):
+def test_draft_failing_check_draft_three_times_falls_back_to_the_template(env):
     from dose_agent.dose import check_draft
     pid = env[2]("Aarav Sharma")
     bad = "Give 5 ml {DOSE}."
     (r,) = run(env, script(draft(pid, msg=bad), draft(pid, msg=bad), draft(pid, msg=bad)), check=check_draft)["results"]
-    assert r["status"] == "needs_person" and r["rounds"] == 3 and r["draft"] == "" and "remove '5 ml'" in r["why"]
+    assert r["status"] == "accepted" and r["rounds"] == 3 and r["draft_source"] == "template"
+    assert r["draft"] == "Hello, this is the clinic. Aarav's paracetamol dose is 3.75 ml, 4 times a day."
+
+
+def test_model_draft_is_marked_model(env):
+    pid = env[2]("Aarav Sharma")
+    (r,) = run(env, script(draft(pid), "Done."))["results"]
+    assert r["draft_source"] == "model"
+
+
+def test_no_template_without_a_dose(env):
+    pid = env[2]("Kabir")  # allergic to ibuprofen: no dose
+    (r,) = run(env, script(*[draft(pid, "ibuprofen")] * 3), tri(child="Kabir", meds=["ibuprofen"]), check=lambda x: (False, "no"))["results"]
+    assert r["status"] == "needs_person" and r["draft"] == ""
 
 
 def test_step_cap_is_needs_a_person(env):

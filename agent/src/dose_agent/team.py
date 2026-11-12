@@ -55,6 +55,7 @@ class PairState(MessagesState):
     rounds: int
     accepted: str  # the draft that passed the check, with the dose filled in by code
     why: str       # the last check failure
+    source: str    # "model" or "template": who wrote the accepted draft
 
 
 def _tail_tool_names(messages) -> list[str]:
@@ -99,7 +100,14 @@ def build_graph(db, extra: dict, main_model, triage_fn=None, check=check_draft, 
         else:
             ok, why = check(message)
         if ok:
-            return {"rounds": rounds, "patient_id": found[0]["id"], "accepted": message.replace("{DOSE}", f"{dose.result.ml:g} ml"), "why": ""}
+            return {"rounds": rounds, "patient_id": found[0]["id"], "accepted": message.replace("{DOSE}", f"{dose.result.ml:g} ml"),
+                    "source": "model", "why": ""}
+        if rounds >= MAX_ROUNDS and dose.ok:  # the model's drafts keep failing: code writes the message
+            n = extra["formulary"][state["medicine"]]["doses_per_day"]
+            template = f"Hello, this is the clinic. {found[0]['name'].split()[0]}'s {state['medicine']} dose is {{DOSE}}, {n} times a day."
+            if check(template)[0]:
+                return {"rounds": rounds, "patient_id": found[0]["id"], "accepted": template.replace("{DOSE}", f"{dose.result.ml:g} ml"),
+                        "source": "template", "why": ""}
         note = HumanMessage(content=f"The check sent your draft back. Reason: {why}")
         return {"rounds": rounds, "why": why, "messages": [note] if rounds < MAX_ROUNDS else []}
 
@@ -130,6 +138,7 @@ def build_graph(db, extra: dict, main_model, triage_fn=None, check=check_draft, 
         last = msgs[-1]
         return {"results": [{**base, "status": "accepted" if out["accepted"] else "needs_person",
                              "patient_id": out["patient_id"], "draft": out["accepted"], "rounds": out["rounds"],
+                             "draft_source": out.get("source", "") if out["accepted"] else "",
                              "why": "" if out["accepted"] else (out["why"] or "no draft was submitted"),
                              "doses": [m.content for m in msgs if isinstance(m, ToolMessage) and m.name == "calculate_dose"],
                              "answer": last.content if isinstance(last, AIMessage) else ""}]}
