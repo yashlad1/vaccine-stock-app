@@ -7,6 +7,7 @@ from langchain.tools import tool
 from langchain.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
+from ..knowledge import allergy, formulary
 from ..llm import models
 from ..records import db as records
 from ..records.age import format_age
@@ -32,19 +33,28 @@ class DoseOutcome:
 
 
 def dose_for(db, extra: dict, patient_id: str, medicine: str) -> DoseOutcome:
-    """The one place a dose is decided. Allergy stop first, then today's weight, then the arithmetic."""
-    medicine = medicine.strip().lower()
-    for r in records.child_records(db, extra, patient_id):
-        t = r["text"].lower()
-        if "allerg" in t and medicine in t:
-            return DoseOutcome(False, f"ask the doctor: note says '{r['text']}'" + (f" ({r['date']})" if r["date"] else ""))
-    f = extra["formulary"].get(medicine)
-    if f is None:
+    """The one place a dose is decided. Allergy stop first (name, brand, class), then which product, then
+    today's weight, then the arithmetic."""
+    fm = formulary.get()
+    term = medicine.strip().lower()
+    products = fm.find(term)
+    allergies = [(r["text"], r["date"]) for r in records.child_records(db, extra, patient_id)
+                 if "allerg" in r["text"].lower()]
+    hit = allergy.stops(allergies, products or [fm.stub(term)], fm)
+    if hit:
+        text, date, why = hit
+        return DoseOutcome(False, f"ask the doctor: note says '{text}'" + (f" ({date})" if date else "")
+                           + f"; matches: {why}")
+    if not products:
         return DoseOutcome(False, "ask the doctor: not in the formulary")
+    if len(products) > 1:
+        return DoseOutcome(False, f"ask the doctor: {term} has {len(products)} products, and the product is the doctor's "
+                           "choice: " + "; ".join(p.label for p in products[:6]) + (" and more" if len(products) > 6 else ""))
+    f = products[0]
     d = compute_dose(DoseRule(
-        weight_kg=records.todays_weight(extra, patient_id), mg_per_kg_day=f["mg_per_kg_day"],
-        doses_per_day=f["doses_per_day"], mg_per_ml=mg_per_ml(f["strength"]),
-        max_single_mg=f.get("max_single_mg"), max_daily_mg=f.get("max_daily_mg")))
+        weight_kg=records.todays_weight(extra, patient_id), mg_per_kg_day=f.mg_per_kg_day,
+        doses_per_day=f.doses_per_day, mg_per_ml=mg_per_ml(f.strength),
+        max_single_mg=f.max_single_mg, max_daily_mg=f.max_daily_mg))
     return DoseOutcome(d.ok, "" if d.ok else (d.why or ""), d)
 
 
@@ -72,8 +82,9 @@ def make_tools(db, extra: dict, pick=None):
     @tool
     def get_dose_rule(medicine: str) -> str:
         """Get the formulary entry (strength, mg/kg/day, doses a day) for a medicine. Values are illustrative."""
-        f = extra["formulary"].get(medicine.strip().lower())
-        return json.dumps(f) if f else f"'{medicine}' is not in the formulary: {', '.join(extra['formulary'])}."
+        ps = formulary.get().find(medicine)
+        return json.dumps([{"brands": p.brands, "strength": p.strength, "mg_per_kg_day": p.mg_per_kg_day,
+                            "doses_per_day": p.doses_per_day} for p in ps]) if ps else f"'{medicine}' is not in the formulary."
 
     @tool
     def search_history(patient_id: str, medicine: str) -> str:

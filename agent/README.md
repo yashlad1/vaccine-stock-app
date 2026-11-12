@@ -31,7 +31,12 @@ dose_pair: agent <-> tools (find_child, get_dose_rule, search_history, calculate
 - A request that names its own amount ("give 5 ml") goes to the doctor before any model runs.
 - The model never writes a dose. `calculate_dose` takes ids, not numbers, reads **today's**
   weigh-in itself, and code fills `{DOSE}` in the accepted draft.
-- A note saying the child is allergic to the medicine stops it: no dose, no draft, "ask the doctor".
+- A recorded allergy (a structured one, or a note saying "allerg...") stops a medicine when it names the
+  medicine's generic, any of its brands, its drug class, or another medicine of that class (a penicillin
+  allergy stops amoxicillin; one brand stops every product of that generic). No dose, no draft, "ask the
+  doctor", the allergy quoted and the link named. Cross-class reactions are out of scope.
+- Medicines are named by generic or brand. A generic with several products (two syrup strengths) is listed
+  and left to the doctor.
 - `search_history` is the RAG step: the helper model picks records, code drops ids it never offered.
 - `check_draft` allows digits only as counts or intervals ("4 times a day"), `{DOSE}` exactly once
   and no unit after it. A draft is accepted only for the one child the name matches, and the dose
@@ -41,6 +46,7 @@ dose_pair: agent <-> tools (find_child, get_dose_rule, search_history, calculate
 ```
 src/dose_agent/
   cli.py                       dose-agent
+  knowledge/ illustrative.json classes.py formulary.py allergy.py   drug knowledge, no patient data
   dosing/   dose.py message.py   pure: the dose math (port of clinic-queue), the number rule for drafts
   records/  db.py age.py synthetic.py   patient data, read-only (synthetic builds the DB from ../docs/schema.sql)
   llm/      models.py triage.py  chat model per tier, triage

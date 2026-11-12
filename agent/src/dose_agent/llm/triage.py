@@ -18,7 +18,7 @@ class Triage(BaseModel):
                     "needs_doctor: asks the assistant to decide something only the doctor decides: choosing a "
                     "medicine, changing a dose, or a medicine not in the formulary.")
     child_name: str = Field(description="the child's name as written, or an empty string")
-    medicines: list[str] = Field(description="for dose_request: the formulary medicines asked for, lowercase generic names")
+    medicines: list[str] = Field(description="for dose_request: the formulary medicines asked for, lowercase, as asked (generic or brand name)")
 
 
 PROMPT = """You route one request from a paediatric clinic assistant. You decide only which kind of request it is;
@@ -43,9 +43,9 @@ def stated_amount(request: str) -> str | None:
     return m.group() if m else None
 
 
-def triage(request: str, formulary: list[str], model=None) -> Triage:
+def triage(request: str, formulary: str, model=None) -> Triage:
     model = model or models.chat_model("main")
-    system = PROMPT.format(formulary=", ".join(formulary), request_note="Read the request below and label it.")
+    system = PROMPT.format(formulary=formulary, request_note="Read the request below and label it.")
     try:
         return models.invoke_structured(model, Triage, [SystemMessage(content=system), HumanMessage(content=request)])
     except models.StructuredOutputError:

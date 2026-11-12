@@ -8,6 +8,8 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+from ..knowledge import formulary
+
 ROOT = Path(__file__).resolve().parents[3]  # agent/
 SCHEMA = ROOT.parent / "docs" / "schema.sql"
 OUT = ROOT / "out"
@@ -23,14 +25,12 @@ CHILDREN = [
     ("Kabir Singh", "2021-11-23", "M", [(0, 16.0)],
      [("ibuprofen", "Rash and wheeze after ibuprofen, parent reported")], [(200, "Wheeze after ibuprofen")], [("Havrix", 100)]),
     ("Meera Nair", "2025-06-30", "F", [(0, 7.9)], [], [], [("Pentavac", 120)]),
+    # added for v4: a CLASS allergy, a BRAND allergy, a note-only class allergy, a child too young for ibuprofen (dob: days old)
+    ("Rohan Das", "2022-02-14", "M", [(0, 15.2)], [("penicillin", "Rash after a penicillin injection, parent reported")], [], []),
+    ("Ishaan Gupta", "2023-01-09", "M", [(0, 11.6)], [("Ibunorm", "Hives after Ibunorm syrup, parent reported")], [], []),
+    ("Zoya Khan", "2022-09-03", "F", [(0, 14.0)], [], [(60, "Penicillin allergy noted by the parent")], []),
+    ("Tara Rao", 90, "F", [(0, 5.4)], [], [], []),
 ]
-FORMULARY = {  # illustrative
-    "paracetamol": {"strength": "250 mg / 5 ml", "mg_per_kg_day": 60, "doses_per_day": 4,
-                    "max_single_mg": 500, "max_daily_mg": 2000},
-    "ibuprofen": {"strength": "100 mg / 5 ml", "mg_per_kg_day": 30, "doses_per_day": 3,
-                  "max_single_mg": 400, "max_daily_mg": 1200},
-    "amoxicillin": {"strength": "250 mg / 5 ml", "mg_per_kg_day": 50, "doses_per_day": 3},
-}
 VACCINES = [("Pentavac", "VIAL", 1), ("Rotavac", "DOSE", 1), ("MR", "VIAL", 10), ("Varilrix", "DOSE", 1), ("Havrix", "DOSE", 1)]
 
 
@@ -75,12 +75,13 @@ def build(out: Path | None = None, today: date | None = None) -> tuple[Path, Pat
 
     for v, _, _ in VACCINES:  # stock in first so nothing is negative
         movement(f"receipt-{v}", v, "RECEIPT", 100, today - timedelta(days=700))
-    extra = {"today": today.isoformat(), "formulary": FORMULARY, "formulary_note": "illustrative values, not clinical guidance",
+    extra = {"today": today.isoformat(), "formulary": formulary.legacy_view(formulary.illustrative()),
+             "formulary_note": "ILLUSTRATIVE values and invented brand names, not clinical guidance",
              "weights": [], "allergies": [], "visits": []}
     for n, (name, dob, sex, weights, allergies, visits, vaccs) in enumerate(CHILDREN, 1):  # n: fake phone digit
         pid = _id("patient", name)
         db.execute("INSERT INTO patients(id,name,dob,sex,guardian_phone,created_at,updated_at,device_id) VALUES (?,?,?,?,?,?,?,?)",
-                   (pid, name, dob, sex, f"+91 90000 0000{n}", now, now, dev))
+                   (pid, name, dob if isinstance(dob, str) else (today - timedelta(days=dob)).isoformat(), sex, f"+91 90000 0000{n}", now, now, dev))
         for i, (vaccine, ago) in enumerate(vaccs):
             movement(f"{name}-{vaccine}-{i}", vaccine, "ADMINISTRATION", -1, today - timedelta(days=ago), pid, name)
         for ago, kg in weights:

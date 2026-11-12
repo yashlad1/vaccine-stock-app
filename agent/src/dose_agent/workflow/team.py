@@ -18,6 +18,7 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 from langgraph.types import Send
 
+from ..knowledge import formulary
 from ..llm import triage as triage_mod
 from ..records import db as records
 from ..dosing.message import check_draft
@@ -72,8 +73,8 @@ def _tail_tool_names(messages) -> list[str]:
 
 def build_graph(db, extra: dict, main_model, triage_fn=None, check=check_draft, pick=None, step_cap=STEP_CAP):
     tools = make_tools(db, extra, pick)
-    formulary = list(extra["formulary"])
-    triage_fn = triage_fn or (lambda req: triage_mod.triage(req, formulary, main_model))
+    fm = formulary.get()
+    triage_fn = triage_fn or (lambda req: triage_mod.triage(req, fm.names_for_prompt(), main_model))
     model_with_tools = main_model.bind_tools(tools)
 
     # dose_pair --------------------------------------------------------------------------
@@ -106,7 +107,7 @@ def build_graph(db, extra: dict, main_model, triage_fn=None, check=check_draft, 
             return {"rounds": rounds, "patient_id": found[0]["id"], "accepted": message.replace("{DOSE}", f"{dose.result.ml:g} ml"),
                     "source": "model", "why": ""}
         if rounds >= MAX_ROUNDS and dose.ok:  # the model's drafts keep failing: code writes the message
-            n = extra["formulary"][state["medicine"]]["doses_per_day"]
+            n = fm.find(state["medicine"])[0].doses_per_day
             template = f"Hello, this is the clinic. {found[0]['name'].split()[0]}'s {state['medicine']} dose is {{DOSE}}, {n} times a day."
             if check(template)[0]:
                 return {"rounds": rounds, "patient_id": found[0]["id"], "accepted": template.replace("{DOSE}", f"{dose.result.ml:g} ml"),

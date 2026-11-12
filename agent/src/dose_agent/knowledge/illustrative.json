@@ -1,0 +1,33 @@
+{
+  "note": "ILLUSTRATIVE test formulary. Every value and every brand name here is invented for tests; none is clinical guidance.",
+  "products": [
+    {
+      "generic": "paracetamol", "class": null, "brands": ["Paranorm", "Febrazo"],
+      "strength": "250 mg / 5 ml", "mg_per_kg_day": 60, "doses_per_day": 4,
+      "min_age_months": null, "max_mg_per_kg_dose": null, "max_single_mg": 500, "max_daily_mg": 2000,
+      "source": "Illustrative test formulary", "version": "2026-11-illustrative-1",
+      "safety_net": "If the fever lasts more than a few days or your child seems worse, please call the clinic."
+    },
+    {
+      "generic": "ibuprofen", "class": "nsaid", "brands": ["Ibunorm"],
+      "strength": "100 mg / 5 ml", "mg_per_kg_day": 30, "doses_per_day": 3,
+      "min_age_months": 6, "max_mg_per_kg_dose": 10, "max_single_mg": 400, "max_daily_mg": 1200,
+      "source": "Illustrative test formulary", "version": "2026-11-illustrative-1",
+      "safety_net": "Give it with food, and call the clinic if your child vomits or has stomach pain."
+    },
+    {
+      "generic": "ibuprofen", "class": "nsaid", "brands": ["Ibumax"],
+      "strength": "200 mg / 5 ml", "mg_per_kg_day": 30, "doses_per_day": 3,
+      "min_age_months": 12, "max_mg_per_kg_dose": 8, "max_single_mg": null, "max_daily_mg": null,
+      "source": "Illustrative test formulary", "version": "2026-11-illustrative-1",
+      "safety_net": "Give it with food, and call the clinic if your child vomits or has stomach pain."
+    },
+    {
+      "generic": "amoxicillin", "class": "penicillin", "brands": ["Amoxifake"],
+      "strength": "250 mg / 5 ml", "mg_per_kg_day": 50, "doses_per_day": 3,
+      "min_age_months": null, "max_mg_per_kg_dose": null, "max_single_mg": null, "max_daily_mg": null,
+      "source": "Illustrative test formulary", "version": "2026-11-illustrative-1",
+      "safety_net": "Finish the whole course, and call the clinic at once if a rash or swelling appears."
+    }
+  ]
+}
