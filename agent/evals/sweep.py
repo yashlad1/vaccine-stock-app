@@ -17,10 +17,6 @@ from oracle_v4 import age_months, dose_v4, per_ml  # noqa: E402
 from dose_agent.dosing.dose import DoseRule, compute_dose, mg_per_ml  # noqa: E402
 from dose_agent.records.age import age_in_months  # noqa: E402
 
-# Reported to the owner, not hidden. Both are the SAFE direction (code refuses a dose the oracle would give):
-# "volume implausible": code tests the exact volume (20.35 ml) where the oracle tests the shown, rounded one (20 ml).
-# a limit refusal AT the limit: a float boundary (168 mg / 11.2 kg = 15.000000000000002 > 15) refuses a dose
-# exactly equal to its maximum.
 STRENGTHS = ["250 mg / 5 ml", "100 mg / 5 ml", "200 mg / 5 ml", "125 mg / 5 ml", "120 mg / 5 ml", "50 mg / 1 ml",
              "400 mg / 5 ml", "156.25 mg / 5 ml"]
 WHY = {"mg_per_kg": "over the per-kg dose maximum", "max_single": "over the single dose maximum",
@@ -95,7 +91,7 @@ def _working(c, want, got):
 
 
 def check(c):
-    """None when code and oracle agree, else a description (prefixed KNOWN for the reported over-refusals).
+    """None when code and oracle agree, else a description.
     Age is dose_for's job, so a too-young case is compared with the age rule switched off."""
     want = dose_v4(c["kg"], c, c["age"])
     if want == ("refuse", "age"):
@@ -106,27 +102,14 @@ def check(c):
         max_mg_per_kg_dose=c["max_mg_per_kg_dose"]))
     if got.ok not in (True, False):
         return f"ok is {got.ok!r}, not a bool"
-    mg = c["kg"] * c["mg_per_kg_day"] / c["doses_per_day"]
-    kg_f = float(c["kg"])
-    mg_f = kg_f * c["mg_per_kg_day"] / c["doses_per_day"]
-    at_limit = {  # limits exactly AT the dose in exact maths, which code's float maths calls "over": known, safe direction
-        WHY[k] for k, hit in (
-            ("max_single", c["max_single_mg"] is not None and mg == Fraction(c["max_single_mg"]) and mg_f > c["max_single_mg"]),
-            ("max_daily", c["max_daily_mg"] is not None and mg * c["doses_per_day"] == Fraction(c["max_daily_mg"])
-             and kg_f * c["mg_per_kg_day"] > c["max_daily_mg"]),
-            ("mg_per_kg", c["max_mg_per_kg_dose"] is not None and mg / c["kg"] == Fraction(str(c["max_mg_per_kg_dose"]))
-             and mg_f / kg_f > c["max_mg_per_kg_dose"]))
-        if hit}
     if want[0] == "refuse":
         if got.ok:
             return f"oracle refuses ({want[1]}), code accepts {got.mg} mg {got.ml} ml"
         if got.why != WHY[want[1]]:
-            known = got.why in at_limit
-            return f"{'KNOWN ' if known else ''}oracle refuses ({want[1]}), code says {got.why!r}"
+            return f"oracle refuses ({want[1]}), code says {got.why!r}"
         return _working(c, want, got)
     if not got.ok:
-        known = got.why == WHY["too_big"] or got.why in at_limit
-        return f"{'KNOWN ' if known else ''}oracle accepts {float(want[1]):g} mg {float(want[2]):g} ml, code refuses ({got.why})"
+        return f"oracle accepts {float(want[1]):g} mg {float(want[2]):g} ml, code refuses ({got.why})"
     if got.ml != float(want[2]) or f"{got.mg:g}" not in _g(want[1], 1):  # mg is shown to 1 dp
         return f"oracle {float(want[1]):g} mg {float(want[2]):g} ml, code {got.mg} mg {got.ml} ml"
     return _working(c, want, got)
@@ -158,16 +141,15 @@ def check_age(rng):
     return None if want == got else f"age {dob} on {today}: oracle {want}, code {got}"
 
 
-def run(n=10000, seed=1, known=None) -> list[str]:
-    """Mismatches. Known over-refusals are appended to `known` (if given) instead."""
+def run(n=10000, seed=1) -> list[str]:
+    """Every mismatch between code and oracle; none is tolerated."""
     rng = random.Random(seed)
     bad = check_edges()
     for _ in range(n):
         c = case(rng)
         msg = check(c) or check_age(rng)
         if msg:
-            (known if known is not None and msg.startswith("KNOWN") else bad).append(
-                f"{msg}\n  input: { {k: str(v) for k, v in c.items()} }")
+            bad.append(f"{msg}\n  input: { {k: str(v) for k, v in c.items()} }")
     return bad
 
 
@@ -176,9 +158,7 @@ if __name__ == "__main__":
     ap.add_argument("--n", type=int, default=10000)
     ap.add_argument("--seed", type=int, default=1)
     a = ap.parse_args()
-    known: list[str] = []
-    bad = run(a.n, a.seed, known)
-    print(f"{a.n} cases, seed {a.seed}: {len(bad)} mismatches, {len(known)} known over-refusals")
+    bad = run(a.n, a.seed)
+    print(f"{a.n} cases, seed {a.seed}: {len(bad)} mismatches")
     print("\n".join(bad[:20]))
-    print("known (first 2):", "\n".join(known[:2]))
     sys.exit(1 if bad else 0)
