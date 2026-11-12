@@ -70,10 +70,10 @@ def build(out: Path = OUT, today: date | None = None) -> tuple[Path, Path]:
         movement(f"receipt-{v}", v, "RECEIPT", 100, today - timedelta(days=700))
     extra = {"today": today.isoformat(), "formulary": FORMULARY, "formulary_note": "illustrative values, not clinical guidance",
              "weights": [], "allergies": [], "visits": []}
-    for name, dob, sex, weights, allergies, visits, vaccs in CHILDREN:
+    for n, (name, dob, sex, weights, allergies, visits, vaccs) in enumerate(CHILDREN, 1):  # n: fake phone digit
         pid = _id("patient", name)
-        db.execute("INSERT INTO patients(id,name,dob,sex,created_at,updated_at,device_id) VALUES (?,?,?,?,?,?,?)",
-                   (pid, name, dob, sex, now, now, dev))
+        db.execute("INSERT INTO patients(id,name,dob,sex,guardian_phone,created_at,updated_at,device_id) VALUES (?,?,?,?,?,?,?,?)",
+                   (pid, name, dob, sex, f"+91 90000 0000{n}", now, now, dev))
         for i, (vaccine, ago) in enumerate(vaccs):
             movement(f"{name}-{vaccine}-{i}", vaccine, "ADMINISTRATION", -1, today - timedelta(days=ago), pid, name)
         for ago, kg in weights:

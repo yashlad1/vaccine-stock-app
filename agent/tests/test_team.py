@@ -91,11 +91,12 @@ def test_three_failures_needs_a_person_and_never_fills_dose(env):
     assert r["status"] == "needs_person" and r["rounds"] == 3 and r["draft"] == "" and r["why"] == "no"
 
 
-def test_stub_check_draft_fails_closed(env):
+def test_draft_failing_check_draft_three_times_needs_a_person(env):
     from dose_agent.dose import check_draft
     pid = env[2]("Aarav Sharma")
-    (r,) = run(env, script(draft(pid), draft(pid), draft(pid)), check=check_draft)["results"]
-    assert r["status"] == "needs_person" and r["why"] == "check_draft not implemented"
+    bad = "Give 5 ml {DOSE}."
+    (r,) = run(env, script(draft(pid, msg=bad), draft(pid, msg=bad), draft(pid, msg=bad)), check=check_draft)["results"]
+    assert r["status"] == "needs_person" and r["rounds"] == 3 and r["draft"] == "" and "remove '5 ml'" in r["why"]
 
 
 def test_step_cap_is_needs_a_person(env):

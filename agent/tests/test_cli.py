@@ -13,7 +13,7 @@ def test_outbox_record_shape(tmp_path, monkeypatch):
     r = {"patient_id": pid, "child_name": "Aarav Sharma", "medicine": "paracetamol", "draft": "Give 3.75 ml."}
     rec = cli.outbox_record(db, extra, r)
     assert set(rec) == {"at", "patient_id", "guardian_phone", "child", "medicine", "message", "steps", "backend", "models"}
-    assert rec["patient_id"] == pid and rec["guardian_phone"] is None and rec["child"] == "Aarav Sharma"
+    assert rec["patient_id"] == pid and rec["guardian_phone"] == "+91 90000 00001" and rec["child"] == "Aarav Sharma"
     assert "3.72 ml" in rec["steps"] and rec["backend"] == "ollama"
     assert rec["models"] == {"main": "qwen3.5:9b", "helper": "qwen3.5:4b"} and rec["at"].endswith("+00:00")
     out = tmp_path / "outbox.jsonl"

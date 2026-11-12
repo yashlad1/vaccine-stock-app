@@ -1,4 +1,4 @@
-from dose_agent.dose import DoseRule, compute_dose, mg_per_ml, round_ml
+from dose_agent.dose import DoseRule, check_draft, compute_dose, mg_per_ml, round_ml
 
 
 def rule(**kw):
@@ -45,3 +45,25 @@ def test_refusals():
 def test_capped_flag():
     assert compute_dose(rule(max_single_mg=500, max_daily_mg=2000)).capped
     assert not compute_dose(rule()).capped
+
+
+def test_check_draft_accepts_plain_message():
+    ok = "Please give {DOSE} every 6 hours, up to 4 times a day, for 3 days. Call us if worse."
+    assert check_draft(ok) == (True, "")
+
+
+def test_check_draft_rejections():
+    ok, why = check_draft("Give {DOSE} then {DOSE}.")
+    assert not ok and "exactly once" in why and "found 2" in why
+    assert check_draft("Give it.")[1].startswith("write {DOSE} exactly once")
+    ok, why = check_draft("Give {DOSE}, that is 5 ml.")
+    assert not ok and "remove '5 ml'" in why
+    ok, why = check_draft("Give {DOSE}, about 3.75")
+    assert not ok and "remove '3.75'" in why
+    ok, why = check_draft("At weight 12 kg give {DOSE}.")
+    assert not ok and "remove '12 kg'" in why
+    ok, why = check_draft("Dear {NAME}, give {DOSE}.")
+    assert not ok and "{ or }" in why
+    ok, why = check_draft("Give {DOSE}. " + "a" * 600)
+    assert not ok and "at most 600" in why and "(it is 613)" in why
+    assert check_draft("Give {DOSE}. " + "a" * 587)[0]  # exactly 600 is fine
