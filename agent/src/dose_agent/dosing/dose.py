@@ -60,6 +60,7 @@ class DoseRule:
     mg_per_ml: float | None
     max_single_mg: float | None = None
     max_daily_mg: float | None = None
+    max_mg_per_kg_dose: float | None = None
     step_ml: float = STEP_ML
     unit_ml: float = SPOON_ML
 
@@ -99,6 +100,13 @@ def compute_dose(r: DoseRule) -> DoseResult:
             else f" -> {_round(exact, 2):g} ml, too small to measure"
         )
     )
+    limits = [f"{label} {v:g} mg" for label, v in (("max single", r.max_single_mg), ("max daily", r.max_daily_mg))
+              if v is not None]
+    if r.max_mg_per_kg_dose is not None:
+        limits.append(f"max {r.max_mg_per_kg_dose:g} mg/kg per dose")
+    steps += f"; limits on file: {', '.join(limits)}" if limits else "; no maximum on file"
+    if r.max_mg_per_kg_dose is not None and mg / r.weight_kg > r.max_mg_per_kg_dose:
+        return DoseResult(False, "over the per-kg dose maximum", steps=steps)
     if r.max_single_mg is not None and mg > r.max_single_mg:
         return DoseResult(False, "over the single dose maximum", steps=steps)
     if r.max_daily_mg is not None and daily > r.max_daily_mg:

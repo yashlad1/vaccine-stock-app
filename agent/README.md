@@ -35,6 +35,19 @@ dose_pair: agent <-> tools (find_child, get_dose_rule, search_history, calculate
   medicine's generic, any of its brands, its drug class, or another medicine of that class (a penicillin
   allergy stops amoxicillin; one brand stops every product of that generic). No dose, no draft, "ask the
   doctor", the allergy quoted and the link named. Cross-class reactions are out of scope.
+- Each formulary entry can carry a minimum age (months), a maximum mg/kg per dose, a maximum single mg and a
+  maximum daily mg. A child under the minimum age, or a dose over any maximum, is refused ("ask the doctor")
+  with the working shown; an entry with no maximum says "no maximum on file". The working also names the
+  rule's source and version and the date of the weigh-in used.
+- **HealthLink (local only).** `DOSE_AGENT_HEALTHLINK=<dir holding drugs.json>` and
+  `DOSE_AGENT_HEALTHLINK_REVIEW=<review .xlsx>` load the clinic's own directory instead of the illustrative
+  file. It is the clinic's data: read from its path each run, never copied, committed or logged by the
+  code, and only the ollama backend runs with it. Names, brands and generics of every entry serve lookup and
+  allergy matching, but an entry computes a dose only if the doctor marked it `Correct?` yes in the workbook
+  AND it validates (by formula, `mg/kg/day` present and not the placeholder 1, a strength that reads as a
+  concentration, 1 to 6 doses a day). A reviewed row with a recorded `Correction` is "ask the doctor: a
+  correction is recorded, not yet applied"; anything else is "ask the doctor: not yet reviewed".
+  `DOSE_AGENT_HEALTHLINK=... uv run python scripts/healthlink_check.py` prints counts only, never a row.
 - Medicines are named by generic or brand. A generic with several products (two syrup strengths) is listed
   and left to the doctor.
 - `search_history` is the RAG step: the helper model picks records, code drops ids it never offered.
@@ -46,7 +59,7 @@ dose_pair: agent <-> tools (find_child, get_dose_rule, search_history, calculate
 ```
 src/dose_agent/
   cli.py                       dose-agent
-  knowledge/ illustrative.json classes.py formulary.py allergy.py   drug knowledge, no patient data
+  knowledge/ illustrative.json classes.py formulary.py allergy.py healthlink.py   drug knowledge, no patient data
   dosing/   dose.py message.py   pure: the dose math (port of clinic-queue), the number rule for drafts
   records/  db.py age.py synthetic.py   patient data, read-only (synthetic builds the DB from ../docs/schema.sql)
   llm/      models.py triage.py  chat model per tier, triage

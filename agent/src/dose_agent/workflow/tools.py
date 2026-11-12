@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from ..knowledge import allergy, formulary
 from ..llm import models
 from ..records import db as records
-from ..records.age import format_age
+from ..records.age import age_in_months, format_age
 from ..dosing.dose import DoseResult, DoseRule, compute_dose, mg_per_ml
 
 PICK_SYSTEM = ("You help a paediatric clinic assistant. You are given one child's records, each with an id, and one "
@@ -30,6 +30,8 @@ class DoseOutcome:
     ok: bool
     why: str = ""
     result: DoseResult | None = None
+    steps: str = ""  # the working shown to the assistant and kept in the outbox: arithmetic, limits, source, weigh-in date
+    product: formulary.Product | None = None
 
 
 def dose_for(db, extra: dict, patient_id: str, medicine: str) -> DoseOutcome:
@@ -51,11 +53,24 @@ def dose_for(db, extra: dict, patient_id: str, medicine: str) -> DoseOutcome:
         return DoseOutcome(False, f"ask the doctor: {term} has {len(products)} products, and the product is the doctor's "
                            "choice: " + "; ".join(p.label for p in products[:6]) + (" and more" if len(products) > 6 else ""))
     f = products[0]
+    if f.unusable:
+        return DoseOutcome(False, f"ask the doctor: {f.label}: {f.unusable} ({f.source}, {f.version})", product=f)
     d = compute_dose(DoseRule(
         weight_kg=records.todays_weight(extra, patient_id), mg_per_kg_day=f.mg_per_kg_day,
         doses_per_day=f.doses_per_day, mg_per_ml=mg_per_ml(f.strength),
-        max_single_mg=f.max_single_mg, max_daily_mg=f.max_daily_mg))
-    return DoseOutcome(d.ok, "" if d.ok else (d.why or ""), d)
+        max_single_mg=f.max_single_mg, max_daily_mg=f.max_daily_mg, max_mg_per_kg_dose=f.max_mg_per_kg_dose))
+    if d.why == "no weight":
+        return DoseOutcome(False, "no weight", d, product=f)
+    steps = f"{d.steps}; rule from {f.source}, {f.version}; weighed on {extra['today']}" if d.steps else ""
+    if f.min_age_months is not None:
+        months = age_in_months(records.patient_dob(db, patient_id), extra["today"])
+        if months is None or months < f.min_age_months:
+            how = "no date of birth on file" if months is None else f"the child is {format_age(records.patient_dob(db, patient_id), extra['today'])} old"
+            return DoseOutcome(False, f"ask the doctor: {how}, and the minimum age for {f.label} is {f.min_age_months} months",
+                               d, steps, f)
+    if not d.ok:
+        return DoseOutcome(False, f"ask the doctor: {d.why}", d, steps, f)
+    return DoseOutcome(True, "", d, steps, f)
 
 
 def _model_pick(medicine: str, recs: list) -> dict:
@@ -108,7 +123,7 @@ def make_tools(db, extra: dict, pick=None):
         """Calculate the dose for this child and medicine. Takes no weight or numbers: the weight is today's weigh-in,
         read by the program. Returns mg, ml and the working, or a refusal with its reason."""
         o = dose_for(db, extra, patient_id, medicine)
-        working = f"\nWorking: {o.result.steps}" if o.result and o.result.steps else ""
+        working = f"\nWorking: {o.steps}" if o.steps else ""
         if not o.ok:
             return f"REFUSED: {o.why}{working}"
         return f"OK: {o.result.mg:g} mg = {o.result.ml:g} ml per dose.{working}"

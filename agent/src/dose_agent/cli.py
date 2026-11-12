@@ -32,7 +32,7 @@ def render(rep: dict) -> None:
 
 
 def outbox_record(db, extra: dict, r: dict) -> dict:
-    steps = dose_for(db, extra, r["patient_id"], r["medicine"]).result.steps  # the working, recomputed by code
+    steps = dose_for(db, extra, r["patient_id"], r["medicine"]).steps  # the working, recomputed by code
     return {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "patient_id": r["patient_id"],
             "guardian_phone": records.guardian_phone(db, r["patient_id"]), "child": r["child_name"],
             "medicine": r["medicine"], "message": r["draft"], "steps": steps, **models.info()}
@@ -57,6 +57,7 @@ def main(argv: list[str] | None = None) -> None:
         synthetic.build()  # the simulated clinic day is today
     db, extra = records.open_ro(out / "clinic.db"), records.load_extra(extra_path)
     models.require_synthetic(records.is_synthetic(db))
+    models.require_local_for_healthlink()
     try:
         rep = build_graph(db, extra, models.chat_model("main"))(request)
     except RuntimeError as e:  # triage could not read the request

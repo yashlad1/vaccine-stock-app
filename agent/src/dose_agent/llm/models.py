@@ -101,6 +101,12 @@ def invoke_structured(model, schema, messages, attempts: int = ATTEMPTS):
                 raise StructuredOutputError(f"no valid {schema.__name__} after {attempts} attempts") from None
 
 
+def require_local_for_healthlink() -> None:
+    """The HealthLink directory is the clinic's data: only local Ollama models may run beside it."""
+    if os.environ.get("DOSE_AGENT_HEALTHLINK") and any(spec(t)[0] != "ollama" for t in ("main", "helper")):
+        raise SystemExit("Refusing: with the HealthLink directory loaded only the ollama backend runs.")
+
+
 def require_synthetic(is_synthetic: bool) -> None:
     """Every tier that is not local Ollama sends records over the network."""
     if not is_synthetic and any(spec(t)[0] != "ollama" for t in ("main", "helper")):

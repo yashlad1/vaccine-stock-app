@@ -117,7 +117,11 @@ def illustrative() -> Formulary:
 
 @lru_cache(maxsize=1)
 def get() -> Formulary:
-    """The formulary in use: the illustrative test formulary."""
+    """HealthLink when DOSE_AGENT_HEALTHLINK is set (local only), else the illustrative test formulary."""
+    import os
+    if os.environ.get("DOSE_AGENT_HEALTHLINK"):
+        from . import healthlink
+        return healthlink.load()
     return illustrative()
 
 
