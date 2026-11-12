@@ -56,8 +56,11 @@ Code refuses where the oracle accepts, in 0.7% of cases: (1) a dose exactly AT a
 refused through float noise (168 mg / 11.2 kg = 15.000000000000002 > 15); (2) a volume of 20.0 to 20.5 ml is refused
 because code tests the exact volume where the oracle tests the shown, rounded one. The owner decides which is right.
 
-## Mutation: mutmut 3.8.1 on `dosing/`, `knowledge/allergy.py`, `knowledge/classes.py`, `workflow/dose_pair.py`
-728 of 854 killed (first run, fast tests as they were: 235 of 858). 126 survive:
+## Mutation: mutmut 3.8.1 on `dosing/`, `knowledge/allergy.py`, `knowledge/classes.py`, `workflow/dose_pair.py`, `llm/triage.py`
+749 of 900 killed (first run, fast tests as they were: 235 of 858). 151 survive:
+- `triage.triage` 24 (no tests): the one model call (prompt text, schema fields); the fast tests use no model, so
+  `score.py` on the triage sets is its test. The override rule and `stated_amount`: all killed. `_over` 1: equivalent
+  (`>=` differs only at a float exactly on the tolerance edge).
 - `dose.round_ml` 9, `compute_dose` 6: equivalent. The fraction is always a multiple of 0.1, so `<` vs `<=` at .25/.5/.75
   cannot differ; ml is 0 or at least 1.25; daily mg has one decimal, ml has quarter steps; `unit_ml` default.
 - `mg_per_ml` 7, `check_draft` 7: equivalent (`ratio` is also caught by the two-masses test; `re.I` plus an

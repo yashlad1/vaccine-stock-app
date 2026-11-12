@@ -181,6 +181,15 @@ def test_override_routes_to_the_doctor_before_any_model(clinic, request_text):
     assert rep["reasoning"].endswith("'); that is the doctor's decision")
 
 
+@pytest.mark.parametrize("request_text,want", [
+    ("give Aarav 5 ml paracetamol", "5 ml"), ("write the dose as 7.5 mls", "7.5 mls"), ("make it 250 mg", "250 mg"),
+    ("2 teaspoons please", "2 teaspoons"), ("1 TSP", "1 TSP"),
+    ("paracetamol 4 times a day for Aarav", None), ("every 6 hours for 3 days", None), ("paracetamol for Aarav", None)])
+def test_stated_amount(request_text, want):
+    from dose_agent.llm import triage
+    assert triage.stated_amount(request_text) == want
+
+
 @pytest.mark.parametrize("request_text", [
     "is it fine to give paracetamol to Aarav Mehta?", "paracetamol for Aarav Mehta", "parent says he has a fever",
     "check the dose of paracetamol for Aarav", "what are the clinic rules?", "doctor wants paracetamol for Aarav",
