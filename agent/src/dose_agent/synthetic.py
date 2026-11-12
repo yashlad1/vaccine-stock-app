@@ -1,0 +1,93 @@
+"""Builds out/clinic.db (from ../docs/schema.sql) and out/extra.json: SYNTHETIC children only.
+The repo is public; nothing here is, or is derived from, a real patient.
+The formulary values are illustrative, not clinical guidance."""
+import json
+import sqlite3
+import uuid
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]  # agent/
+SCHEMA = ROOT.parent / "docs" / "schema.sql"
+OUT = ROOT / "out"
+NS = uuid.UUID("00000000-0000-4000-8000-00000000d05e")
+IST = 330
+
+# name, dob, sex, weigh-ins [(days ago, kg)], allergies, visits [(days ago, note)], vaccines [(vaccine, days ago)]
+CHILDREN = [
+    ("Aarav Sharma", "2024-03-10", "M", [(0, 12.4), (90, 11.2)], [], [(90, "Cough and cold, settled in 4 days")],
+     [("Pentavac", 600), ("Rotavac", 600)]),
+    ("Aarav Mehta", "2023-08-02", "M", [(0, 13.1)], [], [(30, "Fever, viral")], [("MR", 400)]),
+    ("Diya Patel", "2022-05-19", "F", [(20, 14.8)], [], [(20, "Earache, amoxicillin course")], [("Varilrix", 300)]),
+    ("Kabir Singh", "2021-11-23", "M", [(0, 16.0)],
+     [("ibuprofen", "Rash and wheeze after ibuprofen, parent reported")], [(200, "Wheeze after ibuprofen")], [("Havrix", 100)]),
+    ("Meera Nair", "2025-06-30", "F", [(0, 7.9)], [], [], [("Pentavac", 120)]),
+]
+FORMULARY = {  # illustrative
+    "paracetamol": {"strength": "250 mg / 5 ml", "mg_per_kg_day": 60, "doses_per_day": 4,
+                    "max_single_mg": 500, "max_daily_mg": 2000},
+    "ibuprofen": {"strength": "100 mg / 5 ml", "mg_per_kg_day": 30, "doses_per_day": 3,
+                  "max_single_mg": 400, "max_daily_mg": 1200},
+    "amoxicillin": {"strength": "250 mg / 5 ml", "mg_per_kg_day": 50, "doses_per_day": 3},
+}
+VACCINES = [("Pentavac", "VIAL", 1), ("Rotavac", "DOSE", 1), ("MR", "VIAL", 10), ("Varilrix", "DOSE", 1), ("Havrix", "DOSE", 1)]
+
+
+def _id(*parts: str) -> str:
+    return str(uuid.uuid5(NS, "/".join(parts)))
+
+
+def _ms(d: date, hour: int = 10) -> int:
+    return int(datetime(d.year, d.month, d.day, hour, tzinfo=timezone.utc).timestamp() * 1000)
+
+
+def build(out: Path = OUT, today: date | None = None) -> tuple[Path, Path]:
+    today = today or date.today()
+    out.mkdir(parents=True, exist_ok=True)
+    db_path, extra_path = out / "clinic.db", out / "extra.json"
+    db_path.unlink(missing_ok=True)
+    db = sqlite3.connect(db_path)
+    db.executescript(SCHEMA.read_text())
+    now = _ms(today)
+    dev = "synthetic-device"
+    db.execute("INSERT INTO settings(key,value,updated_at) VALUES ('synthetic','1',?),('device_id',?,?)", (now, dev, now))
+    vid = {}
+    for name, mode, per in VACCINES:
+        vid[name] = _id("vaccine", name)
+        db.execute(
+            "INSERT INTO vaccines(id,name,unit_mode,doses_per_vial,created_at,updated_at,device_id) VALUES (?,?,?,?,?,?,?)",
+            (vid[name], name, mode, per, now, now, dev))
+
+    def movement(key, vaccine, mtype, delta, d, patient=None, label=None):
+        db.execute(
+            """INSERT INTO stock_movements(id,idempotency_key,vaccine_id,delta_doses,movement_type,patient_id,patient_label,
+               occurred_at,local_date,local_time,tz_offset_minutes,recorded_at,created_at,updated_at,device_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (_id("mv", key), _id("idem", key), vid[vaccine], delta, mtype, patient, label,
+             _ms(d), d.isoformat(), "10:00", IST, _ms(d), _ms(d), _ms(d), dev))
+
+    for v, _, _ in VACCINES:  # stock in first so nothing is negative
+        movement(f"receipt-{v}", v, "RECEIPT", 100, today - timedelta(days=700))
+    extra = {"today": today.isoformat(), "formulary": FORMULARY, "formulary_note": "illustrative values, not clinical guidance",
+             "weights": [], "allergies": [], "visits": []}
+    for name, dob, sex, weights, allergies, visits, vaccs in CHILDREN:
+        pid = _id("patient", name)
+        db.execute("INSERT INTO patients(id,name,dob,sex,created_at,updated_at,device_id) VALUES (?,?,?,?,?,?,?)",
+                   (pid, name, dob, sex, now, now, dev))
+        for i, (vaccine, ago) in enumerate(vaccs):
+            movement(f"{name}-{vaccine}-{i}", vaccine, "ADMINISTRATION", -1, today - timedelta(days=ago), pid, name)
+        for ago, kg in weights:
+            extra["weights"].append({"id": _id("w", name, str(ago)), "patient_id": pid, "date": (today - timedelta(days=ago)).isoformat(), "kg": kg})
+        for drug, note in allergies:
+            extra["allergies"].append({"id": _id("a", name, drug), "patient_id": pid, "drug": drug, "note": note})
+        for ago, note in visits:
+            extra["visits"].append({"id": _id("vis", name, str(ago)), "patient_id": pid, "date": (today - timedelta(days=ago)).isoformat(), "note": note})
+    db.commit()
+    db.close()
+    extra_path.write_text(json.dumps(extra, indent=2))
+    return db_path, extra_path
+
+
+def main() -> None:
+    db, extra = build()
+    print(f"wrote {db} and {extra}")
