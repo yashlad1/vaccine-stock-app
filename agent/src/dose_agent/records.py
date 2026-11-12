@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def open_ro(db_path: Path) -> sqlite3.Connection:
-    db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, check_same_thread=False)  # read-only; ToolNode and Send use threads
     db.row_factory = sqlite3.Row
     return db
 
