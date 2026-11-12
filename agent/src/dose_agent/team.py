@@ -91,7 +91,7 @@ def build_graph(db, extra: dict, main_model, triage_fn=None, check=check_draft, 
             who = "no child" if not found else f"{len(found)} children" if len(found) > 1 else "a different child"
             return {"rounds": rounds, "fatal": True,
                     "why": f"{who} matches '{state['child_name']}' or the draft is for another child; a person must confirm which"}
-        dose = dose_for(db, extra, a.get("patient_id", ""), a.get("medicine", ""))
+        dose = dose_for(db, extra, found[0]["id"], state["medicine"])  # never the agent's arguments
         message = a.get("message", "")
         if not dose.ok:
             ok, why = False, f"there is no dose for this child and medicine ({dose.why}); do not draft"

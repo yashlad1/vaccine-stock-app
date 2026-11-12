@@ -100,6 +100,19 @@ def test_draft_failing_check_draft_three_times_falls_back_to_the_template(env):
     assert r["draft"] == "Hello, this is the clinic. Aarav's paracetamol dose is 3.75 ml, 4 times a day."
 
 
+def test_template_uses_the_pairs_medicine_not_the_agents(env):
+    pid = env[2]("Aarav Sharma")
+    (r,) = run(env, script(*[draft(pid, "ibuprofen")] * 3))["results"]
+    assert r["status"] == "accepted" and r["draft_source"] == "template"
+    assert r["draft"] == "Hello, this is the clinic. Aarav's paracetamol dose is 3.75 ml, 4 times a day."
+
+
+def test_allergy_to_the_pairs_medicine_stops_even_if_agent_names_another(env):
+    pid = env[2]("Kabir")  # allergic to ibuprofen
+    (r,) = run(env, script(*[draft(pid, "paracetamol")] * 3), tri(child="Kabir", meds=["ibuprofen"]))["results"]
+    assert r["status"] == "needs_person" and r["draft"] == "" and "ask the doctor" in r["why"]
+
+
 def test_model_draft_is_marked_model(env):
     pid = env[2]("Aarav Sharma")
     (r,) = run(env, script(draft(pid), "Done."))["results"]
