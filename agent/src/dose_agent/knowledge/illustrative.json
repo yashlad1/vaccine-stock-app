@@ -30,6 +30,13 @@
       "safety_net": "Finish the whole course, and call the clinic at once if a rash or swelling appears."
     },
     {
+      "generic": "diclofenac", "class": "nsaid", "brands": ["Diclonorm"],
+      "strength": "50 mg / 5 ml", "mg_per_kg_day": 3, "doses_per_day": 3,
+      "min_age_months": 12, "max_mg_per_kg_dose": null, "max_single_mg": 50, "max_daily_mg": 150,
+      "source": "Illustrative test formulary", "version": "2026-11-illustrative-1",
+      "safety_net": "Give it with food, and call the clinic if your child vomits or has stomach pain."
+    },
+    {
       "generic": "cefixime", "generics": ["cefixime", "ofloxacin"], "class": "cephalosporin", "brands": ["Cefoflox"],
       "strength": "200 mg + 200 mg tablet", "mg_per_kg_day": 8, "doses_per_day": 2,
       "min_age_months": null, "max_mg_per_kg_dose": null, "max_single_mg": null, "max_daily_mg": null,

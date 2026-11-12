@@ -1,25 +1,42 @@
 """Read-only queries over a Vialbook clinic.db plus extra.json. Never writes."""
 import json
 import sqlite3
+import threading
 from pathlib import Path
 
 
-def open_ro(db_path: Path) -> sqlite3.Connection:
-    db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, check_same_thread=False)  # read-only; ToolNode and Send use threads
-    db.row_factory = sqlite3.Row
-    return db
+class ReadOnlyDb:
+    """A read-only handle that gives every thread its own connection: the parallel Send branches (one per medicine)
+    query at the same instant, and one sqlite3 connection is not safe for concurrent use even with
+    check_same_thread=False. Only .execute is offered; every query in this module goes through it."""
+
+    def __init__(self, path: Path):
+        self._path = path
+        self._local = threading.local()
+
+    def execute(self, sql: str, params=()):
+        con = getattr(self._local, "con", None)
+        if con is None:
+            con = sqlite3.connect(f"file:{self._path}?mode=ro", uri=True)
+            con.row_factory = sqlite3.Row
+            self._local.con = con
+        return con.execute(sql, params)
+
+
+def open_ro(db_path: Path) -> ReadOnlyDb:
+    return ReadOnlyDb(db_path)
 
 
 def load_extra(path: Path) -> dict:
     return json.loads(Path(path).read_text())
 
 
-def is_synthetic(db: sqlite3.Connection) -> bool:
+def is_synthetic(db: ReadOnlyDb) -> bool:
     r = db.execute("SELECT value FROM settings WHERE key='synthetic'").fetchone()
     return bool(r and r["value"] == "1")
 
 
-def find_children(db: sqlite3.Connection, name: str) -> list[dict]:
+def find_children(db: ReadOnlyDb, name: str) -> list[dict]:
     """Case-insensitive: every word typed must start a word of the child's name."""
     words = name.lower().split()
     out = []
@@ -37,7 +54,7 @@ def todays_weight(extra: dict, patient_id: str, today: str | None = None) -> flo
     return ws[-1] if ws else None
 
 
-def child_records(db: sqlite3.Connection, extra: dict, patient_id: str) -> list[dict]:
+def child_records(db: ReadOnlyDb, extra: dict, patient_id: str) -> list[dict]:
     """Everything on file for the child, each with a stable id the helper may pick."""
     recs = []
     for r in db.execute(
@@ -53,11 +70,11 @@ def child_records(db: sqlite3.Connection, extra: dict, patient_id: str) -> list[
     return sorted(recs, key=lambda r: (r["date"], r["id"]))
 
 
-def patient_dob(db: sqlite3.Connection, patient_id: str) -> str | None:
+def patient_dob(db: ReadOnlyDb, patient_id: str) -> str | None:
     r = db.execute("SELECT dob FROM patients WHERE id=?", (patient_id,)).fetchone()
     return r["dob"] if r else None
 
 
-def guardian_phone(db: sqlite3.Connection, patient_id: str) -> str | None:
+def guardian_phone(db: ReadOnlyDb, patient_id: str) -> str | None:
     r = db.execute("SELECT guardian_phone FROM patients WHERE id=?", (patient_id,)).fetchone()
     return r["guardian_phone"] if r else None

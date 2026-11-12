@@ -35,6 +35,9 @@ CHILDREN = [
     # an allergy to an UNKNOWN brand (fails closed: stops every medicine), and a note saying there are none
     ("Veer Joshi", "2021-04-12", "M", [(0, 17.1)], [("Zentrimox", "Swelling after Zentrimox, parent reported")], [], []),
     ("Pooja Iyer", "2022-12-01", "F", [(0, 12.9)], [], [(45, "No known drug allergies")], []),
+    # class sibling (diclofenac is an nsaid, like ibuprofen) and a class allergy to one component of the combination
+    ("Neel Kapoor", "2021-08-30", "M", [(0, 16.4)], [("diclofenac", "Rash after diclofenac, parent reported")], [], []),
+    ("Mira Bose", "2022-03-17", "F", [(0, 14.2)], [("ofloxacin", "Reaction to ofloxacin, parent reported")], [], []),
 ]
 VACCINES = [("Pentavac", "VIAL", 1), ("Rotavac", "DOSE", 1), ("MR", "VIAL", 10), ("Varilrix", "DOSE", 1), ("Havrix", "DOSE", 1)]
 
