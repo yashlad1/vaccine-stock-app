@@ -23,6 +23,10 @@ PRESETS = {
 PROVIDERS = ("ollama", "gemini", "nvidia", "claude")
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1"
 MAX_TOKENS = 2000
+# The biggest prompt the agent sends is ~300 tokens (measured over e2e.test: triage, history pick, draft, redraft),
+# so 8192 is more than 25x headroom. Ollama's default of 65536 made qwen3.5:9b take 10 GB and the 4b ~5.5 GB, more than
+# the GPU budget of a 16 GB Mac: they evicted each other and the Mac swapped. DOSE_AGENT_NUM_CTX overrides it.
+NUM_CTX = int(os.environ.get("DOSE_AGENT_NUM_CTX", 8192))
 NUM_PREDICT = 2048  # a runaway qwen3.5:9b call once wrote ~23,000 tokens in 13 minutes; normal is 120-280
 ATTEMPTS = 3
 
@@ -81,7 +85,7 @@ def chat_model(tier: str):
     provider, model = spec(tier)
     if provider == "ollama":
         from langchain_ollama import ChatOllama
-        return ChatOllama(model=model, temperature=0, reasoning=False, num_predict=NUM_PREDICT, callbacks=[_COUNTER])
+        return ChatOllama(model=model, temperature=0, reasoning=False, num_predict=NUM_PREDICT, num_ctx=NUM_CTX, callbacks=[_COUNTER])
     if provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
         # No temperature: Google advises the default for Gemini 3 (low values can loop). Retries for free-tier 429s.

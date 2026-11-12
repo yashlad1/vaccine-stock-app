@@ -181,6 +181,14 @@ def test_override_routes_to_the_doctor_before_any_model(clinic, request_text):
     assert rep["reasoning"].endswith("'); that is the doctor's decision")
 
 
+def test_every_ollama_model_has_a_sized_context():
+    from dose_agent.llm import models
+    assert models.NUM_CTX in (8192, 16384) or "DOSE_AGENT_NUM_CTX" in __import__("os").environ
+    for tier in ("main", "helper"):
+        m = models.chat_model(tier)
+        assert (m.num_ctx, m.num_predict) == (models.NUM_CTX, models.NUM_PREDICT)
+
+
 @pytest.mark.parametrize("request_text,want", [
     ("give Aarav 5 ml paracetamol", "5 ml"), ("write the dose as 7.5 mls", "7.5 mls"), ("make it 250 mg", "250 mg"),
     ("2 teaspoons please", "2 teaspoons"), ("1 TSP", "1 TSP"),
