@@ -35,7 +35,7 @@ def dose_for(db, extra: dict, patient_id: str, medicine: str) -> DoseOutcome:
     for r in records.child_records(db, extra, patient_id):
         t = r["text"].lower()
         if "allerg" in t and medicine in t:
-            return DoseOutcome(False, f"ask the doctor: note says '{r['text']}' ({r['date']})")
+            return DoseOutcome(False, f"ask the doctor: note says '{r['text']}'" + (f" ({r['date']})" if r["date"] else ""))
     f = extra["formulary"].get(medicine)
     if f is None:
         return DoseOutcome(False, "ask the doctor: not in the formulary")

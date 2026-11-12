@@ -1,0 +1,157 @@
+"""The graphs, shaped like DADA3 bugteam.
+
+team:       START -> triage --dose_request: Send per medicine--> dose_pair ... -> report -> END
+                       (not_a_dose_request, needs_doctor: triage -> report)
+dose_pair:  START -> agent <-> tools (ToolNode)   the ReAct loop, ended by submit_draft
+                       |
+                       +-- after submit_draft runs --> check (code)
+                              ok -> END (accepted) | fails, rounds < 3 -> agent, with the reason | rounds = 3 -> END
+A step cap (GraphRecursionError) also ends in "needs a person". Nothing is sent.
+The accepted draft is taken by code from the submit_draft call that passed the check, and code fills {DOSE}.
+"""
+import operator
+from typing import Annotated, TypedDict
+
+from langchain.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langgraph.errors import GraphRecursionError
+from langgraph.graph import END, START, MessagesState, StateGraph
+from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.types import Send
+
+from . import triage as triage_mod
+from .dose import check_draft
+from .tools import dose_for, make_tools
+
+MAX_ROUNDS = 3
+STEP_CAP = 30
+
+AGENT_PROMPT = """You help a paediatric clinic assistant prepare a message to a child's parent about ONE medicine.
+Work in this order, calling the tools:
+1. find_child with the child's name. If it returns no child or more than one, STOP: do not guess, say which names matched.
+2. get_dose_rule for the medicine, then search_history for this child and medicine.
+3. calculate_dose with the child's id and the medicine. If it REFUSES, STOP: do not draft, say why in your answer.
+4. submit_draft with a short, plain, kind message to the parent. Write the exact text {DOSE} where the amount goes.
+   Never write a dose, a weight or an amount yourself; use the frequency from the formulary and any cautions from the history.
+If submit_draft is sent back, read the reason and submit a corrected draft."""
+
+
+class Team(TypedDict):
+    request: str
+    label: str
+    reasoning: str
+    child_name: str
+    medicines: list
+    results: Annotated[list, operator.add]  # one record per medicine, from the Sends
+    report: dict
+
+
+class PairState(MessagesState):
+    medicine: str
+    rounds: int
+    accepted: str  # the draft that passed the check, with the dose filled in by code
+    why: str       # the last check failure
+
+
+def _tail_tool_names(messages) -> list[str]:
+    out = []
+    for m in reversed(messages):
+        if not isinstance(m, ToolMessage):
+            break
+        out.append(m.name)
+    return out
+
+
+def build_graph(db, extra: dict, main_model, triage_fn=None, check=check_draft, pick=None, step_cap=STEP_CAP):
+    tools = make_tools(db, extra, pick)
+    formulary = list(extra["formulary"])
+    triage_fn = triage_fn or (lambda req: triage_mod.triage(req, formulary, main_model))
+    model_with_tools = main_model.bind_tools(tools)
+
+    # dose_pair --------------------------------------------------------------------------
+    def agent(state: PairState) -> dict:
+        return {"messages": [model_with_tools.invoke([SystemMessage(content=AGENT_PROMPT)] + state["messages"])]}
+
+    def after_tools(state: PairState) -> str:
+        return "check" if "submit_draft" in _tail_tool_names(state["messages"]) else "agent"
+
+    def check_node(state: PairState) -> dict:
+        call = next(c for m in reversed(state["messages"]) if isinstance(m, AIMessage)
+                    for c in m.tool_calls if c["name"] == "submit_draft")
+        a, rounds = call["args"], state["rounds"] + 1
+        dose = dose_for(db, extra, a.get("patient_id", ""), a.get("medicine", ""))
+        message = a.get("message", "")
+        if not dose.ok:
+            ok, why = False, f"there is no dose for this child and medicine ({dose.why}); do not draft"
+        elif a.get("medicine", "").strip().lower() != state["medicine"]:
+            ok, why = False, f"the draft is for {a.get('medicine')!r}, not {state['medicine']!r}"
+        elif "{DOSE}" not in message:
+            ok, why = False, "the message must contain the exact text {DOSE} where the amount goes"
+        else:
+            ok, why = check(message)
+        if ok:
+            return {"rounds": rounds, "accepted": message.replace("{DOSE}", f"{dose.result.ml:g} ml"), "why": ""}
+        note = HumanMessage(content=f"The check sent your draft back. Reason: {why}")
+        return {"rounds": rounds, "why": why, "messages": [note] if rounds < MAX_ROUNDS else []}
+
+    def after_check(state: PairState) -> str:
+        return END if state["accepted"] or state["rounds"] >= MAX_ROUNDS else "agent"
+
+    pg = StateGraph(PairState)
+    pg.add_node("agent", agent)
+    pg.add_node("tools", ToolNode(tools))
+    pg.add_node("check", check_node)
+    pg.add_edge(START, "agent")
+    pg.add_conditional_edges("agent", tools_condition)
+    pg.add_conditional_edges("tools", after_tools, ["agent", "check"])
+    pg.add_conditional_edges("check", after_check, ["agent", END])
+    pair = pg.compile()
+
+    def dose_pair(job: dict) -> dict:
+        """One medicine. Its input is the Send's payload, not the team's state."""
+        base = {"medicine": job["medicine"], "child_name": job["child_name"]}
+        request = f"Child: {job['child_name']}\nMedicine: {job['medicine']}"
+        try:
+            out = pair.invoke({"messages": [HumanMessage(content=request)], "rounds": 0, "accepted": "", "why": "",
+                               "medicine": job["medicine"]}, {"recursion_limit": step_cap})
+        except GraphRecursionError:
+            return {"results": [{**base, "status": "needs_person", "draft": "", "why": "ran out of steps",
+                                 "doses": [], "answer": "", "rounds": 0}]}
+        msgs = out["messages"]
+        last = msgs[-1]
+        return {"results": [{**base, "status": "accepted" if out["accepted"] else "needs_person",
+                             "draft": out["accepted"], "rounds": out["rounds"],
+                             "why": "" if out["accepted"] else (out["why"] or "no draft was submitted"),
+                             "doses": [m.content for m in msgs if isinstance(m, ToolMessage) and m.name == "calculate_dose"],
+                             "answer": last.content if isinstance(last, AIMessage) else ""}]}
+
+    # team ---------------------------------------------------------------------------------
+    def triage_node(state: Team) -> dict:
+        t = triage_fn(state["request"])
+        meds = list(dict.fromkeys(m.strip().lower() for m in t.medicines if m.strip()))
+        label = t.label if t.label != "dose_request" or (meds and t.child_name.strip()) else "needs_doctor"
+        return {"label": label, "reasoning": t.reasoning, "child_name": t.child_name.strip(), "medicines": meds}
+
+    def fan_out(state: Team):
+        if state["label"] != "dose_request":
+            return "report"
+        return [Send("dose_pair", {"child_name": state["child_name"], "medicine": m}) for m in state["medicines"]]
+
+    def report(state: Team) -> dict:
+        order = {m: i for i, m in enumerate(state["medicines"])}  # Send results arrive in any order
+        return {"report": {"label": state["label"], "reasoning": state["reasoning"], "child_name": state["child_name"],
+                           "results": sorted(state["results"], key=lambda r: order[r["medicine"]])}}
+
+    tg = StateGraph(Team)
+    tg.add_node("triage", triage_node)
+    tg.add_node("dose_pair", dose_pair)
+    tg.add_node("report", report)
+    tg.add_edge(START, "triage")
+    tg.add_conditional_edges("triage", fan_out, ["dose_pair", "report"])
+    tg.add_edge("dose_pair", "report")
+    tg.add_edge("report", END)
+    graph = tg.compile()
+
+    def run(request: str) -> dict:
+        return graph.invoke({"request": request, "results": [], "medicines": []})["report"]
+
+    return run
