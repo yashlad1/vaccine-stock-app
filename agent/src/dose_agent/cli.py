@@ -6,9 +6,10 @@ from datetime import date, datetime, timezone
 
 import httpx
 
-from . import models, records, synthetic
-from .team import build_graph
-from .tools import dose_for
+from .llm import models
+from .records import db as records, synthetic
+from .workflow.team import build_graph
+from .workflow.tools import dose_for
 
 
 def render(rep: dict) -> None:

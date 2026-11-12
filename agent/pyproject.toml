@@ -11,12 +11,13 @@ dependencies = [
     "langchain-nvidia-ai-endpoints>=1.5.0",
     "langchain-ollama>=1.1.0",
     "langgraph>=1.2.20",
+    "openpyxl>=3.1.5",
     "pydantic>=2.14.3",
 ]
 
 [project.scripts]
 dose-agent = "dose_agent.cli:main"
-dose-agent-synthetic = "dose_agent.synthetic:main"
+dose-agent-synthetic = "dose_agent.records.synthetic:main"
 
 [tool.uv.build-backend]
 module-name = "dose_agent"

@@ -4,9 +4,10 @@ from fractions import Fraction
 
 import pytest
 
-from dose_agent.dose import DoseRule, check_draft, compute_dose, mg_per_ml, round_ml
-from dose_agent.records import load_extra, open_ro
-from dose_agent.tools import dose_for, make_tools
+from dose_agent.dosing.dose import DoseRule, compute_dose, mg_per_ml, round_ml
+from dose_agent.dosing.message import check_draft
+from dose_agent.records.db import load_extra, open_ro
+from dose_agent.workflow.tools import dose_for, make_tools
 from oracle import dose, num_re, round_ml_oracle
 from test_blackbox import allergy_child, shared_first_name, stale_child, unique_name_child
 

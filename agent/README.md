@@ -38,6 +38,12 @@ dose_pair: agent <-> tools (find_child, get_dose_rule, search_history, calculate
   always comes from that child and the requested medicine, never from the model's arguments.
 
 ## Layout
-`dose.py` dose math (port of clinic-queue) | `age.py` | `records.py` read-only queries |
-`synthetic.py` builds the DB from `../docs/schema.sql` | `models.py` | `tools.py` | `triage.py` |
-`team.py` the graphs | `cli.py`. Everything is under `agent/`; the app is untouched.
+```
+src/dose_agent/
+  cli.py                       dose-agent
+  dosing/   dose.py message.py   pure: the dose math (port of clinic-queue), the number rule for drafts
+  records/  db.py age.py synthetic.py   patient data, read-only (synthetic builds the DB from ../docs/schema.sql)
+  llm/      models.py triage.py  chat model per tier, triage
+  workflow/ team.py tools.py     the graphs and the @tool functions
+```
+Everything is under `agent/`; the app is untouched.

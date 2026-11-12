@@ -7,9 +7,10 @@ from langchain.tools import tool
 from langchain.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from . import models, records
-from .age import format_age
-from .dose import DoseResult, DoseRule, compute_dose, mg_per_ml
+from ..llm import models
+from ..records import db as records
+from ..records.age import format_age
+from ..dosing.dose import DoseResult, DoseRule, compute_dose, mg_per_ml
 
 PICK_SYSTEM = ("You help a paediatric clinic assistant. You are given one child's records, each with an id, and one "
                "medicine. Pick the ids of the records that matter for giving THIS medicine to THIS child (allergies, "

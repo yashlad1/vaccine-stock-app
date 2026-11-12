@@ -8,7 +8,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]  # agent/
+ROOT = Path(__file__).resolve().parents[3]  # agent/
 SCHEMA = ROOT.parent / "docs" / "schema.sql"
 OUT = ROOT / "out"
 NS = uuid.UUID("00000000-0000-4000-8000-00000000d05e")
