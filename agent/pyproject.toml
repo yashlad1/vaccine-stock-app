@@ -1,0 +1,27 @@
+[project]
+name = "dose-agent"
+version = "0.1.0"
+description = "Prototype: weight-based dose helper + parent message drafts (synthetic data, local Qwen)"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "anthropic>=2.8.0",
+    "langgraph>=1.2.20",
+    "pydantic>=2.14.3",
+]
+
+[project.scripts]
+dose-agent = "dose_agent.cli:main"
+dose-agent-synthetic = "dose_agent.synthetic:main"
+
+[tool.uv.build-backend]
+module-name = "dose_agent"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]
