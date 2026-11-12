@@ -1,4 +1,6 @@
-"""The @tool functions the dose agent calls, bound to one database per run by make_tools().
+"""The five @tool functions (find_child, get_dose_rule, search_history, calculate_dose, submit_draft), bound to one
+database per run by make_tools(). They are the documented interface; the workflow (dose_pair.py) no longer lets a
+model call them, it calls the same code (dose_for, format_dose, search_history_for) in a fixed order.
 calculate_dose takes ids, never a number: code reads today's weigh-in itself (rule 1 and 2)."""
 import json
 from dataclasses import dataclass
@@ -73,6 +75,31 @@ def dose_for(db, extra: dict, patient_id: str, medicine: str) -> DoseOutcome:
     return DoseOutcome(True, "", d, steps, f)
 
 
+def format_dose(o: DoseOutcome) -> str:
+    """The dose line the assistant sees: mg, ml and the working, or the refusal and its reason."""
+    working = f"\nWorking: {o.steps}" if o.steps else ""
+    if not o.ok:
+        return f"REFUSED: {o.why}{working}"
+    return f"OK: {o.result.mg:g} mg = {o.result.ml:g} ml per dose.{working}"
+
+
+def search_history_for(db, extra: dict, patient_id: str, medicine: str, pick=None) -> dict:
+    """The RAG step in code: the helper model picks records, ids it was never offered are dropped.
+    -> {lines, cautions, dropped}; picks nothing when the helper fails."""
+    pick = pick or _model_pick
+    recs = records.child_records(db, extra, patient_id)
+    try:
+        out = pick(medicine, recs)
+    except models.StructuredOutputError:
+        return {"lines": [], "cautions": [], "dropped": 0, "failed": True}
+    offered = {r["id"] for r in recs}
+    ids = [i for i in out.get("relevant_ids", []) if i in offered]
+    by_id = {r["id"]: r for r in recs}
+    return {"lines": [f"{i} | {by_id[i]['date']} | {by_id[i]['kind']} | {by_id[i]['text']}" for i in ids],
+            "cautions": [c for c in out.get("cautions", []) if c.strip()],
+            "dropped": len(out.get("relevant_ids", [])) - len(ids), "failed": False}
+
+
 def _model_pick(medicine: str, recs: list) -> dict:
     lines = "\n".join(f"{r['id']} | {r['kind']} | {r['date']} | {r['text']}" for r in recs)
     out = models.invoke_structured(
@@ -105,28 +132,17 @@ def make_tools(db, extra: dict, pick=None):
     def search_history(patient_id: str, medicine: str) -> str:
         """Search the child's records for what matters when giving this medicine. Returns record ids, dates and text,
         and cautions."""
-        recs = records.child_records(db, extra, patient_id)
-        try:
-            out = pick(medicine, recs)
-        except models.StructuredOutputError:
+        h = search_history_for(db, extra, patient_id, medicine, pick)
+        if h["failed"]:
             return "history search failed; no records selected"
-        offered = {r["id"] for r in recs}
-        ids = [i for i in out.get("relevant_ids", []) if i in offered]
-        dropped = len(out.get("relevant_ids", [])) - len(ids)
-        by_id = {r["id"]: r for r in recs}
-        lines = [f"{i} | {by_id[i]['date']} | {by_id[i]['kind']} | {by_id[i]['text']}" for i in ids]
-        return (f"{len(ids)} records ({dropped} dropped: ids not in this child's records)\n" + "\n".join(lines)
-                + "\nCautions: " + ("; ".join(out.get("cautions", [])) or "none"))
+        return (f"{len(h['lines'])} records ({h['dropped']} dropped: ids not in this child's records)\n"
+                + "\n".join(h["lines"]) + "\nCautions: " + ("; ".join(h["cautions"]) or "none"))
 
     @tool
     def calculate_dose(patient_id: str, medicine: str) -> str:
         """Calculate the dose for this child and medicine. Takes no weight or numbers: the weight is today's weigh-in,
         read by the program. Returns mg, ml and the working, or a refusal with its reason."""
-        o = dose_for(db, extra, patient_id, medicine)
-        working = f"\nWorking: {o.steps}" if o.steps else ""
-        if not o.ok:
-            return f"REFUSED: {o.why}{working}"
-        return f"OK: {o.result.mg:g} mg = {o.result.ml:g} ml per dose.{working}"
+        return format_dose(dose_for(db, extra, patient_id, medicine))
 
     @tool
     def submit_draft(patient_id: str, medicine: str, message: str) -> str:

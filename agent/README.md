@@ -25,12 +25,17 @@ and only what code guarantees is asserted, never the model's wording.
 ## How it works
 ```
 triage -> dose_request: one dose_pair per medicine (Send) -> report
-dose_pair: agent <-> tools (find_child, get_dose_rule, search_history, calculate_dose, submit_draft)
-           -> check (code) -> accepted | back to the agent, 3 rounds, then a code template
+dose_pair (a fixed code workflow, `workflow/dose_pair.py`):
+           child -> dose -> history pick -> draft <-> check (up to 3 rounds) -> code template
+           (code)   (code)  (helper model)   (main model)   (code)
 ```
 - A request that names its own amount ("give 5 ml") goes to the doctor before any model runs.
-- The model never writes a dose. `calculate_dose` takes ids, not numbers, reads **today's**
-  weigh-in itself, and code fills `{DOSE}` in the accepted draft.
+- A medicine refused before drafting (no or several children, no weight today, allergy, age, a maximum, an
+  unknown or ambiguous product) costs zero model calls beyond reading the request: 1 helper call plus 1 to 3
+  draft calls otherwise.
+- The model never writes a dose. Code reads **today's** weigh-in, computes the dose, and fills `{DOSE}` in
+  the accepted draft. The five `@tool` functions in `workflow/tools.py` stay as the documented interface;
+  the workflow calls the same code directly instead of letting a model choose the order.
 - A recorded allergy (a structured one, or a note saying "allerg...") stops a medicine when it names the
   medicine's generic, any of its brands, its drug class, or another medicine of that class (a penicillin
   allergy stops amoxicillin; one brand stops every product of that generic). No dose, no draft, "ask the

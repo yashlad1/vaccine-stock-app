@@ -8,7 +8,10 @@ DOSE_AGENT_MAIN / DOSE_AGENT_HELPER = 'provider:model' override one tier."""
 import json
 import os
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.exceptions import OutputParserException
 from pydantic import ValidationError
 
@@ -22,6 +25,32 @@ NVIDIA_URL = "https://integrate.api.nvidia.com/v1"
 MAX_TOKENS = 2000
 NUM_PREDICT = 2048  # a runaway qwen3.5:9b call once wrote ~23,000 tokens in 13 minutes; normal is 120-280
 ATTEMPTS = 3
+
+
+_CALLS: ContextVar[list | None] = ContextVar("dose_agent_model_calls", default=None)
+
+
+class _CallCounter(BaseCallbackHandler):
+    """Counts every chat-model request made while a count_calls() block is open (retries on bad JSON included)."""
+
+    def on_chat_model_start(self, serialized, messages, **kwargs):
+        n = _CALLS.get()
+        if n is not None:
+            n[0] += 1
+
+
+_COUNTER = _CallCounter()
+
+
+@contextmanager
+def count_calls():
+    """with count_calls() as n: ... n[0] is the number of model requests made inside the block (in this context)."""
+    n = [0]
+    token = _CALLS.set(n)
+    try:
+        yield n
+    finally:
+        _CALLS.reset(token)
 
 
 def backend() -> str:
@@ -52,18 +81,18 @@ def chat_model(tier: str):
     provider, model = spec(tier)
     if provider == "ollama":
         from langchain_ollama import ChatOllama
-        return ChatOllama(model=model, temperature=0, reasoning=False, num_predict=NUM_PREDICT)
+        return ChatOllama(model=model, temperature=0, reasoning=False, num_predict=NUM_PREDICT, callbacks=[_COUNTER])
     if provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
         # No temperature: Google advises the default for Gemini 3 (low values can loop). Retries for free-tier 429s.
-        return ChatGoogleGenerativeAI(model=model, max_retries=8)
+        return ChatGoogleGenerativeAI(model=model, max_retries=8, callbacks=[_COUNTER])
     if provider == "nvidia":
         from langchain_nvidia_ai_endpoints import ChatNVIDIA
-        return ChatNVIDIA(model=model, base_url=NVIDIA_URL, temperature=0)
+        return ChatNVIDIA(model=model, base_url=NVIDIA_URL, temperature=0, callbacks=[_COUNTER])
     from langchain_anthropic import ChatAnthropic
     # No temperature and no budget_tokens on these models. Helper runs at low effort.
     extra = {"reasoning_effort": "low"} if tier == "helper" else {}
-    return ChatAnthropic(model=model, max_tokens=MAX_TOKENS, **extra)
+    return ChatAnthropic(model=model, max_tokens=MAX_TOKENS, callbacks=[_COUNTER], **extra)
 
 
 def _json_from(text: str) -> dict:
