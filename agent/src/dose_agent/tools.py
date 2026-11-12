@@ -98,8 +98,10 @@ def make_tools(db, extra: dict, pick=None):
 
     @tool
     def submit_draft(patient_id: str, medicine: str, message: str) -> str:
-        """Hand in the draft message to the parent. Write the exact text {DOSE} where the amount goes; never write the
-        amount yourself. Call this once the dose is calculated."""
+        """Hand in the draft message to the parent. Write the exact text {DOSE} where the amount goes: code replaces it
+        with the amount with its unit (e.g. "3.75 ml"), so write no unit after it. The message may contain only a
+        greeting, the medicine, {DOSE}, how often (from the formulary) and cautions from search_history; no other
+        medical advice. Call this once the dose is calculated."""
         return "Draft received."
 
     return [find_child, get_dose_rule, search_history, calculate_dose, submit_draft]

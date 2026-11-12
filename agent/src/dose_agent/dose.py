@@ -112,6 +112,7 @@ def compute_dose(r: DoseRule) -> DoseResult:
 
 _ALLOWED_COUNT = re.compile(r"\b\d+\s*(?:times|x|hours|hrs|hourly|days|weeks)\b", re.I)
 MAX_DRAFT_CHARS = 600
+_UNIT_AFTER_DOSE = re.compile(r"\{DOSE\}\s*(ml|mls|millilitres?|milliliters?|mg|tsp|teaspoons?|spoons?|drops?|cc)\b", re.I)
 
 
 def check_draft(draft: str) -> tuple[bool, str]:
@@ -119,6 +120,9 @@ def check_draft(draft: str) -> tuple[bool, str]:
     time interval ('4 times a day', 'every 6 hours', 'for 5 days'). The amount is only ever {DOSE}."""
     if draft.count("{DOSE}") != 1:
         return False, f"write {{DOSE}} exactly once, where the amount goes (found {draft.count('{DOSE}')})"
+    u = _UNIT_AFTER_DOSE.search(draft)
+    if u:
+        return False, f"{{DOSE}} already includes the unit; remove '{u.group(1)}' after it"
     rest = draft.replace("{DOSE}", "")
     if "{" in rest or "}" in rest:
         return False, "remove every other { or }: {DOSE} is the only placeholder, and nothing fills any other"

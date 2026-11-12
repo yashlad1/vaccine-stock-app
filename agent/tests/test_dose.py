@@ -67,3 +67,11 @@ def test_check_draft_rejections():
     ok, why = check_draft("Give {DOSE}. " + "a" * 600)
     assert not ok and "at most 600" in why and "(it is 613)" in why
     assert check_draft("Give {DOSE}. " + "a" * 587)[0]  # exactly 600 is fine
+
+
+def test_check_draft_unit_after_dose():
+    for bad, unit in [("Give {DOSE} ml twice.", "ml"), ("Give {DOSE}ml twice.", "ml"), ("Give {DOSE} Teaspoons.", "Teaspoons"),
+                      ("Give {DOSE}\nmg.", "mg")]:
+        ok, why = check_draft(bad)
+        assert not ok and why == f"{{DOSE}} already includes the unit; remove '{unit}' after it"
+    assert check_draft("Give {DOSE} of syrup, 4 times a day.") == (True, "")

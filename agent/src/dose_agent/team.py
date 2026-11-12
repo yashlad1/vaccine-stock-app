@@ -30,8 +30,10 @@ Work in this order, calling the tools:
 1. find_child with the child's name. If it returns no child or more than one, STOP: do not guess, say which names matched.
 2. get_dose_rule for the medicine, then search_history for this child and medicine.
 3. calculate_dose with the child's id and the medicine. If it REFUSES, STOP: do not draft, say why in your answer.
-4. submit_draft with a short, plain, kind message to the parent. Write the exact text {DOSE} where the amount goes.
-   Never write a dose, a weight or an amount yourself; use the frequency from the formulary and any cautions from the history.
+4. submit_draft with a short, plain, kind message to the parent. Write the exact text {DOSE} where the amount goes:
+   code replaces it with the amount WITH its unit (for example "3.75 ml"), so never write a unit after it.
+   The message may contain only: a greeting, the medicine, {DOSE}, how often (from the formulary), and cautions taken
+   from search_history. No other medical advice. Never write a dose, a weight or an amount yourself.
 If submit_draft is sent back, read the reason and submit a corrected draft."""
 
 
