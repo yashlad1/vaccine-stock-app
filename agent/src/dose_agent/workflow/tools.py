@@ -47,6 +47,8 @@ def dose_for(db, extra: dict, patient_id: str, medicine: str) -> DoseOutcome:
     hit = allergy.stops(allergies, products or [fm.stub(term)], fm)
     if hit:
         text, date, why = hit
+        if why.startswith("unrecognised"):  # fail closed: we can't tell which medicines it covers
+            return DoseOutcome(False, f"ask the doctor: {why}; note says '{text}'" + (f" ({date})" if date else ""))
         return DoseOutcome(False, f"ask the doctor: note says '{text}'" + (f" ({date})" if date else "")
                            + f"; matches: {why}")
     if not products:

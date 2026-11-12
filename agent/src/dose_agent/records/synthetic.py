@@ -32,6 +32,9 @@ CHILDREN = [
     ("Tara Rao", 90, "F", [(0, 5.4)], [], [], []),
     # a MISSPELT allergy (amoxycilin) to a penicillin-class medicine
     ("Aditi Verma", "2022-06-21", "F", [(0, 13.4)], [("amoxycilin", "Rash after amoxycilin, parent reported")], [], []),
+    # an allergy to an UNKNOWN brand (fails closed: stops every medicine), and a note saying there are none
+    ("Veer Joshi", "2021-04-12", "M", [(0, 17.1)], [("Zentrimox", "Swelling after Zentrimox, parent reported")], [], []),
+    ("Pooja Iyer", "2022-12-01", "F", [(0, 12.9)], [], [(45, "No known drug allergies")], []),
 ]
 VACCINES = [("Pentavac", "VIAL", 1), ("Rotavac", "DOSE", 1), ("MR", "VIAL", 10), ("Varilrix", "DOSE", 1), ("Havrix", "DOSE", 1)]
 

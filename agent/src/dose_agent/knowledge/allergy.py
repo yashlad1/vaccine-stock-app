@@ -55,11 +55,31 @@ def link(text: str, p: Product, fm: Formulary) -> str | None:
     return None
 
 
+NONE_RECORDED = re.compile(r"no known (drug )?allerg|\bnkda\b|\bnka\b|no allerg|allergies:\s*none|not allergic", re.I)
+STRUCTURED = re.compile(r"^allergy to ([^:]*):", re.I)  # how records.child_records words a structured allergy
+
+
+def _knows_a_name(text: str, fm: Formulary) -> bool:
+    t = text.lower()
+    if fm.term_regex().search(t):
+        return True
+    words = re.findall(r"[a-z]+", t)
+    return any(_fuzzy_term(tok, fm) for tok in words + [f"{a} {b}" for a, b in zip(words, words[1:])])
+
+
 def stops(texts: list[tuple[str, str]], products: list[Product], fm: Formulary) -> tuple[str, str, str] | None:
-    """texts: (record text, date) for every allergy record. -> (record text, date, link) of the first that stops any product."""
+    """texts: (record text, date) for every allergy record. -> (record text, date, link) of the first that stops any product.
+    Fails closed: an allergy we cannot identify (no known generic, class or brand in it, exact or misspelt) stops
+    every medicine, unless the record says there are none."""
     for text, date in texts:
         for p in products:
             lk = link(text, p, fm)
             if lk:
                 return text, date, lk
+        if NONE_RECORDED.search(text):
+            continue
+        s = STRUCTURED.match(text)
+        drug = s.group(1).strip() if s else text  # a structured allergy is judged by its drug, a note by its words
+        if not _knows_a_name(drug, fm):
+            return text, date, f"unrecognised allergy '{drug}'"
     return None
