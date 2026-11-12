@@ -13,6 +13,13 @@ def test_worked_example():
     assert "3.72 ml" in r.steps and "3.75 ml" in r.steps
 
 
+def test_working_wording_is_true_in_both_directions():
+    down = compute_dose(rule(weight_kg=8.77)).steps  # 2.63 ml exact -> 2.5 ml
+    assert "2.63 ml exact; by the spoon rule" in down and down.endswith("quarter) 2.5 ml") and "rounded up" not in down
+    up = compute_dose(rule()).steps  # 3.72 -> 3.75
+    assert "3.72 ml exact; by the spoon rule" in up and up.endswith("quarter) 3.75 ml")
+
+
 def test_round_ml_steps():
     assert round_ml(3.72) == 3.75
     assert round_ml(5.0) == 5.0

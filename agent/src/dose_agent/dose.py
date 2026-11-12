@@ -93,7 +93,8 @@ def compute_dose(r: DoseRule) -> DoseResult:
         f"{r.weight_kg:g} kg x {r.mg_per_kg_day:g} mg/kg/day = {_round(daily, 1):g} mg/day"
         f" / {n} {'dose' if n == 1 else 'doses'} = {_round(mg, 1):g} mg per dose"
         + (
-            f" -> {_round(exact, 2):g} ml, rounded up to the next quarter spoon, {_round(ml, 2):g} ml"
+            f" -> {_round(exact, 2):g} ml exact; by the spoon rule (down to a tenth of a spoon, then up to the next"
+            f" quarter) {_round(ml, 2):g} ml"
             if ml > 0
             else f" -> {_round(exact, 2):g} ml, too small to measure"
         )
