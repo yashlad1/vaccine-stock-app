@@ -9,6 +9,9 @@ import json
 import os
 import re
 
+from langchain_core.exceptions import OutputParserException
+from pydantic import ValidationError
+
 PRESETS = {
     "ollama": {"main": "ollama:qwen3.5:9b", "helper": "ollama:qwen3.5:4b"},
     "claude": {"main": "claude:claude-sonnet-5-5", "helper": "claude:claude-haiku-5-5"},
@@ -17,6 +20,8 @@ PRESETS = {
 PROVIDERS = ("ollama", "gemini", "nvidia", "claude")
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1"
 MAX_TOKENS = 2000
+NUM_PREDICT = 2048  # a runaway qwen3.5:9b call once wrote ~23,000 tokens in 13 minutes; normal is 120-280
+ATTEMPTS = 3
 
 
 def backend() -> str:
@@ -47,7 +52,7 @@ def chat_model(tier: str):
     provider, model = spec(tier)
     if provider == "ollama":
         from langchain_ollama import ChatOllama
-        return ChatOllama(model=model, temperature=0, reasoning=False)
+        return ChatOllama(model=model, temperature=0, reasoning=False, num_predict=NUM_PREDICT)
     if provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
         # No temperature: Google advises the default for Gemini 3 (low values can loop). Retries for free-tier 429s.
@@ -78,6 +83,22 @@ def structured(model, schema):
                                     + json.dumps(schema.model_json_schema()))
         return RunnableLambda(lambda msgs: schema.model_validate(_json_from(model.invoke([*msgs, hint]).content)))
     return model.with_structured_output(schema, method="json_schema")
+
+
+class StructuredOutputError(RuntimeError):
+    """The model never returned output the schema accepts."""
+
+
+def invoke_structured(model, schema, messages, attempts: int = ATTEMPTS):
+    """structured(...).invoke with a retry on invalid JSON (json_schema output is intermittently invalid on
+    local models). After `attempts` failures it raises StructuredOutputError: callers fail closed."""
+    chain = structured(model, schema)
+    for i in range(attempts):
+        try:
+            return chain.invoke(messages)
+        except (OutputParserException, ValidationError, json.JSONDecodeError):
+            if i == attempts - 1:
+                raise StructuredOutputError(f"no valid {schema.__name__} after {attempts} attempts") from None
 
 
 def require_synthetic(is_synthetic: bool) -> None:

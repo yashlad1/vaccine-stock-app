@@ -48,7 +48,8 @@ def dose_for(db, extra: dict, patient_id: str, medicine: str) -> DoseOutcome:
 
 def _model_pick(medicine: str, recs: list) -> dict:
     lines = "\n".join(f"{r['id']} | {r['kind']} | {r['date']} | {r['text']}" for r in recs)
-    out = models.structured(models.chat_model("helper"), Pick).invoke(
+    out = models.invoke_structured(
+        models.chat_model("helper"), Pick,
         [SystemMessage(content=PICK_SYSTEM), HumanMessage(content=f"Medicine: {medicine}\nRecords:\n{lines}")])
     return out.model_dump()
 
@@ -77,7 +78,10 @@ def make_tools(db, extra: dict, pick=None):
         """Search the child's records for what matters when giving this medicine. Returns record ids, dates and text,
         and cautions."""
         recs = records.child_records(db, extra, patient_id)
-        out = pick(medicine, recs)
+        try:
+            out = pick(medicine, recs)
+        except models.StructuredOutputError:
+            return "history search failed; no records selected"
         offered = {r["id"] for r in recs}
         ids = [i for i in out.get("relevant_ids", []) if i in offered]
         dropped = len(out.get("relevant_ids", [])) - len(ids)

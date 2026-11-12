@@ -13,6 +13,7 @@ def test_ollama_config(monkeypatch):
     m, h = models.chat_model("main"), models.chat_model("helper")
     assert (m.model, h.model) == ("qwen3.5:9b", "qwen3.5:4b")
     assert m.temperature == 0 and m.reasoning is False
+    assert m.num_predict == 2048 and h.num_predict == 2048
 
 
 def test_claude_config_no_network(monkeypatch):

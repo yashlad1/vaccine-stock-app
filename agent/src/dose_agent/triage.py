@@ -36,4 +36,7 @@ Rules:
 def triage(request: str, formulary: list[str], model=None) -> Triage:
     model = model or models.chat_model("main")
     system = PROMPT.format(formulary=", ".join(formulary), request_note="Read the request below and label it.")
-    return models.structured(model, Triage).invoke([SystemMessage(content=system), HumanMessage(content=request)])
+    try:
+        return models.invoke_structured(model, Triage, [SystemMessage(content=system), HumanMessage(content=request)])
+    except models.StructuredOutputError:
+        raise RuntimeError("could not read the request; try again") from None  # fail closed: nothing guessed

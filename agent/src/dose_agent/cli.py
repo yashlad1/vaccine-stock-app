@@ -45,7 +45,10 @@ def main(argv: list[str] | None = None) -> None:
         synthetic.build()  # the simulated clinic day is today
     db, extra = records.open_ro(synthetic.OUT / "clinic.db"), records.load_extra(extra_path)
     models.require_synthetic(records.is_synthetic(db))
-    rep = build_graph(db, extra, models.chat_model("main"))(request)
+    try:
+        rep = build_graph(db, extra, models.chat_model("main"))(request)
+    except RuntimeError as e:  # triage could not read the request
+        sys.exit(str(e))
     render(rep)
     for r in rep["results"]:
         if r["status"] == "accepted" and input(f"\nApprove the {r['medicine']} message? (nothing is sent) [y/N] ").strip().lower() == "y":
