@@ -90,20 +90,21 @@ def dose_v4(kg, prod, age_m=None):
     mg = daily / prod["doses_per_day"]
     if prod["min_age_months"] is not None and age_m is not None and age_m < prod["min_age_months"]:
         return ("refuse", "age")
-    if prod["max_mg_per_kg_dose"] is not None and mg / kg > Fraction(str(prod["max_mg_per_kg_dose"])):
+    tol = Fraction(1, 10**9)       # equal is allowed
+    if prod["max_mg_per_kg_dose"] is not None and mg / kg > Fraction(str(prod["max_mg_per_kg_dose"])) + tol:
         return ("refuse", "mg_per_kg")
-    if prod["max_single_mg"] and mg > prod["max_single_mg"]:
+    if prod["max_single_mg"] and mg > prod["max_single_mg"] + tol:
         return ("refuse", "max_single")
-    if prod["max_daily_mg"] and daily > prod["max_daily_mg"]:
+    if prod["max_daily_mg"] and daily > prod["max_daily_mg"] + tol:
         return ("refuse", "max_daily")
     if per_ml(prod["strength"]) is None:
         return ("refuse", "no_ml_strength")
     exact = mg / per_ml(prod["strength"])
     if exact < Fraction(1, 2):
         return ("refuse", "too_small")
-    ml = round_ml_oracle(exact)
-    if ml > 20:
+    if exact > 20 + tol:                       # the 20 ml limit is on the EXACT volume
         return ("refuse", "too_big")
+    ml = round_ml_oracle(exact)
     return ("ok", mg, ml)
 
 
@@ -138,3 +139,13 @@ def test_oracle_v4_limits():
 def test_age_months():
     assert age_months("2025-11-11", "2026-11-11") == 12
     assert age_months("2025-11-12", "2026-11-11") == 11
+
+
+def test_oracle_v4_exact_volume_and_equal_at_max():
+    p = _p(mg_per_kg_day=50, doses_per_day=1, max_single_mg=None, max_daily_mg=None)
+    assert dose_v4(20.2, p) == ("refuse", "too_big")
+    assert dose_v4(20, p)[0] == "ok"
+    q = _p(mg_per_kg_day=60, doses_per_day=4, max_single_mg=None, max_daily_mg=None, max_mg_per_kg_dose=15)
+    assert dose_v4(11.2, q)[0] == "ok"                    # 168 mg / 11.2 kg = 15 mg/kg exactly
+    assert dose_v4(11.2, _p(max_single_mg=168))[0] == "ok"
+    assert dose_v4(11.3, _p(max_single_mg=168)) == ("refuse", "max_single")

@@ -21,11 +21,12 @@ def dose(kg, rule):
     per_ml = Fraction(m.group(1)) / Fraction(m.group(2))
     exact = mg / per_ml
     ml = round_ml_oracle(exact)
-    if rule.get("max_single_mg") and mg > rule["max_single_mg"]:
+    tol = Fraction(1, 10**9)       # equal is allowed: a dose AT a maximum is not over it
+    if rule.get("max_single_mg") and mg > rule["max_single_mg"] + tol:
         return None
-    if rule.get("max_daily_mg") and daily > rule["max_daily_mg"]:
+    if rule.get("max_daily_mg") and daily > rule["max_daily_mg"] + tol:
         return None
-    if ml > 20 or exact < Fraction(1, 2):
+    if exact > 20 + tol or exact < Fraction(1, 2):      # the 20 ml limit is on the EXACT volume
         return None
     return mg, ml
 
@@ -57,3 +58,12 @@ def test_oracle_worked_examples():
     assert dose(12.4, rule) == (Fraction(186), Fraction("3.75"))
     assert dose(40, rule) is None      # over max single
     assert dose(1, rule) is None       # 0.3 ml, too small to measure
+
+
+def test_oracle_exact_volume_and_equal_at_max():
+    rule = {"strength": "250 mg / 5 ml", "mg_per_kg_day": 50, "doses_per_day": 1}
+    assert dose(20.2, rule) is None                       # 20.2 ml exact: refused though it would show as 20
+    assert dose(20, rule) == (Fraction(1000), Fraction(20))   # exactly 20 ml: allowed
+    capped = {"strength": "250 mg / 5 ml", "mg_per_kg_day": 60, "doses_per_day": 4, "max_single_mg": 168}
+    assert dose(11.2, capped) is not None                 # 168 mg exactly at the max: allowed
+    assert dose(11.3, capped) is None
