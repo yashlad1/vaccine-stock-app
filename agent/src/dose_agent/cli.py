@@ -1,15 +1,15 @@
-"""Request -> graphs -> show -> approve y/N -> out/outbox.jsonl. Nothing is ever sent."""
-import json
+"""Request -> graphs -> show -> approve y/N -> out/outbox.jsonl. Nothing is ever sent.
+Every run, even a failed one, appends one line to out/audit.jsonl."""
 import os
 import sys
 from datetime import date, datetime, timezone
 
 import httpx
 
+from . import audit
 from .llm import models
 from .records import db as records, synthetic
 from .workflow.team import build_graph
-from .workflow.tools import dose_for
 
 
 def render(rep: dict) -> None:
@@ -31,16 +31,14 @@ def render(rep: dict) -> None:
             print(f"Agent said: {r['answer']}")
 
 
-def outbox_record(db, extra: dict, r: dict) -> dict:
-    steps = dose_for(db, extra, r["patient_id"], r["medicine"]).steps  # the working, recomputed by code
+def outbox_record(db, r: dict) -> dict:
     return {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "patient_id": r["patient_id"],
             "guardian_phone": records.guardian_phone(db, r["patient_id"]), "child": r["child_name"],
-            "medicine": r["medicine"], "message": r["draft"], "steps": steps, **models.info()}
+            "medicine": r["medicine"], "message": r["draft"], "steps": r["steps"], **models.info()}  # steps: the working shown
 
 
 def write_outbox(path, record: dict) -> None:
-    with open(path, "a") as f:
-        f.write(json.dumps(record) + "\n")
+    audit.append(path, record)  # same append-only JSON line
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -49,32 +47,50 @@ def main(argv: list[str] | None = None) -> None:
         request = " ".join(argv) or input("Request: ")
     except EOFError:
         request = ""
-    if not request.strip():
-        sys.exit("error: empty request")
     out = synthetic.out_dir()
+    out.mkdir(parents=True, exist_ok=True)
+
+    def fail(msg: str):
+        try:
+            info = models.info()
+        except ValueError:
+            info = {"backend": "", "models": {}}
+        audit.append(out / "audit.jsonl", audit.record(request, info, error=msg))
+        sys.exit(msg)
+
+    if not request.strip():
+        fail("error: empty request")
     extra_path = out / "extra.json"
     if not extra_path.exists() or records.load_extra(extra_path)["today"] != date.today().isoformat():
         synthetic.build()  # the simulated clinic day is today
     db, extra = records.open_ro(out / "clinic.db"), records.load_extra(extra_path)
-    models.require_synthetic(records.is_synthetic(db))
-    models.require_local_for_healthlink()
+    try:
+        models.require_synthetic(records.is_synthetic(db))
+        models.require_local_for_healthlink()
+    except SystemExit as e:
+        fail(str(e.code))
     try:
         rep = build_graph(db, extra, models.chat_model("main"))(request)
     except RuntimeError as e:  # triage could not read the request
-        sys.exit(str(e))
+        fail(str(e))
     except (httpx.ConnectError, ConnectionError):
         host = os.environ.get("OLLAMA_HOST", "localhost:11434")
-        sys.exit(f"error: cannot reach the local model at {host}; is Ollama running? (ollama serve)")
+        fail(f"error: cannot reach the local model at {host}; is Ollama running? (ollama serve)")
     except Exception as e:  # anything else from the model call: one line, no traceback
-        sys.exit(f"error: {type(e).__name__}: {str(e).splitlines()[0] if str(e) else 'model call failed'}"[:300])
+        fail(f"error: {type(e).__name__}: {str(e).splitlines()[0] if str(e) else 'model call failed'}"[:300])
     render(rep)
-    for r in rep["results"]:
-        if r["status"] != "accepted":
-            continue
-        try:
-            answer = input(f"\nApprove the {r['medicine']} message? (nothing is sent) [y/N] ")
-        except EOFError:
-            answer = ""
-        if answer.strip().lower() == "y":
-            write_outbox(out / "outbox.jsonl", outbox_record(db, extra, r))
-            print(f"Saved to {'out' if out == synthetic.OUT else out}/outbox.jsonl (not sent).")
+    approvals: dict = {}
+    try:
+        for r in rep["results"]:
+            if r["status"] != "accepted":
+                continue
+            try:
+                answer = input(f"\nApprove the {r['medicine']} message? (nothing is sent) [y/N] ")
+            except EOFError:
+                answer = ""
+            approvals[r["medicine"]] = answer.strip().lower() == "y"
+            if approvals[r["medicine"]]:
+                write_outbox(out / "outbox.jsonl", outbox_record(db, r))
+                print(f"Saved to {'out' if out == synthetic.OUT else out}/outbox.jsonl (not sent).")
+    finally:
+        audit.append(out / "audit.jsonl", audit.record(request, models.info(), rep, approvals))

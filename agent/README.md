@@ -36,6 +36,12 @@ dose_pair (a fixed code workflow, `workflow/dose_pair.py`):
 - The model never writes a dose. Code reads **today's** weigh-in, computes the dose, and fills `{DOSE}` in
   the accepted draft. The five `@tool` functions in `workflow/tools.py` stay as the documented interface;
   the workflow calls the same code directly instead of letting a model choose the order.
+- Every accepted message (model-written or template) ends with that medicine's safety-net sentence from the
+  formulary, appended by code once and after the dose sentence. The sentence holds no digits.
+- Every run appends one line to `out/audit.jsonl` (beside `outbox.jsonl`, append-only): at, request, label,
+  reason, backend, models and, per medicine in `medicines`: medicine, child, patient_id, status, why, steps,
+  draft_source, rounds, model_calls, approved (true/false, null when nothing was offered). A run that ends in
+  an error still appends a line, with an `error` field.
 - A recorded allergy (a structured one, or a note saying "allerg...") stops a medicine when it names the
   medicine's generic, any of its brands, its drug class, or another medicine of that class (a penicillin
   allergy stops amoxicillin; one brand stops every product of that generic). No dose, no draft, "ask the
@@ -63,7 +69,7 @@ dose_pair (a fixed code workflow, `workflow/dose_pair.py`):
 ## Layout
 ```
 src/dose_agent/
-  cli.py                       dose-agent
+  cli.py audit.py              dose-agent; the append-only audit log
   knowledge/ illustrative.json classes.py formulary.py allergy.py healthlink.py   drug knowledge, no patient data
   dosing/   dose.py message.py   pure: the dose math (port of clinic-queue), the number rule for drafts
   records/  db.py age.py synthetic.py   patient data, read-only (synthetic builds the DB from ../docs/schema.sql)
