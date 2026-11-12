@@ -8,8 +8,9 @@ import tempfile
 import time
 from pathlib import Path
 
-from dose_agent import models, records, synthetic
-from dose_agent.team import build_graph
+from dose_agent.llm import models
+from dose_agent.records import db as records, synthetic
+from dose_agent.workflow.team import build_graph
 
 # (request, expected triage label); children are the synthetic clinic's, picked by property
 T, SHARED, STALE, ALLERGY = "Aarav Sharma", "Aarav", "Diya Patel", "Kabir Singh"
@@ -32,6 +33,7 @@ def main() -> None:
     ap.add_argument("--label", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--repeats", type=int, default=2)
+    ap.add_argument("--limit", type=int, help="only the first N requests (a smoke run)")
     a = ap.parse_args()
     tmp = Path(tempfile.mkdtemp())
     synthetic.build(tmp)
@@ -39,7 +41,7 @@ def main() -> None:
     run = build_graph(db, extra, models.chat_model("main"))
     runs, ps = [], ""
     for rep in range(a.repeats):
-        for i, (req, expected) in enumerate(REQUESTS):
+        for i, (req, expected) in enumerate(REQUESTS[:a.limit]):
             t0, row = time.time(), {"i": i, "repeat": rep, "request": req, "expected": expected}
             try:
                 r = run(req)
